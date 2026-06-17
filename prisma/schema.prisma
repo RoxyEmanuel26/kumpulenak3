@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Video {
+  id          String   @id // Use Eporner video ID
+  title       String
+  duration    String?
+  rating      String?
+  views       Int      @default(0)
+  thumbnail   String?
+  embedUrl    String?
+  status      VideoStatus @default(ACTIVE)
+  addedAt     DateTime? // from API added property
+
+  tags        VideoTag[]
+  categories  VideoCategory[]
+
+  broadcasts  BroadcastLog[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum VideoStatus {
+  ACTIVE
+  REMOVED
+  DRAFT
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  videos    VideoTag[]
+}
+
+model VideoTag {
+  videoId   String
+  tagId     String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, tagId])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  videos    VideoCategory[]
+}
+
+model VideoCategory {
+  videoId    String
+  categoryId String
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, categoryId])
+}
+
+model SyncJob {
+  id              String   @id @default(cuid())
+  runStartedAt    DateTime @default(now())
+  runEndedAt      DateTime?
+  status          JobStatus
+  itemsProcessed  Int      @default(0)
+  itemsAdded      Int      @default(0)
+  errorLog        String?
+}
+
+enum JobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model TelegramChannel {
+  id             String   @id // Telegram Chat ID
+  name           String
+  isActive       Boolean  @default(true)
+  template       String?  // Custom message template
+  routingRules   Json?    // Optional tag/category filters
+  
+  broadcasts     BroadcastLog[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model BroadcastLog {
+  id             String   @id @default(cuid())
+  videoId        String
+  channelId      String
+  status         BroadcastStatus @default(PENDING)
+  retryCount     Int      @default(0)
+  errorMessage   String?
+  messageId      String?  // The Telegram message ID if successful
+  
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  channel        TelegramChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([videoId, channelId]) // Deduplication
+  @@index([status])
+}
+
+enum BroadcastStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // Hashed
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Settings {
+  key       String   @id
+  value     String   // JSON stringified value
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+}

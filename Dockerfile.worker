@@ -1,0 +1,17 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+COPY . .
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+ENV NODE_ENV production
+
+# We use ts-node to run the worker in production for simplicity, 
+# or we can compile to JS. Let's use ts-node for this setup.
+CMD ["npx", "ts-node", "workers/index.ts"]
