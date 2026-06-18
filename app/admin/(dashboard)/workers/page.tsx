@@ -68,7 +68,8 @@ export default function WorkersDashboard() {
     }
   };
 
-  const fetchData = async () => {
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/queues");
       if (!res.ok) throw new Error("Failed to fetch data from API.");
@@ -81,12 +82,11 @@ export default function WorkersDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchData]);
 
   useEffect(() => {
     if (!autoRefresh) return;

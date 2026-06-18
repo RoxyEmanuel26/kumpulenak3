@@ -28,16 +28,16 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
 
   // Load from localStorage on client mount
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       const savedLikes = localStorage.getItem("kumpulenak_likes");
       const savedHistory = localStorage.getItem("kumpulenak_history");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (savedLikes) setLikedVideos(JSON.parse(savedLikes));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (savedHistory) setWatchHistory(JSON.parse(savedHistory));
     } catch (e) {
       console.error("Failed to load local settings:", e);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const toggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);

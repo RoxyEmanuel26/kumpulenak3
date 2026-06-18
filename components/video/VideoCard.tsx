@@ -16,14 +16,12 @@ export function VideoCard({ video }: VideoCardProps) {
   const [currentThumbIndex, setCurrentThumbIndex] = useState(0);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isHovered && video.thumbs && video.thumbs.length > 0) {
-      interval = setInterval(() => {
-        setCurrentThumbIndex((prev) => (prev + 1) % video.thumbs.length);
-      }, 600); // Change frame every 600ms
-    } else {
-      setCurrentThumbIndex(0);
-    }
+    if (!isHovered || !video.thumbs || video.thumbs.length === 0) return;
+
+    const interval = setInterval(() => {
+      setCurrentThumbIndex((prev) => (prev + 1) % video.thumbs.length);
+    }, 600); // Change frame every 600ms
+
     return () => clearInterval(interval);
   }, [isHovered, video.thumbs]);
 
@@ -36,7 +34,10 @@ export function VideoCard({ video }: VideoCardProps) {
       href={`/watch?v=${video.id}`} 
       className="group block w-full space-y-2.5"
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setCurrentThumbIndex(0);
+      }}
     >
       {/* Thumbnail Aspect 16:9 */}
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#161616] border border-white/5 transition-all duration-300">

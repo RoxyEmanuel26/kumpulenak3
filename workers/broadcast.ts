@@ -121,7 +121,7 @@ export const broadcastWorker = new Worker(
         ]);
 
         let msg;
-        const thumbnailSrc = (video.defaultThumb as any)?.src;
+        const thumbnailSrc = (video.defaultThumb as { src?: string } | null)?.src;
         if (thumbnailSrc) {
           msg = await bot.telegram.sendPhoto(channel.id, thumbnailSrc, {
             caption: text,
@@ -154,7 +154,7 @@ export const broadcastWorker = new Worker(
     }
   },
   {
-    connection: redisConnection as any,
+    connection: redisConnection as unknown as NonNullable<ConstructorParameters<typeof Worker>[2]>["connection"],
     limiter: { max: 10, duration: 1000 },
   }
 );

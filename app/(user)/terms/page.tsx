@@ -30,7 +30,7 @@ export default function TermsPage() {
 
       <h2 className="text-xl font-bold mt-6 text-white/90">3. Disclaimer of Liability</h2>
       <p className="text-sm text-foreground/80 leading-relaxed">
-        The system is provided "as is" without warranties of any kind. Administrators reserve the right to 
+        The system is provided &quot;as is&quot; without warranties of any kind. Administrators reserve the right to 
         update synchronization schedules, categories, bots, or channel routing parameters at their sole discretion.
       </p>
     </div>

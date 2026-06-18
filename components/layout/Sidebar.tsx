@@ -68,8 +68,7 @@ export function Sidebar() {
   }
 
   // Common item renderer
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderItem = (item: any) => {
+  const renderItem = (item: { label: string; href: string; icon: React.ComponentType<{ className?: string }> }) => {
     const active = isActive(item.href);
     return (
       <Link

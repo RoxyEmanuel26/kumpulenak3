@@ -79,13 +79,13 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
   }, []);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!videoId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVideo(null);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRelated([]);
       return;
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
     loadData(videoId);
   }, [videoId, loadData]);
 

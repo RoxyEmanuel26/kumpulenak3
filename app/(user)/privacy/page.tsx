@@ -34,7 +34,7 @@ export default function PrivacyPage() {
       <h2 className="text-xl font-bold mt-6 text-white/90">3. Third-Party Integrations</h2>
       <p className="text-sm text-foreground/80 leading-relaxed">
         All video streams utilize standard iframe embeds directly from original suppliers. Please refer to 
-        each platform's privacy policy for details on external player tracking.
+        each platform&apos;s privacy policy for details on external player tracking.
       </p>
     </div>
   );

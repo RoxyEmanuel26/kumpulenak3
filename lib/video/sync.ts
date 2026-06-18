@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { enqueueBroadcastJob } from "@/lib/queue/bullmq";
+import { Prisma } from "@prisma/client";
 
 export async function syncVideoToDatabase(videoId: string) {
   console.log(`[SyncVideo] Starting internal sync for video ID: ${videoId}`);
@@ -41,8 +42,8 @@ export async function syncVideoToDatabase(videoId: string) {
       addedAt: v.added ? new Date(v.added) : undefined,
       rate: v.rate,
       views: v.views,
-      defaultThumb: v.default_thumb as any,
-      thumbs: v.thumbs as any,
+      defaultThumb: v.default_thumb as unknown as Prisma.InputJsonValue,
+      thumbs: v.thumbs as unknown as Prisma.InputJsonValue,
       keywords: v.keywords,
       embedUrl: v.embed,
       status: aiResult.isSpam ? "DRAFT" : "ACTIVE",

@@ -18,8 +18,8 @@ if (globalForQueues.syncQueue && globalForQueues.broadcastQueue) {
   syncQueueInstance = globalForQueues.syncQueue;
   broadcastQueueInstance = globalForQueues.broadcastQueue;
 } else {
-  syncQueueInstance = new Queue(QUEUE_NAMES.SYNC, { connection: redisConnection as any });
-  broadcastQueueInstance = new Queue(QUEUE_NAMES.BROADCAST, { connection: redisConnection as any });
+  syncQueueInstance = new Queue(QUEUE_NAMES.SYNC, { connection: redisConnection as unknown as NonNullable<ConstructorParameters<typeof Queue>[1]>["connection"] });
+  broadcastQueueInstance = new Queue(QUEUE_NAMES.BROADCAST, { connection: redisConnection as unknown as NonNullable<ConstructorParameters<typeof Queue>[1]>["connection"] });
   
   if (process.env.NODE_ENV !== 'production') {
     globalForQueues.syncQueue = syncQueueInstance;

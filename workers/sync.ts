@@ -4,6 +4,7 @@ import { redisConnection } from "../lib/queue/redis";
 import { EpornerAPI } from "../lib/api/eporner";
 import { prisma } from "../lib/db/prisma";
 import { GeminiAPI } from "../lib/api/gemini";
+import { Prisma } from "@prisma/client";
 
 
 export const syncWorker = new Worker(
@@ -103,8 +104,8 @@ export const syncWorker = new Worker(
                 addedAt: v.added ? new Date(v.added) : undefined,
                 rate: v.rate,
                 views: v.views,
-                defaultThumb: v.default_thumb as any,
-                thumbs: v.thumbs as any,
+                defaultThumb: v.default_thumb as unknown as Prisma.InputJsonValue,
+                thumbs: v.thumbs as unknown as Prisma.InputJsonValue,
                 keywords: v.keywords,
                 embedUrl: v.embed,
                 status: aiResult.isSpam ? "DRAFT" : "ACTIVE",
@@ -180,8 +181,7 @@ export const syncWorker = new Worker(
       throw error;
     }
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { connection: redisConnection as any }
+  { connection: redisConnection as unknown as NonNullable<ConstructorParameters<typeof Worker>[2]>["connection"] }
 );
 
 syncWorker.on("completed", (job) => {

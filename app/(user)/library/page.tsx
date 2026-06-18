@@ -27,8 +27,8 @@ export default async function LibraryPage() {
     length_sec: v.lengthSec || 0,
     length_min: v.lengthMin || "",
     embed: v.embedUrl || "",
-    default_thumb: v.defaultThumb as any,
-    thumbs: v.thumbs as any,
+    default_thumb: v.defaultThumb as unknown as EpornerVideo["default_thumb"],
+    thumbs: v.thumbs as unknown as EpornerVideo["thumbs"],
   }));
 
   return <LibraryClient allVideos={mappedVideos} />;
