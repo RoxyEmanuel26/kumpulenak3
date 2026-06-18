@@ -44,17 +44,19 @@ export default function AnalyticsDashboard() {
   const fetchAnalytics = async () => {
     try {
       const res = await fetch("/api/admin/analytics");
-      if (!res.ok) throw new Error("Gagal memuat data analitik.");
+      if (!res.ok) throw new Error("Failed to load analytics data.");
       const json = await res.json();
       setData(json);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAnalytics();
   }, []);
 
@@ -69,7 +71,7 @@ export default function AnalyticsDashboard() {
   if (error || !data) {
     return (
       <div className="bg-red-500/10 text-red-500 border border-red-500/20 p-4 rounded-lg flex items-center gap-2">
-        <span>Gagal memuat analitik: {error || "Data kosong"}</span>
+        <span>Failed to load analytics: {error || "Empty data"}</span>
       </div>
     );
   }
@@ -86,7 +88,7 @@ export default function AnalyticsDashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Advanced Analytics</h1>
           <p className="text-muted-foreground text-sm">
-            Statistik performa pengiriman Telegram, Click-Through Rate (CTR), dan ketertarikan penonton secara real-time
+            Real-time statistics of Telegram broadcasts, Click-Through Rate (CTR), and audience engagement
           </p>
         </div>
         <button
@@ -105,28 +107,28 @@ export default function AnalyticsDashboard() {
         <Card className="bg-card/40 backdrop-blur-sm border-white/5 relative overflow-hidden">
           <div className="absolute right-4 top-4 text-sky-400 bg-sky-500/10 p-2 rounded-lg"><BarChart2 className="h-5 w-5" /></div>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs uppercase font-medium">Total Video</CardDescription>
-            <CardTitle className="text-3xl font-bold">{summary.totalVideos.toLocaleString("id-ID")}</CardTitle>
+            <CardDescription className="text-xs uppercase font-medium">Total Videos</CardDescription>
+            <CardTitle className="text-3xl font-bold">{summary.totalVideos.toLocaleString("en-US")}</CardTitle>
           </CardHeader>
-          <CardContent><p className="text-[10px] text-muted-foreground">Video disinkronkan ke database</p></CardContent>
+          <CardContent><p className="text-[10px] text-muted-foreground">Videos synced to the database</p></CardContent>
         </Card>
 
         <Card className="bg-card/40 backdrop-blur-sm border-white/5 relative overflow-hidden">
           <div className="absolute right-4 top-4 text-emerald-400 bg-emerald-500/10 p-2 rounded-lg"><TrendingUp className="h-5 w-5" /></div>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs uppercase font-medium">Total Terkirim</CardDescription>
-            <CardTitle className="text-3xl font-bold">{summary.totalBroadcasts.toLocaleString("id-ID")}</CardTitle>
+            <CardDescription className="text-xs uppercase font-medium">Total Sent</CardDescription>
+            <CardTitle className="text-3xl font-bold">{summary.totalBroadcasts.toLocaleString("en-US")}</CardTitle>
           </CardHeader>
-          <CardContent><p className="text-[10px] text-muted-foreground">Notifikasi Telegram sukses terkirim</p></CardContent>
+          <CardContent><p className="text-[10px] text-muted-foreground">Successfully sent Telegram notifications</p></CardContent>
         </Card>
 
         <Card className="bg-card/40 backdrop-blur-sm border-white/5 relative overflow-hidden">
           <div className="absolute right-4 top-4 text-purple-400 bg-purple-500/10 p-2 rounded-lg"><MousePointer className="h-5 w-5" /></div>
           <CardHeader className="pb-2">
-            <CardDescription className="text-xs uppercase font-medium">Klik Telegram</CardDescription>
-            <CardTitle className="text-3xl font-bold">{summary.totalClicks.toLocaleString("id-ID")}</CardTitle>
+            <CardDescription className="text-xs uppercase font-medium">Telegram Clicks</CardDescription>
+            <CardTitle className="text-3xl font-bold">{summary.totalClicks.toLocaleString("en-US")}</CardTitle>
           </CardHeader>
-          <CardContent><p className="text-[10px] text-muted-foreground">Klik link video dari Telegram</p></CardContent>
+          <CardContent><p className="text-[10px] text-muted-foreground">Clicks on video links from Telegram</p></CardContent>
         </Card>
 
         <Card className="bg-card/40 backdrop-blur-sm border-white/5 relative overflow-hidden">
@@ -135,7 +137,7 @@ export default function AnalyticsDashboard() {
             <CardDescription className="text-xs uppercase font-medium">Click-Through Rate</CardDescription>
             <CardTitle className="text-3xl font-bold">{summary.ctr}%</CardTitle>
           </CardHeader>
-          <CardContent><p className="text-[10px] text-muted-foreground">Rasio klik dibanding pesan terkirim</p></CardContent>
+          <CardContent><p className="text-[10px] text-muted-foreground">Ratio of clicks compared to messages sent</p></CardContent>
         </Card>
       </div>
 
@@ -145,9 +147,9 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              Perkembangan CTR Harian (7 Hari Terakhir)
+              Daily CTR Trend (Last 7 Days)
             </CardTitle>
-            <CardDescription className="text-xs">Rata-rata persentase CTR notifikasi harian</CardDescription>
+            <CardDescription className="text-xs">Average daily notification CTR percentage</CardDescription>
           </CardHeader>
           <CardContent>
             {/* SVG CTR Chart */}
@@ -159,7 +161,7 @@ export default function AnalyticsDashboard() {
                     {/* Tooltip on Hover */}
                     <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-white/15 px-2 py-1 rounded text-center shadow-xl pointer-events-none z-20 w-24">
                       <div className="font-bold text-primary">{d.ctr}% CTR</div>
-                      <div className="text-[9px] text-muted-foreground">{d.clicks} klik / {d.sent} kirim</div>
+                      <div className="text-[9px] text-muted-foreground">{d.clicks} clicks / {d.sent} sent</div>
                     </div>
                     {/* Bar */}
                     <div className="w-full bg-primary/20 group-hover:bg-primary/40 border-t border-primary rounded-t transition-all relative flex flex-col justify-end overflow-hidden" style={{ height: heightPercent }}>
@@ -180,9 +182,9 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Clock className="h-4 w-4 text-sky-400" />
-              Rasio Klik Berdasarkan Jam (30 Hari Terakhir)
+              Hourly Click Ratio (Last 30 Days)
             </CardTitle>
-            <CardDescription className="text-xs">Waktu paling aktif penonton membuka link Telegram</CardDescription>
+            <CardDescription className="text-xs">Peak times when audience opens Telegram links</CardDescription>
           </CardHeader>
           <CardContent>
             {/* Horizontal Line Chart or Scrollable Bar Chart */}
@@ -193,7 +195,7 @@ export default function AnalyticsDashboard() {
                   return (
                     <div key={index} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group cursor-pointer relative">
                       <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-white/15 px-1.5 py-0.5 rounded text-center pointer-events-none z-20 w-16">
-                        <div className="font-bold text-sky-400">{d.clicks} klik</div>
+                        <div className="font-bold text-sky-400">{d.clicks} clicks</div>
                       </div>
                       <div className="w-full bg-sky-500/20 group-hover:bg-sky-500/40 border-t border-sky-400 rounded-t transition-all relative flex flex-col justify-end" style={{ height: heightPercent }}>
                         {d.clicks > 0 && (
@@ -216,18 +218,18 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Award className="h-4 w-4 text-yellow-400" />
-              Performa Channel Telegram
+              Telegram Channel Performance
             </CardTitle>
-            <CardDescription className="text-xs">Performa pengiriman dan CTR per channel Telegram aktif</CardDescription>
+            <CardDescription className="text-xs">Broadcast performance and CTR per active Telegram channel</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-hidden border border-white/5 rounded-lg">
               <Table>
                 <TableHeader className="bg-background/50">
                   <TableRow>
-                    <TableHead>Nama Channel</TableHead>
-                    <TableHead className="text-center">Total Kirim</TableHead>
-                    <TableHead className="text-center">Total Klik</TableHead>
+                    <TableHead>Channel Name</TableHead>
+                    <TableHead className="text-center">Total Sent</TableHead>
+                    <TableHead className="text-center">Total Clicks</TableHead>
                     <TableHead className="text-right">Click-Through Rate</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -243,7 +245,7 @@ export default function AnalyticsDashboard() {
                   {channelChart.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                        Belum ada channel Telegram yang aktif.
+                        No active Telegram channels yet.
                       </TableCell>
                     </TableRow>
                   )}
@@ -258,9 +260,9 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Award className="h-4 w-4 text-emerald-400" />
-              Top 5 Video Terpopuler (Telegram)
+              Top 5 Most Popular Videos (Telegram)
             </CardTitle>
-            <CardDescription className="text-xs">Video paling banyak diklik dari postingan Telegram</CardDescription>
+            <CardDescription className="text-xs">Most clicked videos from Telegram posts</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -274,15 +276,15 @@ export default function AnalyticsDashboard() {
                       {video.title}
                     </div>
                     <div className="text-[10px] text-muted-foreground flex gap-3 mt-1 font-mono">
-                      <span>🖱 {video.clicks} Klik</span>
-                      <span>👁 {video.views.toLocaleString()} Views</span>
+                      <span>🖱 {video.clicks} Clicks</span>
+                      <span>👁 {video.views.toLocaleString("en-US")} Views</span>
                     </div>
                   </div>
                 </div>
               ))}
               {topVideos.length === 0 && (
                 <div className="text-center text-muted-foreground py-12 text-xs">
-                  Belum ada data interaksi klik pada video.
+                  No click interaction data for videos yet.
                 </div>
               )}
             </div>

@@ -56,34 +56,37 @@ export default function WorkersDashboard() {
     try {
       const res = await fetch("/api/admin/queues", { method: "POST" });
       const resData = await res.json();
-      if (!res.ok) throw new Error(resData.error || "Gagal memicu sinkronisasi.");
-      setSyncSuccess("Sukses: Pekerjaan sinkronisasi konten berhasil dimasukkan ke antrean worker!");
+      if (!res.ok) throw new Error(resData.error || "Failed to trigger synchronization.");
+      setSyncSuccess("Success: Content sync job successfully enqueued to the worker queue!");
       fetchData();
       setTimeout(() => setSyncSuccess(null), 5000);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setSyncLoading(false);
     }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     try {
       const res = await fetch("/api/admin/queues");
-      if (!res.ok) throw new Error("Gagal mengambil data dari API.");
+      if (!res.ok) throw new Error("Failed to fetch data from API.");
       const json = await res.json();
       setData(json);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -110,7 +113,7 @@ export default function WorkersDashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Real-Time Workers</h1>
           <p className="text-muted-foreground text-sm">
-            Pantau status antrean BullMQ dan pengiriman Telegram secara langsung
+            Monitor BullMQ queue status and Telegram broadcasts directly
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -124,7 +127,7 @@ export default function WorkersDashboard() {
             ) : (
               <Play className="h-3.5 w-3.5 fill-current" />
             )}
-            Mulai Sync Manual
+            Start Manual Sync
           </button>
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
@@ -173,7 +176,7 @@ export default function WorkersDashboard() {
                 <RefreshCw className="h-4 w-4 text-sky-400" />
                 Sync Content Queue
               </CardTitle>
-              <CardDescription className="text-xs">Antrean penarikan video terbaru Eporner</CardDescription>
+              <CardDescription className="text-xs">Queue for fetching the latest Eporner videos</CardDescription>
             </div>
             <Badge className="bg-sky-500/10 text-sky-400 border-sky-500/20">sync-queue</Badge>
           </CardHeader>
@@ -217,7 +220,7 @@ export default function WorkersDashboard() {
                 <Database className="h-4 w-4 text-emerald-400" />
                 Telegram Broadcast Queue
               </CardTitle>
-              <CardDescription className="text-xs">Antrean pengiriman notifikasi Telegram</CardDescription>
+              <CardDescription className="text-xs">Queue for sending Telegram notifications</CardDescription>
             </div>
             <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">broadcast-queue</Badge>
           </CardHeader>
@@ -261,7 +264,7 @@ export default function WorkersDashboard() {
             <Play className="h-4 w-4 text-primary animate-pulse" />
             Live Telegram Deliveries
           </CardTitle>
-          <CardDescription>Log pengiriman pesan terbaru ke berbagai channel Telegram</CardDescription>
+          <CardDescription>Log of recent message broadcasts to various Telegram channels</CardDescription>
         </CardHeader>
         <CardContent>
           {loading && !data ? (
@@ -277,7 +280,7 @@ export default function WorkersDashboard() {
                     <TableHead>Channel</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-center">Retries</TableHead>
-                    <TableHead>Waktu Update</TableHead>
+                    <TableHead>Last Updated</TableHead>
                     <TableHead>Error Message</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -291,7 +294,7 @@ export default function WorkersDashboard() {
                       <TableCell>{getStatusBadge(log.status)}</TableCell>
                       <TableCell className="text-center font-mono">{log.retryCount}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {new Date(log.updatedAt).toLocaleString("id-ID")}
+                        {new Date(log.updatedAt).toLocaleString("en-US")}
                       </TableCell>
                       <TableCell className="text-xs text-red-400 font-mono max-w-[200px] truncate" title={log.errorMessage || ""}>
                         {log.errorMessage || "-"}
@@ -301,7 +304,7 @@ export default function WorkersDashboard() {
                   {data?.recentBroadcasts.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        Belum ada data pengiriman Telegram.
+                        No Telegram broadcast data yet.
                       </TableCell>
                     </TableRow>
                   )}

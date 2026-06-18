@@ -29,17 +29,19 @@ export default function BotsManagement() {
   const fetchBots = async () => {
     try {
       const res = await fetch("/api/admin/bots");
-      if (!res.ok) throw new Error("Gagal mengambil data bot.");
+      if (!res.ok) throw new Error("Failed to retrieve bot data.");
       const data = await res.json();
       setBots(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBots();
   }, []);
 
@@ -59,21 +61,22 @@ export default function BotsManagement() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Gagal menyimpan bot Telegram.");
+        throw new Error(data.error || "Failed to save Telegram bot.");
       }
 
-      setSuccess(`Bot @${data.username} (${data.name}) berhasil terdaftar!`);
+      setSuccess(`Bot @${data.username} (${data.name}) successfully registered!`);
       setTokenInput("");
       fetchBots();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setSubmitLoading(false);
     }
   };
 
   const handleDeleteBot = async (id: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus bot Telegram ini? Semua channel yang menggunakan bot ini akan kembali menggunakan bot default.")) return;
+    if (!confirm("Are you sure you want to delete this Telegram bot? All channels using this bot will revert to using the default bot.")) return;
     setError(null);
     setSuccess(null);
 
@@ -84,13 +87,14 @@ export default function BotsManagement() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Gagal menghapus bot.");
+        throw new Error(data.error || "Failed to delete bot.");
       }
 
-      setSuccess("Bot berhasil dihapus.");
+      setSuccess("Bot deleted successfully.");
       fetchBots();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     }
   };
 
@@ -106,9 +110,9 @@ export default function BotsManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Multi-Bot Telegram</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Telegram Multi-Bot</h1>
         <p className="text-muted-foreground text-sm">
-          Daftarkan dan kelola beberapa bot Telegram untuk membagi beban penyiaran notifikasi ke channel yang berbeda
+          Register and manage multiple Telegram bots to distribute the broadcast notification load across different channels
         </p>
       </div>
 
@@ -118,10 +122,10 @@ export default function BotsManagement() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
-              Daftarkan Bot Baru
+              Register New Bot
             </CardTitle>
             <CardDescription className="text-xs">
-              Masukkan token bot dari @BotFather. Sistem akan mengambil informasi nama dan username secara otomatis.
+              Enter the bot token from @BotFather. The system will automatically fetch the name and username.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -157,12 +161,12 @@ export default function BotsManagement() {
                 {submitLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Menghubungkan...
+                    Connecting...
                   </>
                 ) : (
                   <>
                     <Plus className="mr-1 h-4 w-4" />
-                    Hubungkan Bot
+                    Connect Bot
                   </>
                 )}
               </Button>
@@ -173,9 +177,9 @@ export default function BotsManagement() {
         {/* Bot List Table */}
         <Card className="bg-card/40 backdrop-blur-sm border-white/5 lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-lg font-bold">Bot Terdaftar</CardTitle>
+            <CardTitle className="text-lg font-bold">Registered Bots</CardTitle>
             <CardDescription className="text-xs">
-              Daftar bot Telegram aktif yang dapat dipasangkan ke channel
+              List of active Telegram bots that can be paired with channels
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -188,11 +192,11 @@ export default function BotsManagement() {
                 <Table>
                   <TableHeader className="bg-background/50">
                     <TableRow>
-                      <TableHead>Nama Bot</TableHead>
+                      <TableHead>Bot Name</TableHead>
                       <TableHead>Username</TableHead>
                       <TableHead>Token</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="w-[80px] text-center">Aksi</TableHead>
+                      <TableHead className="w-[80px] text-center">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -208,11 +212,11 @@ export default function BotsManagement() {
                         <TableCell>
                           {bot.isActive ? (
                             <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[10px] px-1.5 py-0 h-5">
-                              Aktif
+                              Active
                             </Badge>
                           ) : (
                             <Badge className="bg-muted text-muted-foreground text-[10px] px-1.5 py-0 h-5">
-                              Nonaktif
+                              Inactive
                             </Badge>
                           )}
                         </TableCell>
@@ -229,7 +233,7 @@ export default function BotsManagement() {
                     {bots.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground py-8 text-xs">
-                          Belum ada bot khusus yang didaftarkan. Sistem akan menggunakan bot default dari berkas .env.
+                          No custom bots registered yet. The system will use the default bot from the .env file.
                         </TableCell>
                       </TableRow>
                     )}

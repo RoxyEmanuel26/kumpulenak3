@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { cleanEpornerText } from "@/lib/api/eporner";
 
 export async function GET(
   request: NextRequest,
@@ -18,7 +19,7 @@ export async function GET(
     });
 
     if (!video) {
-      return NextResponse.json({ error: "Video tidak ditemukan." }, { status: 404 });
+      return NextResponse.json({ error: "Video not found." }, { status: 404 });
     }
 
     const tagIds = video.tags.map((t) => t.tagId);
@@ -38,11 +39,17 @@ export async function GET(
       orderBy: { views: "desc" },
     });
 
-    return NextResponse.json(related);
-  } catch (error: any) {
+    const cleanedRelated = related.map((v) => ({
+      ...v,
+      title: cleanEpornerText(v.title),
+      keywords: cleanEpornerText(v.keywords || ""),
+    }));
+
+    return NextResponse.json(cleanedRelated);
+  } catch (err) { const error = err as Error;
     console.error("[RelatedVideosAPI] Error fetching related videos:", error.message);
     return NextResponse.json(
-      { error: "Gagal mengambil data video terkait." },
+      { error: "Failed to fetch related videos data." },
       { status: 500 }
     );
   }

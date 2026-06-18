@@ -10,8 +10,10 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate
 
+# Build the worker typescript code
+RUN npm run build:worker
+
 ENV NODE_ENV production
 
-# We use ts-node to run the worker in production for simplicity, 
-# or we can compile to JS. Let's use ts-node for this setup.
-CMD ["npx", "ts-node", "workers/index.ts"]
+# Run the compiled javascript worker
+CMD ["node", "dist/workers/index.js"]

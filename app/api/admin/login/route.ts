@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: "Email dan password wajib diisi." },
+        { error: "Email and password are required." },
         { status: 400 }
       );
     }
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     if (!admin) {
       return NextResponse.json(
-        { error: "Kredensial tidak valid." },
+        { error: "Invalid credentials." },
         { status: 401 }
       );
     }
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const isPasswordValid = verifyPassword(password, admin.password);
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: "Kredensial tidak valid." },
+        { error: "Invalid credentials." },
         { status: 401 }
       );
     }
@@ -57,10 +57,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, name: admin.name });
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("Login API error:", error);
     return NextResponse.json(
-      { error: "Terjadi kesalahan internal server." },
+      { error: "An internal server error occurred." },
       { status: 500 }
     );
   }

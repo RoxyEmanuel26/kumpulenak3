@@ -98,10 +98,14 @@ export const syncWorker = new Worker(
               data: {
                 id: v.id,
                 title: v.title,
-                duration: v.length_min,
-                rating: v.rate,
+                lengthMin: v.length_min,
+                lengthSec: v.length_sec,
+                addedAt: v.added ? new Date(v.added) : undefined,
+                rate: v.rate,
                 views: v.views,
-                thumbnail: v.default_thumb?.src,
+                defaultThumb: v.default_thumb as any,
+                thumbs: v.thumbs as any,
+                keywords: v.keywords,
                 embedUrl: v.embed,
                 status: aiResult.isSpam ? "DRAFT" : "ACTIVE",
                 

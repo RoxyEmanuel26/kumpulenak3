@@ -44,7 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ) : (
               <LogOut className="h-4 w-4" />
             )}
-            Keluar (Logout)
+            Logout
           </button>
         </div>
       </aside>

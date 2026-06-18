@@ -19,14 +19,15 @@ export function ContactForm() {
     setError(null);
 
     try {
-      // Simulate form submission
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const subject = encodeURIComponent(`Contact from ${name}`);
+      const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`);
+      window.open(`mailto:admin@kumpulenak.com?subject=${subject}&body=${body}`, '_blank');
       setSuccess(true);
       setName("");
       setEmail("");
       setMessage("");
-    } catch (err: any) {
-      setError("Gagal mengirim pesan. Silakan coba kembali nanti.");
+    } catch {
+      setError("Failed to open email client. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -43,13 +44,13 @@ export function ContactForm() {
           <div className="w-full md:w-3/5 text-left space-y-6">
             <div className="space-y-2">
               <span className="text-xs font-mono font-bold tracking-widest text-primary uppercase bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-                HUBUNGI KAMI
+                CONTACT US
               </span>
               <h2 className="text-2xl md:text-3xl font-extrabold text-white mt-2">
-                Kirim Pesan Ke Administrator
+                Send Message to Administrator
               </h2>
               <p className="text-xs text-muted-foreground">
-                Ajukan pertanyaan, beri saran, atau laporkan bug sistem aggregator kami.
+                Ask questions, leave suggestions, or report system aggregator bugs.
               </p>
             </div>
 
@@ -57,9 +58,9 @@ export function ContactForm() {
               <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8 text-center space-y-4 animate-in zoom-in-95">
                 <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto animate-bounce" />
                 <div>
-                  <h3 className="font-bold text-lg text-white">Pesan Terkirim!</h3>
+                  <h3 className="font-bold text-lg text-white">Message Sent!</h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Terima kasih telah menghubungi kami. Kami akan merespon via email secepatnya.
+                    Thank you for contacting us. We will respond via email as soon as possible.
                   </p>
                 </div>
                 <Button 
@@ -67,7 +68,7 @@ export function ContactForm() {
                   variant="outline" 
                   className="text-xs font-semibold rounded-xl border-white/5 cursor-pointer"
                 >
-                  Kirim Pesan Lain
+                  Send Another Message
                 </Button>
               </div>
             ) : (
@@ -95,7 +96,7 @@ export function ContactForm() {
                     htmlFor="name" 
                     className="absolute left-4 top-2 text-[10px] text-muted-foreground uppercase font-mono tracking-wider transition-all duration-300 peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-placeholder-shown:font-sans peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-mono peer-focus:tracking-wider peer-focus:text-primary cursor-text"
                   >
-                    Nama Lengkap
+                    Full Name
                   </label>
                 </div>
 
@@ -115,7 +116,7 @@ export function ContactForm() {
                     htmlFor="email" 
                     className="absolute left-4 top-2 text-[10px] text-muted-foreground uppercase font-mono tracking-wider transition-all duration-300 peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-placeholder-shown:font-sans peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-mono peer-focus:tracking-wider peer-focus:text-primary cursor-text"
                   >
-                    Alamat Email
+                    Email Address
                   </label>
                 </div>
 
@@ -135,7 +136,7 @@ export function ContactForm() {
                     htmlFor="message" 
                     className="absolute left-4 top-2 text-[10px] text-muted-foreground uppercase font-mono tracking-wider transition-all duration-300 peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-placeholder-shown:font-sans peer-placeholder-shown:tracking-normal peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-mono peer-focus:tracking-wider peer-focus:text-primary cursor-text"
                   >
-                    Pesan Anda
+                    Your Message
                   </label>
                 </div>
 
@@ -147,12 +148,12 @@ export function ContactForm() {
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" />
-                      Sedang Mengirim...
+                      Sending...
                     </>
                   ) : (
                     <>
                       <Send className="mr-2 h-4 w-4 shrink-0" />
-                      Kirim Pesan
+                      Send Message
                     </>
                   )}
                 </Button>
@@ -164,9 +165,9 @@ export function ContactForm() {
           <div className="w-full md:w-2/5 flex flex-col justify-start space-y-6">
             <Card className="glass-card bg-card/30 border-white/5 shadow-premium">
               <CardContent className="p-6 space-y-6 text-left">
-                <h3 className="font-bold text-white text-lg">Informasi Kontak</h3>
+                <h3 className="font-bold text-white text-lg">Contact Information</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Kami selalu terbuka untuk berdiskusi mengenai penambahan fitur feed baru, optimasi script bots, dan kerja sama bisnis lainnya.
+                  We are always open to discussing new feed feature additions, bot script optimization, and other business collaborations.
                 </p>
 
                 <div className="space-y-4">
@@ -174,7 +175,7 @@ export function ContactForm() {
                   <div className="flex items-center gap-3 group">
                     <div className="p-2.5 bg-primary/10 rounded-xl text-primary transition-transform duration-300 group-hover:scale-110"><Mail className="h-4.5 w-4.5" /></div>
                     <div>
-                      <div className="text-[10px] text-muted-foreground font-mono uppercase">Surel / Email</div>
+                      <div className="text-[10px] text-muted-foreground font-mono uppercase">Email Address</div>
                       <a href="mailto:admin@kumpulenak.com" className="text-xs font-semibold text-white hover:text-primary transition-colors">admin@kumpulenak.com</a>
                     </div>
                   </div>
@@ -191,7 +192,7 @@ export function ContactForm() {
 
                 <div className="w-full h-[1px] bg-white/5" />
                 <p className="text-[10px] text-muted-foreground font-mono uppercase">
-                  WAKTU OPERASIONAL: 24/7 AUTOMATED SYSTEM
+                  OPERATIONAL TIME: 24/7 AUTOMATED SYSTEM
                 </p>
               </CardContent>
             </Card>

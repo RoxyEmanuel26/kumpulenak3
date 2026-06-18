@@ -9,11 +9,14 @@ datasource db {
 model Video {
   id          String   @id // Use Eporner video ID
   title       String
-  duration    String?
-  rating      String?
+  lengthSec   Int?
+  lengthMin   String?
+  rate        String?
   views       Int      @default(0)
-  thumbnail   String?
+  defaultThumb Json?
+  thumbs      Json?
   embedUrl    String?
+  keywords    String?
   status      VideoStatus @default(ACTIVE)
   addedAt     DateTime? // from API added property
 
@@ -156,6 +159,7 @@ model AdminUser {
   email     String   @unique
   password  String   // Hashed
   name      String?
+  auditLogs AuditLog[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -167,9 +171,12 @@ model Settings {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   adminId   String
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
   action    String
   details   Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+
+  @@index([adminId])
 }

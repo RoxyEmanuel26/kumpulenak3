@@ -45,11 +45,11 @@ export const broadcastWorker = new Worker(
         try {
           const rules = typeof channel.routingRules === "string"
             ? JSON.parse(channel.routingRules)
-            : (channel.routingRules as any);
+            : (channel.routingRules as Record<string, unknown>);
 
           // a. Rating Filter (top-rated)
           if (rules.order === "top-rated") {
-            const ratingStr = video.rating || "0";
+            const ratingStr = video.rate || "0";
             const ratingVal = parseInt(ratingStr.replace(/[^0-9]/g, ""), 10) || 0;
             if (ratingVal < 90) {
               console.log(`[BroadcastWorker] Skipped video ${videoId} for channel ${channel.id}: Rating ${ratingStr} is below 90%`);
@@ -76,8 +76,9 @@ export const broadcastWorker = new Worker(
               continue;
             }
           }
-        } catch (err: any) {
-          console.error(`[BroadcastWorker] Error parsing routing rules for channel ${channel.id}:`, err.message);
+        } catch (err) {
+          const error = err as Error;
+          console.error(`[BroadcastWorker] Error parsing routing rules for channel ${channel.id}:`, error.message);
         }
       }
 
@@ -120,8 +121,9 @@ export const broadcastWorker = new Worker(
         ]);
 
         let msg;
-        if (video.thumbnail) {
-          msg = await bot.telegram.sendPhoto(channel.id, video.thumbnail, {
+        const thumbnailSrc = (video.defaultThumb as any)?.src;
+        if (thumbnailSrc) {
+          msg = await bot.telegram.sendPhoto(channel.id, thumbnailSrc, {
             caption: text,
             parse_mode: "MarkdownV2",
             ...keyboard,
@@ -139,14 +141,15 @@ export const broadcastWorker = new Worker(
         });
 
         console.log(`[BroadcastWorker] Successfully sent video ${videoId} to ${channel.id}`);
-      } catch (error: any) {
+      } catch (err) {
+        const error = err as Error;
         console.error(`[BroadcastWorker] Failed to send to ${channel.id}:`, error);
         await prisma.broadcastLog.update({
           where: { id: log.id },
           data: { status: "FAILED", errorMessage: error.message },
         });
         
-        throw error;
+        continue;
       }
     }
   },

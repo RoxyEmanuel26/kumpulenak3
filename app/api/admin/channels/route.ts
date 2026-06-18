@@ -16,10 +16,10 @@ export async function GET() {
       },
     });
     return NextResponse.json(channels);
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("[ChannelsAPI] Failed to fetch channels:", error.message);
     return NextResponse.json(
-      { error: "Gagal mengambil daftar channel Telegram." },
+      { error: "Failed to fetch Telegram channels list." },
       { status: 500 }
     );
   }
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     if (!id || !name) {
       return NextResponse.json(
-        { error: "ID Channel dan Nama Channel wajib diisi." },
+        { error: "Channel ID and Channel Name are required." },
         { status: 400 }
       );
     }
@@ -57,10 +57,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(channel);
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("[ChannelsAPI] Failed to save channel:", error.message);
     return NextResponse.json(
-      { error: "Gagal menyimpan channel Telegram." },
+      { error: "Failed to save Telegram channel." },
       { status: 500 }
     );
   }
@@ -73,7 +73,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: "ID channel tidak disediakan." },
+        { error: "Channel ID was not provided." },
         { status: 400 }
       );
     }
@@ -83,10 +83,10 @@ export async function DELETE(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("[ChannelsAPI] Failed to delete channel:", error.message);
     return NextResponse.json(
-      { error: "Gagal menghapus channel Telegram." },
+      { error: "Failed to delete Telegram channel." },
       { status: 500 }
     );
   }

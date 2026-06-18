@@ -5,7 +5,10 @@ import { hashPassword } from "../lib/auth/crypto";
 
 async function main() {
   const email = "REDACTED_EMAIL";
-  const defaultPassword = "REDACTED_PASSWORD";
+  const defaultPassword = process.env.ADMIN_PASSWORD || "REDACTED_PASSWORD";
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn("[Seed] WARNING: ADMIN_PASSWORD environment variable is not defined. Using fallback default password.");
+  }
   const hashedPassword = hashPassword(defaultPassword);
 
   console.log("Seeding admin user...");

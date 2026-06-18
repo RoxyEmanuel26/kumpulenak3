@@ -14,8 +14,9 @@ export async function GET(request: NextRequest) {
           broadcastLogId: logId,
         },
       });
-    } catch (err: any) {
-      console.error("[TrackAPI] Failed to record telegram click:", err.message);
+    } catch (err) {
+      const error = err as Error;
+      console.error("[TrackAPI] Failed to record telegram click:", error.message);
     }
   }
 

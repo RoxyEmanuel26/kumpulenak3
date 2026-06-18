@@ -29,13 +29,14 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Terjadi kesalahan saat masuk.");
+        throw new Error(data.error || "An error occurred while logging in.");
       }
 
       router.push("/admin");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ export default function LoginPage() {
             Admin Login
           </CardTitle>
           <CardDescription className="text-muted-foreground/80">
-            Masukkan kredensial Anda untuk masuk ke dashboard admin
+            Enter your credentials to login to the admin dashboard
           </CardDescription>
         </CardHeader>
         
@@ -103,10 +104,10 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Memproses...
+                  Processing...
                 </>
               ) : (
-                "Masuk Ke Dashboard"
+                "Login to Dashboard"
               )}
             </Button>
           </CardFooter>

@@ -55,10 +55,10 @@ export async function GET() {
       recentBroadcasts,
       recentFailed,
     });
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("[QueuesAPI] Failed to fetch queue status:", error.message);
     return NextResponse.json(
-      { error: "Gagal memuat status antrean worker." },
+      { error: "Failed to load worker queue status." },
       { status: 500 }
     );
   }
@@ -67,11 +67,11 @@ export async function GET() {
 export async function POST() {
   try {
     await enqueueSyncJob();
-    return NextResponse.json({ success: true, message: "Pekerjaan sinkronisasi berhasil dimasukkan ke antrean." });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, message: "Synchronization job successfully added to the queue." });
+  } catch (err) { const error = err as Error;
     console.error("[QueuesAPI] Failed to trigger manual sync:", error.message);
     return NextResponse.json(
-      { error: "Gagal memicu sinkronisasi konten secara manual." },
+      { error: "Failed to trigger manual content synchronization." },
       { status: 500 }
     );
   }

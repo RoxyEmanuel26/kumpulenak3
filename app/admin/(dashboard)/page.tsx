@@ -23,7 +23,7 @@ export default async function AdminDashboard() {
             <CardTitle className="text-sm font-medium">Total Videos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalVideos.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totalVideos.toLocaleString("en-US")}</div>
           </CardContent>
         </Card>
         <Card>
@@ -39,8 +39,8 @@ export default async function AdminDashboard() {
             <CardTitle className="text-sm font-medium">Messages Sent</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-500">{sentBroadcasts.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">{pendingBroadcasts.toLocaleString()} pending</p>
+            <div className="text-2xl font-bold text-green-500">{sentBroadcasts.toLocaleString("en-US")}</div>
+            <p className="text-xs text-muted-foreground mt-1">{pendingBroadcasts.toLocaleString("en-US")} pending</p>
           </CardContent>
         </Card>
         <Card>
@@ -48,7 +48,7 @@ export default async function AdminDashboard() {
             <CardTitle className="text-sm font-medium">Failed Broadcasts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-500">{failedBroadcasts.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-red-500">{failedBroadcasts.toLocaleString("en-US")}</div>
           </CardContent>
         </Card>
       </div>
@@ -63,7 +63,7 @@ export default async function AdminDashboard() {
               {recentSyncs.map(job => (
                 <div key={job.id} className="flex items-center justify-between border-b border-border/50 pb-3 last:border-0 last:pb-0">
                   <div>
-                    <p className="text-sm font-medium">{new Date(job.runStartedAt).toLocaleString()}</p>
+                    <p className="text-sm font-medium">{new Date(job.runStartedAt).toLocaleString("en-US")}</p>
                     <p className="text-xs text-muted-foreground mt-1">Status: <span className={job.status === 'COMPLETED' ? 'text-green-500' : 'text-yellow-500'}>{job.status}</span></p>
                   </div>
                   <div className="text-right">

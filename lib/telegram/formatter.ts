@@ -6,8 +6,8 @@ export function formatVideoMessage(video: Video & { tags: { tag: Tag }[] }, temp
   if (template) {
     return template
       .replace(/{{title}}/g, escapeMarkdownV2(video.title))
-      .replace(/{{duration}}/g, escapeMarkdownV2(video.duration || "N/A"))
-      .replace(/{{rating}}/g, escapeMarkdownV2(video.rating || "N/A"))
+      .replace(/{{duration}}/g, escapeMarkdownV2(video.lengthMin || "N/A"))
+      .replace(/{{rating}}/g, escapeMarkdownV2(video.rate || "N/A"))
       .replace(/{{views}}/g, escapeMarkdownV2(video.views.toString()))
       .replace(/{{tags}}/g, escapeMarkdownV2(tagList));
   }
@@ -15,8 +15,8 @@ export function formatVideoMessage(video: Video & { tags: { tag: Tag }[] }, temp
   return `
 🎬 *${escapeMarkdownV2(video.title)}*
 
-⏱ *Duration:* ${escapeMarkdownV2(video.duration || "N/A")}
-⭐ *Rating:* ${escapeMarkdownV2(video.rating || "N/A")}
+⏱ *Duration:* ${escapeMarkdownV2(video.lengthMin || "N/A")}
+⭐ *Rating:* ${escapeMarkdownV2(video.rate || "N/A")}
 👁 *Views:* ${video.views}
 
 🏷 ${escapeMarkdownV2(tagList)}

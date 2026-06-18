@@ -10,11 +10,14 @@ if (globalForPrisma.prisma) {
   prismaInstance = globalForPrisma.prisma;
 } else {
   const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL environment variable is not defined.");
+  }
   const pool = new Pool({ connectionString });
   const adapter = new PrismaPg(pool);
   prismaInstance = new PrismaClient({
     adapter,
-    log: ['query'],
+    log: process.env.NODE_ENV === 'development' ? ['query'] : [],
   });
 }
 

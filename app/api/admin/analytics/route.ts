@@ -28,7 +28,7 @@ export async function GET() {
     });
 
     // Group by day of week
-    const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const last7DaysData: Record<string, { sent: number; clicks: number }> = {};
     
     // Initialize last 7 days
@@ -146,10 +146,10 @@ export async function GET() {
       channelChart,
       topVideos,
     });
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("[AnalyticsAPI] Failed to generate analytics:", error.message);
     return NextResponse.json(
-      { error: "Gagal memuat data analitik." },
+      { error: "Failed to load analytics data." },
       { status: 500 }
     );
   }

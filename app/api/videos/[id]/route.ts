@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { cleanEpornerText } from "@/lib/api/eporner";
 
 export async function GET(
   request: NextRequest,
@@ -19,16 +20,20 @@ export async function GET(
 
     if (!video || video.status !== "ACTIVE") {
       return NextResponse.json(
-        { error: "Video tidak ditemukan atau sudah tidak aktif." },
+        { error: "Video not found or is no longer active." },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(video);
-  } catch (error: any) {
+    return NextResponse.json({
+      ...video,
+      title: cleanEpornerText(video.title),
+      keywords: cleanEpornerText(video.keywords || ""),
+    });
+  } catch (err) { const error = err as Error;
     console.error("[VideoDetailsAPI] Error fetching video details:", error.message);
     return NextResponse.json(
-      { error: "Gagal memuat data detail video." },
+      { error: "Failed to load video details." },
       { status: 500 }
     );
   }

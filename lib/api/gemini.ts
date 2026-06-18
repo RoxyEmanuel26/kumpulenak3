@@ -23,7 +23,7 @@ export const GeminiAPI = {
       category: "General",
       isSpam: false,
       scores: { trending: 50, engagement: 50, spam: 5 },
-      seoDescription: `Tonton video ${title} lengkap secara gratis. Temukan katalog video Eporner terbaik lainnya di website kami.`,
+      seoDescription: `Watch full video ${title} for free. Find more of the best Eporner videos catalog on our website.`,
     };
 
     if (!GEMINI_API_KEY) {
@@ -33,19 +33,19 @@ export const GeminiAPI = {
 
     try {
       const prompt = `
-        Klasifikasikan video dewasa berikut ini untuk katalog website premium.
-        Judul Video: "${title}"
-        Keyword Asal: "${keywords}"
+        Classify the following video for a premium website catalog.
+        Video Title: "${title}"
+        Original Keywords: "${keywords}"
 
-        Lakukan analisis berikut:
-        1. Bersihkan keyword asal dari duplikasi, typos, dan buat tag bersih dalam format lowercase (maksimal 10 tag paling relevan).
-        2. Tentukan 1 kategori utama yang paling cocok (contoh: Teen, Amateur, MILF, College, POV, Asian, Anal, Solo, dll).
-        3. Deteksi jika judul mengandung spam, klik bait ekstrim, atau penipuan (isSpam = true/false).
-        4. Berikan skor (0 hingga 100) untuk:
-           - trending: potensi viralitas / tren saat ini.
-           - engagement: ketertarikan penonton / rasio klik.
-           - spam: probabilitas judul tersebut adalah spam.
-        5. Buat deskripsi SEO yang memikat dalam Bahasa Indonesia (1-2 kalimat) untuk meningkatkan performa di Google Pencarian.
+        Perform the following analysis:
+        1. Clean up original keywords from duplicates, typos, and make clean tags in lowercase format (max 10 most relevant tags).
+        2. Determine the single most matching category (e.g. Teen, Amateur, MILF, College, POV, Asian, Anal, Solo, etc.).
+        3. Detect if the title contains spam, extreme clickbait, or scams (isSpam = true/false).
+        4. Provide scores (0 to 100) for:
+           - trending: current virality potential / trendiness.
+           - engagement: viewer interest / click ratio.
+           - spam: probability that the title is spam.
+        5. Write a compelling SEO description in English (1-2 sentences) to improve Google search performance.
       `;
 
       const response = await axios.post(
@@ -112,8 +112,9 @@ export const GeminiAPI = {
         },
         seoDescription: result.seoDescription || fallbackResult.seoDescription,
       };
-    } catch (err: any) {
-      console.error("[GeminiAPI] Error during video classification:", err.message);
+    } catch (err) {
+      const error = err as Error;
+      console.error("[GeminiAPI] Error during video classification:", error.message);
       return fallbackResult;
     }
   },

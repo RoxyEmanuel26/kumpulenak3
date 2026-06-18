@@ -8,10 +8,10 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(bots);
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("[BotsAPI] Failed to fetch bots:", error.message);
     return NextResponse.json(
-      { error: "Gagal mengambil daftar bot Telegram." },
+      { error: "Failed to fetch Telegram bots list." },
       { status: 500 }
     );
   }
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     if (!token) {
       return NextResponse.json(
-        { error: "Token bot Telegram wajib diisi." },
+        { error: "Telegram bot token is required." },
         { status: 400 }
       );
     }
@@ -33,9 +33,10 @@ export async function POST(request: NextRequest) {
     try {
       const tempBot = new Telegraf(token);
       botInfo = await tempBot.telegram.getMe();
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as Error;
       return NextResponse.json(
-        { error: `Token bot tidak valid atau tidak bisa terhubung ke Telegram: ${err.message}` },
+        { error: `Bot token is invalid or cannot connect to Telegram: ${error.message}` },
         { status: 400 }
       );
     }
@@ -51,16 +52,18 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(bot);
-  } catch (error: any) {
+  } catch (err) {
+    const error = err as Error;
     console.error("[BotsAPI] Failed to create bot:", error.message);
-    if (error.code === "P2002") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((error as any).code === "P2002") {
       return NextResponse.json(
-        { error: "Bot dengan token ini sudah terdaftar." },
+        { error: "A bot with this token is already registered." },
         { status: 400 }
       );
     }
     return NextResponse.json(
-      { error: "Gagal menyimpan bot Telegram." },
+      { error: "Failed to save Telegram bot." },
       { status: 500 }
     );
   }
@@ -73,7 +76,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: "ID bot tidak disediakan." },
+        { error: "Bot ID was not provided." },
         { status: 400 }
       );
     }
@@ -83,10 +86,10 @@ export async function DELETE(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (err) { const error = err as Error;
     console.error("[BotsAPI] Failed to delete bot:", error.message);
     return NextResponse.json(
-      { error: "Gagal menghapus bot Telegram." },
+      { error: "Failed to delete Telegram bot." },
       { status: 500 }
     );
   }

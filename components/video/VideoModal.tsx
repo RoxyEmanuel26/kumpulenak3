@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { X, Loader2, Play, Star, Eye, Calendar, Tag } from "lucide-react";
+import { X, Loader2, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "./VideoPlayer";
 import Link from "next/link";
 
@@ -64,15 +63,16 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
         fetch(`/api/videos/${id}/related`),
       ]);
 
-      if (!videoRes.ok) throw new Error("Gagal memuat detail video.");
+      if (!videoRes.ok) throw new Error("Failed to load video details.");
       
       const videoJson = await videoRes.json();
       const relatedJson = await relatedRes.json();
 
       setVideo(videoJson);
       setRelated(Array.isArray(relatedJson) ? relatedJson : []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +80,9 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
 
   useEffect(() => {
     if (!videoId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVideo(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRelated([]);
       return;
     }
@@ -128,14 +130,14 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center">
             <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider font-mono animate-pulse">Memuat Konten...</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-mono animate-pulse">Loading Content...</span>
           </div>
         ) : error || !video ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
             <div className="text-red-500 text-3xl mb-2">⚠️</div>
-            <p className="font-semibold text-white">Gagal Memuat Video</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">{error || "Terjadi kesalahan internal."}</p>
-            <Button onClick={onClose} className="mt-4 text-xs font-semibold rounded-xl">Tutup</Button>
+            <p className="font-semibold text-white">Failed to Load Video</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">{error || "An internal error occurred."}</p>
+            <Button onClick={onClose} className="mt-4 text-xs font-semibold rounded-xl">Close</Button>
           </div>
         ) : (
           <>
@@ -162,14 +164,14 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground font-mono mt-3">
                     <span className="flex items-center gap-1">⏱ {video.duration || "N/A"}</span>
                     <span className="flex items-center gap-1 text-yellow-500">★ {video.rating || "N/A"}</span>
-                    <span className="flex items-center gap-1">👁 {video.views.toLocaleString()}</span>
+                    <span className="flex items-center gap-1">👁 {video.views.toLocaleString("en-US")}</span>
                   </div>
                 </div>
 
                 {/* AI Description */}
                 {video.aiDescription && (
                   <div className="p-3.5 bg-primary/5 border border-primary/10 rounded-xl">
-                    <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Rangkuman AI</h4>
+                    <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">AI Summary</h4>
                     <p className="text-xs text-foreground/90 leading-relaxed">
                       {video.aiDescription}
                     </p>
@@ -178,7 +180,7 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
 
                 {/* Badges */}
                 <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kategori & Tags</h4>
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Categories & Tags</h4>
                   <div className="flex flex-wrap gap-1.5">
                     {video.categories.map((c) => (
                       <Badge key={c.category.id} className="bg-primary/20 hover:bg-primary/30 border border-primary/20 text-primary text-[10px] px-1.5 py-0.5 rounded">
@@ -195,15 +197,9 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-3 border-t border-white/5">
-                  <Button className="flex-1 text-xs font-semibold rounded-xl bg-primary hover:bg-primary/95 cursor-pointer">
-                    Bagikan
-                  </Button>
-                  <Button variant="outline" className="flex-1 text-xs font-semibold rounded-xl border-white/10 cursor-pointer">
-                    Simpan
-                  </Button>
                   <Link href={`/video/${video.id}`} className="block">
                     <Button variant="ghost" className="text-xs font-semibold rounded-xl border border-white/5 hover:bg-white/5 cursor-pointer">
-                      Detail
+                      Details
                     </Button>
                   </Link>
                 </div>
@@ -212,7 +208,7 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
                 <div className="pt-6 border-t border-white/5 space-y-4">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Play className="h-3 w-3 text-primary fill-current shrink-0" />
-                    Video Terkait
+                    Related Videos
                   </h3>
                   
                   <div className="grid grid-cols-2 gap-3">
@@ -246,7 +242,7 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
 
                     {related.length === 0 && (
                       <p className="col-span-2 text-[10px] text-muted-foreground italic text-center py-4">
-                        Tidak ada video rekomendasi.
+                        No recommended videos.
                       </p>
                     )}
                   </div>

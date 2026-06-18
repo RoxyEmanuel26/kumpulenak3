@@ -1,13 +1,11 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
     container_name: eporner_db
     environment:
-      POSTGRES_USER: eporner
-      POSTGRES_PASSWORD: eporner_password
-      POSTGRES_DB: eporner_db
+      POSTGRES_USER: ${POSTGRES_USER:-eporner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eporner_password}
+      POSTGRES_DB: ${POSTGRES_DB:-eporner_db}
     ports:
       - "5432:5432"
     volumes:
@@ -31,11 +29,14 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://eporner:eporner_password@db:5432/eporner_db?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-eporner}:${POSTGRES_PASSWORD:-eporner_password}@db:5432/${POSTGRES_DB:-eporner_db}?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - JWT_SECRET=${JWT_SECRET}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - db
       - redis
@@ -47,11 +48,14 @@ services:
       dockerfile: Dockerfile.worker
     container_name: eporner_worker
     environment:
-      - DATABASE_URL=postgresql://eporner:eporner_password@db:5432/eporner_db?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-eporner}:${POSTGRES_PASSWORD:-eporner_password}@db:5432/${POSTGRES_DB:-eporner_db}?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - JWT_SECRET=${JWT_SECRET}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - db
       - redis

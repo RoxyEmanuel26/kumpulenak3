@@ -1,56 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Loader2, Maximize, Minimize, Tv, Volume2, VolumeX, Play, Pause, Share2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Loader2 } from "lucide-react";
 
 interface VideoPlayerProps {
   embedUrl: string;
   title: string;
   thumbnailUrl?: string | null;
+  isTheater?: boolean;
+  onToggleTheater?: () => void;
 }
 
-export function VideoPlayer({ embedUrl, title, thumbnailUrl }: VideoPlayerProps) {
+export function VideoPlayer({ 
+  embedUrl, 
+  title, 
+  thumbnailUrl, 
+  isTheater = false, 
+  onToggleTheater 
+}: VideoPlayerProps) {
   const [loading, setLoading] = useState(true);
-  const [isTheater, setIsTheater] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Keyboard shortcuts listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if typing in an input or textarea
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
-
-      switch (e.key.toLowerCase()) {
-        case "f":
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case "m":
-          e.preventDefault();
-          setIsMuted((prev) => !prev);
-          break;
-        case "t":
-          e.preventDefault();
-          setIsTheater((prev) => !prev);
-          break;
-        case " ":
-          e.preventDefault();
-          setIsPlaying((prev) => !prev);
-          break;
-        default:
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
     
     if (!document.fullscreenElement) {
@@ -62,7 +35,35 @@ export function VideoPlayer({ embedUrl, title, thumbnailUrl }: VideoPlayerProps)
       document.exitFullscreen();
       setIsFullscreen(false);
     }
-  };
+  }, []);
+
+  // Keyboard shortcuts listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+      switch (e.key.toLowerCase()) {
+        case "f":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case "t":
+          if (onToggleTheater) {
+            e.preventDefault();
+            onToggleTheater();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onToggleTheater, toggleFullscreen]);
+
+
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -72,31 +73,23 @@ export function VideoPlayer({ embedUrl, title, thumbnailUrl }: VideoPlayerProps)
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: title,
-        url: window.location.href
-      }).catch(console.error);
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert("Tautan video berhasil disalin!");
-    }
-  };
+
 
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="w-full flex flex-col items-center select-none">
       {/* Outer wrapper with theater mode toggle */}
       <div 
         ref={containerRef}
-        className={`relative w-full overflow-hidden rounded-2xl border border-white/5 bg-black transition-all duration-500 shadow-premium ${
-          isTheater && !isFullscreen ? "max-w-full xl:h-[75vh]" : "max-w-5xl aspect-video"
-        } ${isFullscreen ? "h-screen w-screen rounded-none border-0" : ""}`}
+        className={`relative w-full overflow-hidden bg-black transition-all duration-300 shadow-2xl ${
+          isTheater && !isFullscreen 
+            ? "max-w-full aspect-[21/9] xl:max-h-[70vh] rounded-none border-y border-white/5" 
+            : "max-w-5xl aspect-video rounded-none md:rounded-xl border-x-0 md:border border-white/5"
+        } ${isFullscreen ? "h-screen w-screen rounded-none border-0 aspect-auto" : ""}`}
       >
-        {/* Ambient Ambilight Glow (Philips Ambilight Style) */}
+        {/* Ambient Ambilight Glow */}
         {thumbnailUrl && !isFullscreen && (
           <div 
-            className="absolute inset-0 -z-10 blur-[80px] opacity-35 scale-[1.08] pointer-events-none transition-all duration-1000"
+            className="absolute inset-0 -z-10 blur-[90px] opacity-40 scale-[1.08] pointer-events-none transition-all duration-1000"
             style={{
               backgroundImage: `url(${thumbnailUrl})`,
               backgroundSize: "cover",
@@ -107,80 +100,30 @@ export function VideoPlayer({ embedUrl, title, thumbnailUrl }: VideoPlayerProps)
 
         {/* Loading Spinner */}
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-20">
-            <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
-            <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider animate-pulse">Menghubungkan Stream...</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 z-20">
+            <Loader2 className="h-10 w-10 animate-spin text-red-600 mb-3" />
+            <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest animate-pulse">Connecting Stream...</span>
           </div>
         )}
 
         {/* Iframe embed */}
         <iframe
-          src={`${embedUrl}${isMuted ? "?muted=1" : ""}`}
-          className={`w-full h-full border-0 transition-opacity duration-500 ${loading ? "opacity-0" : "opacity-100"}`}
+          src={embedUrl}
+          title={title}
+          className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-500 ${loading ? "opacity-0" : "opacity-100"}`}
           allowFullScreen
-          allow="autoplay; encrypted-media; picture-in-picture"
+          allow="encrypted-media; picture-in-picture"
           onLoad={() => setLoading(false)}
         />
 
-        {/* Video Overlay Info & controls */}
-        {!loading && (
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between z-10 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3.5 rounded-xl border border-white/5 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="text-white hover:text-primary transition-colors p-1"
-                title={isPlaying ? "Pause (Spasi)" : "Play (Spasi)"}
-              >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
-              </button>
-              <button 
-                onClick={() => setIsMuted(!isMuted)}
-                className="text-white hover:text-primary transition-colors p-1"
-                title={isMuted ? "Unmute (M)" : "Mute (M)"}
-              >
-                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              </button>
-              <span className="text-[10px] text-muted-foreground font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                STREAMING
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={handleShare}
-                className="text-white hover:text-primary transition-colors p-1"
-                title="Bagikan Video"
-              >
-                <Share2 className="h-4 w-4" />
-              </button>
-              {!isFullscreen && (
-                <button 
-                  onClick={() => setIsTheater(!isTheater)}
-                  className={`text-white hover:text-primary transition-colors p-1 ${isTheater ? "text-primary" : ""}`}
-                  title="Mode Bioskop (T)"
-                >
-                  <Tv className="h-4 w-4" />
-                </button>
-              )}
-              <button 
-                onClick={toggleFullscreen}
-                className="text-white hover:text-primary transition-colors p-1"
-                title="Fullscreen (F)"
-              >
-                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-        )}
+
       </div>
 
       {/* Mode Bioskop instruction tip */}
       {!isFullscreen && (
-        <div className="mt-3 text-[10px] text-muted-foreground/60 font-mono flex gap-4 uppercase tracking-wider">
-          <span>[Spasi] Play/Pause</span>
+        <div className="mt-3 text-[10px] text-muted-foreground/50 font-mono hidden md:flex gap-4 uppercase tracking-wider select-none">
           <span>[F] Fullscreen</span>
-          <span>[M] Mute</span>
-          <span>[T] Mode Bioskop</span>
+          {onToggleTheater && <span>[T] Theater Mode</span>}
         </div>
       )}
     </div>

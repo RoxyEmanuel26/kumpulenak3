@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Edit, Trash2, Sliders, Bot, Send, Check, AlertCircle } from "lucide-react";
+import { Loader2, Edit, Trash2, Sliders, Bot, Send, Check, AlertCircle } from "lucide-react";
 
 interface TelegramBot {
   id: string;
@@ -57,21 +57,23 @@ export default function ChannelsAdmin() {
         fetch("/api/admin/bots"),
       ]);
 
-      if (!channelsRes.ok || !botsRes.ok) throw new Error("Gagal mengambil data dari API.");
+      if (!channelsRes.ok || !botsRes.ok) throw new Error("Failed to fetch data from API.");
 
       const channelsData = await channelsRes.json();
       const botsData = await botsRes.json();
 
       setChannels(channelsData);
       setBots(botsData);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBotsAndChannels();
   }, []);
 
@@ -104,14 +106,15 @@ export default function ChannelsAdmin() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Gagal menyimpan channel.");
+        throw new Error(data.error || "Failed to save channel.");
       }
 
-      setSuccess(`Channel "${data.name}" berhasil disimpan!`);
+      setSuccess(`Channel "${data.name}" successfully saved!`);
       resetForm();
       fetchBotsAndChannels();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setSubmitLoading(false);
     }
@@ -138,7 +141,7 @@ export default function ChannelsAdmin() {
   };
 
   const handleDelete = async (channelId: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus channel Telegram ini?")) return;
+    if (!confirm("Are you sure you want to delete this Telegram channel?")) return;
     setError(null);
     setSuccess(null);
 
@@ -149,13 +152,14 @@ export default function ChannelsAdmin() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Gagal menghapus channel.");
+        throw new Error(data.error || "Failed to delete channel.");
       }
 
-      setSuccess("Channel berhasil dihapus.");
+      setSuccess("Channel deleted successfully.");
       fetchBotsAndChannels();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     }
   };
 
@@ -176,7 +180,7 @@ export default function ChannelsAdmin() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Telegram Channels</h1>
         <p className="text-muted-foreground text-sm">
-          Kelola channel tujuan broadcast notifikasi Telegram, konfigurasikan bot pengirim, dan atur kriteria video masuk
+          Manage destination channels for Telegram broadcasts, configure sending bots, and set video filtering criteria
         </p>
       </div>
 
@@ -186,10 +190,10 @@ export default function ChannelsAdmin() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Send className="h-5 w-5 text-primary" />
-              {isEditing ? "Edit Channel" : "Tambah Channel Baru"}
+              {isEditing ? "Edit Channel" : "Add New Channel"}
             </CardTitle>
             <CardDescription className="text-xs">
-              Konfigurasikan channel beserta filter konten otomatisnya
+              Configure the channel and its automatic content filters
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -212,7 +216,7 @@ export default function ChannelsAdmin() {
                 <label className="text-xs font-medium text-muted-foreground">Channel ID</label>
                 <Input
                   type="text"
-                  placeholder="@my_channel atau -10012345678"
+                  placeholder="@my_channel or -10012345678"
                   value={id}
                   onChange={(e) => setId(e.target.value)}
                   required
@@ -222,10 +226,10 @@ export default function ChannelsAdmin() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Nama Channel (Label)</label>
+                <label className="text-xs font-medium text-muted-foreground">Channel Name (Label)</label>
                 <Input
                   type="text"
-                  placeholder="Koleksi Terbaru KumpulEnak"
+                  placeholder="Latest Collection"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -235,14 +239,14 @@ export default function ChannelsAdmin() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Telegram Bot Pengirim</label>
+                <label className="text-xs font-medium text-muted-foreground">Telegram Sending Bot</label>
                 <select
                   value={botId}
                   onChange={(e) => setBotId(e.target.value)}
                   disabled={submitLoading}
                   className="w-full bg-background/50 border border-white/10 rounded-md text-xs p-2 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground cursor-pointer"
                 >
-                  <option value="">Default Bot (dari berkas .env)</option>
+                  <option value="">Default Bot (from .env file)</option>
                   {bots.map((bot) => (
                     <option key={bot.id} value={bot.id}>
                       @{bot.username} ({bot.name})
@@ -254,24 +258,24 @@ export default function ChannelsAdmin() {
               <div className="p-3 bg-muted/20 border border-white/5 rounded-lg space-y-3">
                 <div className="text-xs font-bold text-primary flex items-center gap-1.5">
                   <Sliders className="h-3.5 w-3.5" />
-                  Filter Pintar (Smart Routing)
+                  Smart Routing
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-medium text-muted-foreground">Urutan Konten / Rating</label>
+                  <label className="text-[10px] font-medium text-muted-foreground">Content Order / Rating</label>
                   <select
                     value={order}
                     onChange={(e) => setOrder(e.target.value as "latest" | "top-rated")}
                     disabled={submitLoading}
                     className="w-full bg-background/50 border border-white/10 rounded-md text-[11px] p-1.5 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground cursor-pointer"
                   >
-                    <option value="latest">Semua Video Baru (Latest)</option>
-                    <option value="top-rated">Hanya Rating Tinggi (Top-Rated &gt;= 90%)</option>
+                    <option value="latest">All New Videos (Latest)</option>
+                    <option value="top-rated">Only High Rating (Top-Rated &gt;= 90%)</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-medium text-muted-foreground">Filter Kategori (pisahkan dengan koma)</label>
+                  <label className="text-[10px] font-medium text-muted-foreground">Category Filter (comma-separated)</label>
                   <Input
                     type="text"
                     placeholder="Teen, Amateur, POV"
@@ -280,11 +284,11 @@ export default function ChannelsAdmin() {
                     disabled={submitLoading}
                     className="bg-background/50 border-white/10 text-[11px] h-8 focus-visible:ring-primary/50"
                   />
-                  <p className="text-[9px] text-muted-foreground">Kosongkan untuk mengizinkan semua kategori</p>
+                  <p className="text-[9px] text-muted-foreground">Leave blank to allow all categories</p>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-medium text-muted-foreground">Filter Tag (pisahkan dengan koma)</label>
+                  <label className="text-[10px] font-medium text-muted-foreground">Tag Filter (comma-separated)</label>
                   <Input
                     type="text"
                     placeholder="college, blonde, milf"
@@ -293,14 +297,14 @@ export default function ChannelsAdmin() {
                     disabled={submitLoading}
                     className="bg-background/50 border-white/10 text-[11px] h-8 focus-visible:ring-primary/50"
                   />
-                  <p className="text-[9px] text-muted-foreground">Kosongkan untuk mengizinkan semua tag</p>
+                  <p className="text-[9px] text-muted-foreground">Leave blank to allow all tags</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Custom Template Pesan (Opsional)</label>
+                <label className="text-xs font-medium text-muted-foreground">Custom Message Template (Optional)</label>
                 <textarea
-                  placeholder="🎬 {title}&#10;⏱ Durasi: {duration}&#10;⭐ Rating: {rating}"
+                  placeholder="🎬 {title}&#10;⏱ Duration: {duration}&#10;⭐ Rating: {rating}"
                   value={template}
                   onChange={(e) => setTemplate(e.target.value)}
                   disabled={submitLoading}
@@ -318,7 +322,7 @@ export default function ChannelsAdmin() {
                   className="rounded border-white/10 text-primary focus:ring-primary/50 h-4 w-4 cursor-pointer"
                 />
                 <label htmlFor="isActive" className="text-xs font-medium text-muted-foreground cursor-pointer">
-                  Channel Aktif (Menerima Broadcast)
+                  Active Channel (Receives Broadcasts)
                 </label>
               </div>
 
@@ -327,14 +331,14 @@ export default function ChannelsAdmin() {
                   {submitLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : isEditing ? (
-                    "Simpan Perubahan"
+                    "Save Changes"
                   ) : (
-                    "Tambah Channel"
+                    "Add Channel"
                   )}
                 </Button>
                 {isEditing && (
                   <Button type="button" variant="outline" className="text-xs font-medium" onClick={resetForm} disabled={submitLoading}>
-                    Batal
+                    Cancel
                   </Button>
                 )}
               </div>
@@ -345,9 +349,9 @@ export default function ChannelsAdmin() {
         {/* Channels Table */}
         <Card className="bg-card/40 backdrop-blur-sm border-white/5 xl:col-span-2">
           <CardHeader>
-            <CardTitle className="text-lg font-bold">Channel Konfigurasi</CardTitle>
+            <CardTitle className="text-lg font-bold">Configured Channels</CardTitle>
             <CardDescription className="text-xs">
-              Daftar channel aktif beserta bot pengirim dan aturan filter routing
+              List of active channels with sending bots and routing filter rules
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -361,11 +365,11 @@ export default function ChannelsAdmin() {
                   <TableHeader className="bg-background/50">
                     <TableRow>
                       <TableHead>Channel ID</TableHead>
-                      <TableHead>Nama Channel</TableHead>
-                      <TableHead>Bot Pengirim</TableHead>
-                      <TableHead>Filter Routing</TableHead>
+                      <TableHead>Channel Name</TableHead>
+                      <TableHead>Sending Bot</TableHead>
+                      <TableHead>Routing Filter</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="w-[120px] text-center">Aksi</TableHead>
+                      <TableHead className="w-[120px] text-center">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -388,31 +392,31 @@ export default function ChannelsAdmin() {
                         <TableCell className="max-w-[200px]">
                           <div className="space-y-1 text-[11px] text-muted-foreground">
                             {ch.routingRules?.order && (
-                              <div>Urutan: <span className="text-foreground font-semibold">{ch.routingRules.order}</span></div>
+                              <div>Order: <span className="text-foreground font-semibold">{ch.routingRules.order}</span></div>
                             )}
                             {ch.routingRules?.categories && ch.routingRules.categories.length > 0 && (
                               <div className="truncate" title={ch.routingRules.categories.join(", ")}>
-                                Kategori: <span className="text-primary">{ch.routingRules.categories.join(", ")}</span>
+                                Categories: <span className="text-primary">{ch.routingRules.categories.join(", ")}</span>
                               </div>
                             )}
                             {ch.routingRules?.tags && ch.routingRules.tags.length > 0 && (
                               <div className="truncate" title={ch.routingRules.tags.join(", ")}>
-                                Tag: <span className="text-emerald-400">{ch.routingRules.tags.join(", ")}</span>
+                                Tags: <span className="text-emerald-400">{ch.routingRules.tags.join(", ")}</span>
                               </div>
                             )}
                             {(!ch.routingRules?.order && (!ch.routingRules?.categories || ch.routingRules.categories.length === 0) && (!ch.routingRules?.tags || ch.routingRules.tags.length === 0)) && (
-                              <span className="text-muted-foreground/60 italic">Semua Konten Masuk</span>
+                              <span className="text-muted-foreground/60 italic">All Incoming Content</span>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
                           {ch.isActive ? (
                             <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[10px] px-1.5 py-0 h-5">
-                              Aktif
+                              Active
                             </Badge>
                           ) : (
                             <Badge className="bg-muted text-muted-foreground text-[10px] px-1.5 py-0 h-5">
-                              Nonaktif
+                              Inactive
                             </Badge>
                           )}
                         </TableCell>
@@ -437,7 +441,7 @@ export default function ChannelsAdmin() {
                     {channels.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground py-8 text-xs">
-                          Belum ada channel Telegram yang dikonfigurasi.
+                          No Telegram channels configured yet.
                         </TableCell>
                       </TableRow>
                     )}

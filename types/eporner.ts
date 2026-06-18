@@ -32,7 +32,3 @@ export interface EpornerSearchResponse {
   videos: EpornerVideo[];
 }
 
-export interface EpornerRemovedResponse {
-  time_ms: number;
-  removed_videos: string[];
-}
