@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Metadata } from "next";
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const video = await prisma.video.findUnique({ where: { id: params.id } });
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const resolvedParams = await params;
+  const video = await prisma.video.findUnique({ where: { id: resolvedParams.id } });
   if (!video) return { title: "Not Found" };
   return {
     title: `${video.title} - Eporner Aggregator`,
@@ -13,11 +14,13 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default async function VideoPage({ params }: { params: { id: string } }) {
+export default async function VideoPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   const video = await prisma.video.findUnique({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     include: { tags: { include: { tag: true } }, categories: { include: { category: true } } },
   });
+
 
   if (!video || video.status !== "ACTIVE") {
     return notFound();

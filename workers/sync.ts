@@ -19,16 +19,57 @@ export const syncWorker = new Worker(
     let itemsAdded = 0;
 
     try {
-      // 1. Fetch Removed Videos
-      console.log(`[SyncWorker] Fetching removed videos...`);
-      const removedRes = await EpornerAPI.getRemoved();
-      if (removedRes && removedRes.removed_videos.length > 0) {
-        await prisma.video.updateMany({
-          where: { id: { in: removedRes.removed_videos } },
-          data: { status: "REMOVED" },
+      // 1. Fetch Removed Videos (only if last check was > 24 hours ago)
+      const lastSyncSetting = await prisma.settings.findUnique({ where: { key: "last_removed_sync_at" } });
+      const lastSync = lastSyncSetting ? new Date(JSON.parse(lastSyncSetting.value)) : null;
+      const now = new Date();
+      const isDue = !lastSync || (now.getTime() - lastSync.getTime() > 24 * 60 * 60 * 1000);
+
+      if (isDue) {
+        console.log(`[SyncWorker] Fetching removed videos...`);
+        const removedText = await EpornerAPI.getRemoved();
+        
+        // Get active videos from DB
+        const activeVideos = await prisma.video.findMany({
+          where: { status: "ACTIVE" },
+          select: { id: true },
         });
-        console.log(`[SyncWorker] Updated removed videos status.`);
+
+        if (activeVideos.length > 0) {
+          const activeIds = activeVideos.map((v) => v.id);
+          const removedIds = activeIds.filter((id) => {
+            const index = removedText.indexOf(id);
+            if (index === -1) return false;
+            
+            const charBefore = index > 0 ? removedText[index - 1] : "\n";
+            const charAfter = index + id.length < removedText.length ? removedText[index + id.length] : "\n";
+            
+            return (charBefore === "\n" || charBefore === "\r") && (charAfter === "\n" || charAfter === "\r");
+          });
+
+          if (removedIds.length > 0) {
+            console.log(`[SyncWorker] Found ${removedIds.length} removed videos. Updating status to REMOVED...`);
+            await prisma.video.updateMany({
+              where: { id: { in: removedIds } },
+              data: { status: "REMOVED" },
+            });
+          } else {
+            console.log(`[SyncWorker] No active videos were found in the removed list.`);
+          }
+        }
+
+        // Save last sync time
+        await prisma.settings.upsert({
+          where: { key: "last_removed_sync_at" },
+          create: { key: "last_removed_sync_at", value: JSON.stringify(now.toISOString()) },
+          update: { value: JSON.stringify(now.toISOString()) },
+        });
+
+        console.log(`[SyncWorker] Removed videos check completed.`);
+      } else {
+        console.log(`[SyncWorker] Skipping removed videos sync (last run: ${lastSync?.toISOString()})`);
       }
+
 
       // 2. Fetch Latest Videos
       console.log(`[SyncWorker] Fetching latest videos...`);
@@ -55,20 +96,20 @@ export const syncWorker = new Worker(
                 status: "ACTIVE",
                 // Handle tags
                 tags: {
-                  create: v.keywords.split(",").map((t) => {
-                    const cleanTag = t.trim().toLowerCase();
-                    return {
+                  create: Array.from(new Set(v.keywords.split(",").map((t) => t.trim().toLowerCase())))
+                    .filter(Boolean)
+                    .map((cleanTag) => ({
                       tag: {
                         connectOrCreate: {
                           where: { name: cleanTag },
                           create: { name: cleanTag },
                         },
                       },
-                    };
-                  }),
+                    })),
                 },
               },
             });
+
 
             itemsAdded++;
 

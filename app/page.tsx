@@ -3,9 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
-export default async function Home({ searchParams }: { searchParams: { q?: string, page?: string } }) {
-  const query = searchParams.q || "";
-  const page = parseInt(searchParams.page || "1");
+export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string, page?: string }> }) {
+  const resolvedSearchParams = await searchParams;
+  const query = resolvedSearchParams.q || "";
+  const page = parseInt(resolvedSearchParams.page || "1");
+
   const limit = 24;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

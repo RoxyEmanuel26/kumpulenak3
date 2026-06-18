@@ -30,8 +30,8 @@ export default function RootLayout({
                 </Link>
                 <nav className="flex items-center space-x-6 text-sm font-medium">
                   <Link className="transition-colors hover:text-foreground/80 text-foreground/60" href="/">Home</Link>
-                  <Link className="transition-colors hover:text-foreground/80 text-foreground/60" href="/admin">Admin Dashboard</Link>
                 </nav>
+
               </div>
             </div>
           </header>

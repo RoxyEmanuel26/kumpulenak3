@@ -31,10 +31,12 @@ export const EpornerAPI = {
     }
   },
 
-  async getRemoved(): Promise<EpornerRemovedResponse> {
-    const { data } = await axios.get<EpornerRemovedResponse>(`${BASE_URL}/removed/`, {
+  async getRemoved(): Promise<string> {
+    const { data } = await axios.get<string>(`${BASE_URL}/removed/`, {
       params: { format: "json" },
+      responseType: "text",
     });
     return data;
   },
 };
+
