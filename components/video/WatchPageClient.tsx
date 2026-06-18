@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoCardMini } from "./VideoCardMini";
 import { useUI } from "../layout/UIContext";
@@ -96,29 +97,29 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
           </h1>
 
           {/* Action Bar */}
-          <div className="flex items-center justify-between gap-3 py-2.5 border-b border-white/5 w-full">
+          <div className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-white/5 w-full">
             <div className="flex items-center bg-[#272727] hover:bg-[#3F3F3F] transition-colors rounded-full overflow-hidden border border-white/5 shrink-0">
               <button 
                 onClick={handleLike}
-                className={`flex items-center gap-2 px-4 py-2 border-r border-white/10 cursor-pointer transition-colors ${isLikedGlobal ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 border-r border-white/10 cursor-pointer transition-colors ${isLikedGlobal ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
               >
-                <ThumbsUp className={`w-4 h-4 ${isLikedGlobal ? "fill-current text-green-500" : ""}`} />
+                <ThumbsUp className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isLikedGlobal ? "fill-current text-green-500" : ""}`} />
                 <span className="text-xs sm:text-sm font-semibold font-mono">
                   {displayLikes.toLocaleString("en-US")}
                 </span>
               </button>
               <button 
                 onClick={handleDislike}
-                className={`flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors ${localVote === "dislike" ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 cursor-pointer transition-colors ${localVote === "dislike" ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
               >
-                <ThumbsDown className={`w-4 h-4 ${localVote === "dislike" ? "fill-current text-red-500" : ""}`} />
+                <ThumbsDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${localVote === "dislike" ? "fill-current text-red-500" : ""}`} />
                 <span className="text-xs sm:text-sm font-semibold font-mono">
                   {displayDislikes.toLocaleString("en-US")}
                 </span>
               </button>
             </div>
 
-            <span className="text-[10px] sm:text-xs text-muted-foreground font-mono bg-[#161616]/40 border border-white/5 px-3 py-1.5 rounded-full backdrop-blur-md">
+            <span className="text-[10px] sm:text-xs text-muted-foreground font-mono bg-[#161616]/40 border border-white/5 px-2.5 sm:px-3 py-1.5 rounded-full backdrop-blur-md shrink-0">
               {currentPercent}% approval
             </span>
           </div>
@@ -132,8 +133,14 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
             </div>
             
             <div className={`text-xs sm:text-sm text-[#F1F1F1] leading-relaxed whitespace-pre-wrap ${!descExpanded ? "line-clamp-3" : ""}`}>
-               {keywordsList.slice(0, 10).map((tag, idx) => (
-                  <span key={idx} className="text-blue-400 cursor-pointer hover:underline mr-2">#{tag.replace(/\s+/g, '')}</span>
+               {(descExpanded ? keywordsList : keywordsList.slice(0, 10)).map((tag, idx) => (
+                  <Link 
+                    key={idx} 
+                    href={`/results?search_query=${encodeURIComponent(tag)}`}
+                    className="text-blue-400 hover:underline mr-2 inline-block"
+                  >
+                    #{tag.replace(/\s+/g, '')}
+                  </Link>
                ))}
             </div>
 
@@ -147,10 +154,12 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
             {/* Tags / Categories badges inside desc */}
             {descExpanded && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
-                {keywordsList.slice(0, 15).map((tag, index) => (
-                  <Badge key={index} variant="secondary" className="bg-white/10 text-xs text-[#F1F1F1] hover:bg-white/20 border-0 cursor-pointer py-1 px-2.5 rounded-lg">
-                    {tag}
-                  </Badge>
+                {keywordsList.map((tag, index) => (
+                  <Link key={index} href={`/results?search_query=${encodeURIComponent(tag)}`}>
+                    <Badge variant="secondary" className="bg-white/10 text-xs text-[#F1F1F1] hover:bg-white/20 border-0 cursor-pointer py-1 px-2.5 rounded-lg">
+                      {tag}
+                    </Badge>
+                  </Link>
                 ))}
               </div>
             )}

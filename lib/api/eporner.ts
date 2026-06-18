@@ -18,11 +18,23 @@ export function repairMojibake(str: string): string {
   });
 }
 
+export function decodeHtmlEntities(str: string): string {
+  if (!str) return str;
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
 export function cleanEpornerText(str: string): string {
   if (!str) return str;
   const repaired = repairMojibake(str);
+  const decoded = decodeHtmlEntities(repaired);
   // Remove zero-width space (\u200b), zero-width non-joiner (\u200c), zero-width joiner (\u200d), left-to-right mark (\u200e), right-to-left mark (\u200f), byte order mark (\ufeff)
-  return repaired.replace(/[\u200b-\u200d\u200e\u200f\ufeff]/g, '');
+  return decoded.replace(/[\u200b-\u200d\u200e\u200f\ufeff]/g, '');
 }
 
 function cleanVideoData(video: EpornerVideo): EpornerVideo {
