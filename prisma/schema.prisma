@@ -17,6 +17,13 @@ model Video {
   status      VideoStatus @default(ACTIVE)
   addedAt     DateTime? // from API added property
 
+  // AI Classification & SEO
+  aiScoreTrending   Float?
+  aiScoreEngagement Float?
+  aiScoreSpam       Float?
+  aiSpamFlag        Boolean     @default(false)
+  aiDescription     String?
+
   tags        VideoTag[]
   categories  VideoCategory[]
 
@@ -88,10 +95,24 @@ model TelegramChannel {
   template       String?  // Custom message template
   routingRules   Json?    // Optional tag/category filters
   
+  botId          String?  // Link to custom bot, if null use default bot
+  bot            TelegramBot? @relation(fields: [botId], references: [id], onDelete: SetNull)
+
   broadcasts     BroadcastLog[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model TelegramBot {
+  id        String            @id @default(cuid())
+  token     String            @unique
+  name      String
+  username  String?
+  isActive  Boolean           @default(true)
+  channels  TelegramChannel[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 }
 
 model BroadcastLog {
@@ -106,11 +127,22 @@ model BroadcastLog {
   video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
   channel        TelegramChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
+  clicks         TelegramClick[]
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@unique([videoId, channelId]) // Deduplication
   @@index([status])
+}
+
+model TelegramClick {
+  id             String       @id @default(cuid())
+  broadcastLogId String
+  clickedAt      DateTime     @default(now())
+  broadcastLog   BroadcastLog @relation(fields: [broadcastLogId], references: [id], onDelete: Cascade)
+  
+  @@index([clickedAt])
 }
 
 enum BroadcastStatus {

@@ -3,6 +3,8 @@ import { QUEUE_NAMES, enqueueBroadcastJob } from "../lib/queue/bullmq";
 import { redisConnection } from "../lib/queue/redis";
 import { EpornerAPI } from "../lib/api/eporner";
 import { prisma } from "../lib/db/prisma";
+import { GeminiAPI } from "../lib/api/gemini";
+
 
 export const syncWorker = new Worker(
   QUEUE_NAMES.SYNC,
@@ -83,6 +85,14 @@ export const syncWorker = new Worker(
           // Check if video already exists
           const existing = await prisma.video.findUnique({ where: { id: v.id } });
           if (!existing) {
+            console.log(`[SyncWorker] Running Gemini AI classification for: "${v.title}"`);
+            const aiResult = await GeminiAPI.classifyVideo(v.title, v.keywords);
+
+            const rawTags = aiResult.cleanedTags.length > 0 
+              ? aiResult.cleanedTags 
+              : v.keywords.split(",");
+            const finalTags = Array.from(new Set(rawTags.map((t) => t.trim().toLowerCase()))).filter(Boolean);
+
             // New video -> Add to DB
             await prisma.video.create({
               data: {
@@ -93,19 +103,39 @@ export const syncWorker = new Worker(
                 views: v.views,
                 thumbnail: v.default_thumb?.src,
                 embedUrl: v.embed,
-                status: "ACTIVE",
+                status: aiResult.isSpam ? "DRAFT" : "ACTIVE",
+                
+                // AI features
+                aiScoreTrending: aiResult.scores.trending,
+                aiScoreEngagement: aiResult.scores.engagement,
+                aiScoreSpam: aiResult.scores.spam,
+                aiSpamFlag: aiResult.isSpam,
+                aiDescription: aiResult.seoDescription,
+                
                 // Handle tags
                 tags: {
-                  create: Array.from(new Set(v.keywords.split(",").map((t) => t.trim().toLowerCase())))
-                    .filter(Boolean)
-                    .map((cleanTag) => ({
-                      tag: {
+                  create: finalTags.map((cleanTag) => ({
+                    tag: {
+                      connectOrCreate: {
+                        where: { name: cleanTag },
+                        create: { name: cleanTag },
+                      },
+                    },
+                  })),
+                },
+                
+                // Handle category
+                categories: {
+                  create: [
+                    {
+                      category: {
                         connectOrCreate: {
-                          where: { name: cleanTag },
-                          create: { name: cleanTag },
+                          where: { name: aiResult.category.trim() },
+                          create: { name: aiResult.category.trim() },
                         },
                       },
-                    })),
+                    },
+                  ],
                 },
               },
             });

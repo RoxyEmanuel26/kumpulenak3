@@ -66,8 +66,12 @@ export async function verifyJWT(token: string): Promise<Record<string, any> | nu
     const key = await getCryptoKey(JWT_SECRET);
     const enc = new TextEncoder();
     
-    // Decode signature
-    const sigString = atob(signature.replace(/-/g, "+").replace(/_/g, "/"));
+    // Decode signature with padding
+    let base64Sig = signature.replace(/-/g, "+").replace(/_/g, "/");
+    while (base64Sig.length % 4) {
+      base64Sig += "=";
+    }
+    const sigString = atob(base64Sig);
     const sigBytes = new Uint8Array(sigString.length);
     for (let i = 0; i < sigString.length; i++) {
       sigBytes[i] = sigString.charCodeAt(i);

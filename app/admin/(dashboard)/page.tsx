@@ -1,4 +1,4 @@
-import { prisma } from "../../lib/db/prisma";
+import { prisma } from "../../../lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function AdminDashboard() {

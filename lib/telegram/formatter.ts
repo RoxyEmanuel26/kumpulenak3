@@ -5,11 +5,11 @@ export function formatVideoMessage(video: Video & { tags: { tag: Tag }[] }, temp
   
   if (template) {
     return template
-      .replace(/{{title}}/g, video.title)
-      .replace(/{{duration}}/g, video.duration || "N/A")
-      .replace(/{{rating}}/g, video.rating || "N/A")
-      .replace(/{{views}}/g, video.views.toString())
-      .replace(/{{tags}}/g, tagList);
+      .replace(/{{title}}/g, escapeMarkdownV2(video.title))
+      .replace(/{{duration}}/g, escapeMarkdownV2(video.duration || "N/A"))
+      .replace(/{{rating}}/g, escapeMarkdownV2(video.rating || "N/A"))
+      .replace(/{{views}}/g, escapeMarkdownV2(video.views.toString()))
+      .replace(/{{tags}}/g, escapeMarkdownV2(tagList));
   }
 
   return `

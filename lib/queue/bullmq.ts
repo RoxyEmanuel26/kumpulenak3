@@ -6,10 +6,29 @@ export const QUEUE_NAMES = {
   BROADCAST: "broadcast-queue",
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const syncQueue = new Queue(QUEUE_NAMES.SYNC, { connection: redisConnection as any });
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const broadcastQueue = new Queue(QUEUE_NAMES.BROADCAST, { connection: redisConnection as any });
+const globalForQueues = global as unknown as {
+  syncQueue: Queue;
+  broadcastQueue: Queue;
+};
+
+let syncQueueInstance: Queue;
+let broadcastQueueInstance: Queue;
+
+if (globalForQueues.syncQueue && globalForQueues.broadcastQueue) {
+  syncQueueInstance = globalForQueues.syncQueue;
+  broadcastQueueInstance = globalForQueues.broadcastQueue;
+} else {
+  syncQueueInstance = new Queue(QUEUE_NAMES.SYNC, { connection: redisConnection as any });
+  broadcastQueueInstance = new Queue(QUEUE_NAMES.BROADCAST, { connection: redisConnection as any });
+  
+  if (process.env.NODE_ENV !== 'production') {
+    globalForQueues.syncQueue = syncQueueInstance;
+    globalForQueues.broadcastQueue = broadcastQueueInstance;
+  }
+}
+
+export const syncQueue = syncQueueInstance;
+export const broadcastQueue = broadcastQueueInstance;
 
 export async function enqueueSyncJob() {
   await syncQueue.add("run-sync", {}, { removeOnComplete: true, removeOnFail: 100 });
