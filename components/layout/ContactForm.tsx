@@ -167,7 +167,7 @@ export function ContactForm() {
               <CardContent className="p-6 space-y-6 text-left">
                 <h3 className="font-bold text-white text-lg">Contact Information</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  We are always open to discussing new feed feature additions, bot script optimization, and other business collaborations.
+                  We are always open to discussing new feed feature additions and other business collaborations.
                 </p>
 
                 <div className="space-y-4">
