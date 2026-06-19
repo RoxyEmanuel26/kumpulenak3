@@ -4,14 +4,11 @@ import { hashPassword } from "../lib/auth/crypto";
 
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL || "REDACTED_EMAIL";
-  const defaultPassword = process.env.ADMIN_PASSWORD || "REDACTED_PASSWORD";
+  const email = process.env.ADMIN_EMAIL;
+  const defaultPassword = process.env.ADMIN_PASSWORD;
   
-  if (!process.env.ADMIN_EMAIL) {
-    console.warn("[Seed] WARNING: ADMIN_EMAIL environment variable is not defined. Using fallback email.");
-  }
-  if (!process.env.ADMIN_PASSWORD) {
-    console.warn("[Seed] WARNING: ADMIN_PASSWORD environment variable is not defined. Using fallback default password.");
+  if (!email || !defaultPassword) {
+    throw new Error("[Seed] ERROR: ADMIN_EMAIL and ADMIN_PASSWORD must be defined in your local .env file. Seeding aborted.");
   }
   
   const hashedPassword = hashPassword(defaultPassword);
