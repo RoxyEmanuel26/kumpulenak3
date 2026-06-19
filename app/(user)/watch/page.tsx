@@ -3,6 +3,11 @@ import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { syncVideoToDatabase } from "@/lib/video/sync";
+import { cache } from "react";
+
+const getCachedVideoById = cache(async (id: string) => {
+  return EpornerAPI.getById(id);
+});
 
 export async function generateMetadata({
   searchParams,
@@ -13,7 +18,7 @@ export async function generateMetadata({
   const videoId = resolvedSearchParams.v;
   if (!videoId) return { title: "Watch Video - KumpulEnak" };
 
-  const video = await EpornerAPI.getById(videoId);
+  const video = await getCachedVideoById(videoId);
   if (!video) return { title: "Video Not Found - KumpulEnak" };
 
   return {
@@ -31,7 +36,7 @@ export default async function WatchPage({
   const videoId = resolvedSearchParams.v;
   if (!videoId) return notFound();
 
-  const video = await EpornerAPI.getById(videoId);
+  const video = await getCachedVideoById(videoId);
   if (!video) return notFound();
 
   // HYBRID SYNC: trigger background sync without blocking the UI

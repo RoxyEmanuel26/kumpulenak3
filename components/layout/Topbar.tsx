@@ -30,7 +30,7 @@ export function Topbar({ isAdmin = false }: TopbarProps) {
       <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-[#0F0F0F] border-b border-white/5 flex items-center px-4 gap-3">
         <button
           onClick={() => setShowMobileSearch(false)}
-          className="p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+          className="p-2.5 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
           aria-label="Back"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -71,7 +71,7 @@ export function Topbar({ isAdmin = false }: TopbarProps) {
               toggleSidebar();
             }
           }}
-          className="p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+          className="p-2.5 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
           aria-label="Toggle Sidebar"
         >
           <Menu className="h-5 w-5" />
@@ -112,7 +112,7 @@ export function Topbar({ isAdmin = false }: TopbarProps) {
       {/* Right section: Actions & Profile */}
       <div className="flex items-center gap-2">
         <button
-          className="p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer sm:hidden"
+          className="p-2.5 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer sm:hidden"
           onClick={() => setShowMobileSearch(true)}
           aria-label="Search Mobile"
         >
@@ -123,7 +123,7 @@ export function Topbar({ isAdmin = false }: TopbarProps) {
         <div className="relative">
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer flex items-center justify-center border border-white/10 h-8 w-8"
+            className="p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer flex items-center justify-center border border-white/10 h-9 w-9"
             aria-label="Profile Menu"
           >
             <User className="h-4 w-4" />

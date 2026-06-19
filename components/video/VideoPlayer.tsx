@@ -23,6 +23,13 @@ export function VideoPlayer({
   
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Reset loading state when the embedUrl changes to show the spinner (render-phase state adjustment)
+  const [prevEmbedUrl, setPrevEmbedUrl] = useState(embedUrl);
+  if (embedUrl !== prevEmbedUrl) {
+    setPrevEmbedUrl(embedUrl);
+    setLoading(true);
+  }
+
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
     
@@ -49,7 +56,7 @@ export function VideoPlayer({
           toggleFullscreen();
           break;
         case "t":
-          if (onToggleTheater) {
+          if (onToggleTheater && window.innerWidth >= 768) {
             e.preventDefault();
             onToggleTheater();
           }

@@ -25,6 +25,7 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [likedVideos, setLikedVideos] = useState<string[]>([]);
   const [watchHistory, setWatchHistory] = useState<string[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Load from localStorage on client mount
   useEffect(() => {
@@ -37,35 +38,50 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error("Failed to load local settings:", e);
     }
+    setIsMounted(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  // Save likedVideos to localStorage on change
+  useEffect(() => {
+    if (!isMounted) return;
+    try {
+      localStorage.setItem("kumpulenak_likes", JSON.stringify(likedVideos));
+    } catch (e) {
+      console.error("Failed to save likes:", e);
+    }
+  }, [likedVideos, isMounted]);
+
+  // Save watchHistory to localStorage on change
+  useEffect(() => {
+    if (!isMounted) return;
+    try {
+      localStorage.setItem("kumpulenak_history", JSON.stringify(watchHistory));
+    } catch (e) {
+      console.error("Failed to save history:", e);
+    }
+  }, [watchHistory, isMounted]);
 
   const toggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const toggleMobileMenu = useCallback(() => setMobileMenuOpen((prev) => !prev), []);
 
   const toggleLikeVideo = useCallback((videoId: string) => {
-    setLikedVideos((prev) => {
-      const next = prev.includes(videoId) 
+    setLikedVideos((prev) => 
+      prev.includes(videoId) 
         ? prev.filter((id) => id !== videoId)
-        : [...prev, videoId];
-      try { localStorage.setItem("kumpulenak_likes", JSON.stringify(next)); } catch (e) { console.error("Failed to save likes:", e); }
-      return next;
-    });
+        : [...prev, videoId]
+    );
   }, []);
 
   const addToHistory = useCallback((videoId: string) => {
     setWatchHistory((prev) => {
-      // Avoid duplicates: remove and place at start
       const filtered = prev.filter((id) => id !== videoId);
-      const next = [videoId, ...filtered].slice(0, 50); // limit to 50 items
-      try { localStorage.setItem("kumpulenak_history", JSON.stringify(next)); } catch (e) { console.error("Failed to save history:", e); }
-      return next;
+      return [videoId, ...filtered].slice(0, 50);
     });
   }, []);
 
   const clearHistory = useCallback(() => {
     setWatchHistory([]);
-    try { localStorage.removeItem("kumpulenak_history"); } catch (e) { console.error("Failed to clear history:", e); }
   }, []);
 
   return (

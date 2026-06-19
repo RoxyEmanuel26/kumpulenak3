@@ -52,6 +52,13 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
     addToHistory(video.id);
   }, [video.id, addToHistory]);
 
+  // Reset local vote state when video changes to prevent cross-video state leakage (render-phase state adjustment)
+  const [prevVideoId, setPrevVideoId] = useState(video.id);
+  if (video.id !== prevVideoId) {
+    setPrevVideoId(video.id);
+    setLocalVote(null);
+  }
+
   const handleLike = () => {
     toggleLikeVideo(video.id);
     if (localVote === "dislike") {
@@ -101,7 +108,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
             <div className="flex items-center bg-[#272727] hover:bg-[#3F3F3F] transition-colors rounded-full overflow-hidden border border-white/5 shrink-0">
               <button 
                 onClick={handleLike}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 border-r border-white/10 cursor-pointer transition-colors ${isLikedGlobal ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-2 border-r border-white/10 cursor-pointer transition-colors ${isLikedGlobal ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
               >
                 <ThumbsUp className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isLikedGlobal ? "fill-current text-green-500" : ""}`} />
                 <span className="text-xs sm:text-sm font-semibold font-mono">
@@ -110,7 +117,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
               </button>
               <button 
                 onClick={handleDislike}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 cursor-pointer transition-colors ${localVote === "dislike" ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-2 cursor-pointer transition-colors ${localVote === "dislike" ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
               >
                 <ThumbsDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${localVote === "dislike" ? "fill-current text-red-500" : ""}`} />
                 <span className="text-xs sm:text-sm font-semibold font-mono">
