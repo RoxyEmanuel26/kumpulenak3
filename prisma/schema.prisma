@@ -30,8 +30,6 @@ model Video {
   tags        VideoTag[]
   categories  VideoCategory[]
 
-  broadcasts  BroadcastLog[]
-
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -91,92 +89,8 @@ enum JobStatus {
   FAILED
 }
 
-model TelegramChannel {
-  id             String   @id // Telegram Chat ID
-  name           String
-  isActive       Boolean  @default(true)
-  template       String?  // Custom message template
-  routingRules   Json?    // Optional tag/category filters
-  
-  botId          String?  // Link to custom bot, if null use default bot
-  bot            TelegramBot? @relation(fields: [botId], references: [id], onDelete: SetNull)
-
-  broadcasts     BroadcastLog[]
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model TelegramBot {
-  id        String            @id @default(cuid())
-  token     String            @unique
-  name      String
-  username  String?
-  isActive  Boolean           @default(true)
-  channels  TelegramChannel[]
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-}
-
-model BroadcastLog {
-  id             String   @id @default(cuid())
-  videoId        String
-  channelId      String
-  status         BroadcastStatus @default(PENDING)
-  retryCount     Int      @default(0)
-  errorMessage   String?
-  messageId      String?  // The Telegram message ID if successful
-  
-  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  channel        TelegramChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-
-  clicks         TelegramClick[]
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([videoId, channelId]) // Deduplication
-  @@index([status])
-}
-
-model TelegramClick {
-  id             String       @id @default(cuid())
-  broadcastLogId String
-  clickedAt      DateTime     @default(now())
-  broadcastLog   BroadcastLog @relation(fields: [broadcastLogId], references: [id], onDelete: Cascade)
-  
-  @@index([clickedAt])
-}
-
-enum BroadcastStatus {
-  PENDING
-  SENT
-  FAILED
-}
-
-model AdminUser {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String   // Hashed
-  name      String?
-  auditLogs AuditLog[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Settings {
   key       String   @id
   value     String   // JSON stringified value
   updatedAt DateTime @updatedAt
-}
-
-model AuditLog {
-  id        String    @id @default(cuid())
-  adminId   String
-  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  action    String
-  details   Json?
-  createdAt DateTime  @default(now())
-
-  @@index([adminId])
 }

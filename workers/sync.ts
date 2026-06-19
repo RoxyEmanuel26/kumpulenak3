@@ -1,5 +1,5 @@
 import { Worker, Job } from "bullmq";
-import { QUEUE_NAMES, enqueueBroadcastJob } from "../lib/queue/bullmq";
+import { QUEUE_NAMES } from "../lib/queue/bullmq";
 import { redisConnection } from "../lib/queue/redis";
 import { EpornerAPI } from "../lib/api/eporner";
 import { prisma } from "../lib/db/prisma";
@@ -146,10 +146,8 @@ export const syncWorker = new Worker(
             });
 
 
+            // Sync completed for video
             itemsAdded++;
-
-            // Enqueue Broadcast Job
-            await enqueueBroadcastJob(v.id);
           }
         }
       }

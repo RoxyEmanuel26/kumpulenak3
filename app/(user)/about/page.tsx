@@ -22,8 +22,6 @@ export default function AboutPage() {
       <ul className="list-disc pl-5 text-sm text-foreground/70 space-y-2">
         <li>Real-time automated content synchronization with media feeds.</li>
         <li>Custom optimized inline-iframe streaming engine with low-latency responsiveness.</li>
-        <li>Fully integrated Telegram broadcast pipelines supporting smart keyword, rating, and category routing rules.</li>
-        <li>Advanced background analytics monitoring click-through rates (CTR) and user engagement metrics.</li>
       </ul>
 
       <h2 className="text-xl font-bold mt-6 text-white/90">Premium Aesthetics</h2>

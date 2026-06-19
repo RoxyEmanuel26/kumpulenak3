@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This project is fully containerized using Docker and Docker Compose. It includes the Next.js web application, the Node.js background workers (Sync and Broadcast), PostgreSQL, and Redis.
+This project is fully containerized using Docker and Docker Compose. It includes the Next.js web application, the Node.js background workers (Sync), PostgreSQL, and Redis.
 
 ## Prerequisites
 - [Docker](https://docs.docker.com/get-docker/) installed and running.
@@ -8,8 +8,7 @@ This project is fully containerized using Docker and Docker Compose. It includes
 
 ## Environment Variables
 Before running the application, make sure your `.env` file is properly configured.
-1. Set `TELEGRAM_BOT_TOKEN` with your bot token from [@BotFather](https://t.me/BotFather).
-2. Ensure `NEXT_PUBLIC_APP_URL` is set to the correct URL (e.g., `https://yourdomain.com`).
+1. Ensure `NEXT_PUBLIC_APP_URL` is set to the correct URL (e.g., `https://yourdomain.com`).
 
 ## Running Locally / Development
 
@@ -64,7 +63,4 @@ docker compose up -d
 docker compose logs -f
 ```
 
-## Adding Telegram Channels
-1. Go to the Admin Dashboard `http://localhost:3000/admin/channels`.
-2. Add a new channel. The `Channel ID` should be the ID of the chat/channel (e.g. `@my_channel` or `-10012345678`).
-3. Make sure to add your Telegram Bot as an **Administrator** in the target channel so it has permission to send messages.
+

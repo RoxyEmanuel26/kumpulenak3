@@ -26,9 +26,8 @@ export default function PrivacyPage() {
 
       <h2 className="text-xl font-bold mt-6 text-white/90">2. Cookies</h2>
       <p className="text-sm text-foreground/80 leading-relaxed">
-        We only set standard technical cookies to support secure administrator session management 
-        (e.g., <code className="bg-white/10 px-1 py-0.5 rounded text-xs">admin_session</code>). No third-party 
-        tracking or advertising cookies are embedded.
+        This platform does not set any tracking, advertising, or persistent session cookies. No third-party 
+        tracking scripts are embedded.
       </p>
 
       <h2 className="text-xl font-bold mt-6 text-white/90">3. Third-Party Integrations</h2>

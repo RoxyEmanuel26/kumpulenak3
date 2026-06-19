@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
-import { enqueueBroadcastJob } from "@/lib/queue/bullmq";
 import { Prisma } from "@prisma/client";
 
 export async function syncVideoToDatabase(videoId: string) {
@@ -83,11 +82,7 @@ export async function syncVideoToDatabase(videoId: string) {
     },
   });
 
-  // Enqueue Broadcast Job
-  if (newVideo.status === "ACTIVE") {
-    await enqueueBroadcastJob(newVideo.id);
-    console.log(`[SyncVideo] Broadcast job enqueued for video ${newVideo.id}`);
-  }
+  // Video sync completed
 
   return newVideo;
 }

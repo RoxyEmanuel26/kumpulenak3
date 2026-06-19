@@ -4,17 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUI } from "./UIContext";
-import { Menu, Search, User, LogOut, Settings, LayoutDashboard, ArrowLeft } from "lucide-react";
+import { Menu, Search, ArrowLeft } from "lucide-react";
 
-interface TopbarProps {
-  isAdmin?: boolean;
-}
-
-export function Topbar({ isAdmin = false }: TopbarProps) {
+export function Topbar() {
   const router = useRouter();
   const { toggleSidebar, toggleMobileMenu } = useUI();
   const [searchQuery, setSearchQuery] = useState("");
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -109,7 +104,7 @@ export function Topbar({ isAdmin = false }: TopbarProps) {
 
       </form>
 
-      {/* Right section: Actions & Profile */}
+      {/* Right section: Actions */}
       <div className="flex items-center gap-2">
         <button
           className="p-2.5 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer sm:hidden"
@@ -118,67 +113,6 @@ export function Topbar({ isAdmin = false }: TopbarProps) {
         >
           <Search className="h-5 w-5" />
         </button>
-
-        {/* Profile Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer flex items-center justify-center border border-white/10 h-9 w-9"
-            aria-label="Profile Menu"
-          >
-            <User className="h-4 w-4" />
-          </button>
-
-          {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#1F1F1F] p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100">
-              <div className="px-3 py-2 border-b border-white/5 mb-1.5">
-                <p className="text-xs text-[#AAAAAA]">User Account</p>
-                <p className="text-sm font-semibold text-white truncate">Viewer Platform</p>
-              </div>
-              
-              {isAdmin ? (
-                <>
-                  <Link 
-                    href="/admin"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2 text-sm text-[#F1F1F1] hover:bg-white/5 rounded-lg transition-colors"
-                  >
-                    <LayoutDashboard className="h-4 w-4 text-red-500" />
-                    <span>Admin Dashboard</span>
-                  </Link>
-                  <Link 
-                    href="/admin/workers"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2 text-sm text-[#F1F1F1] hover:bg-white/5 rounded-lg transition-colors"
-                  >
-                    <Settings className="h-4 w-4 text-[#AAAAAA]" />
-                    <span>Sync Settings</span>
-                  </Link>
-                  <button
-                    onClick={async () => {
-                      setIsProfileOpen(false);
-                      await fetch("/api/admin/logout", { method: "POST" });
-                      window.location.reload();
-                    }}
-                    className="flex items-center gap-3 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-left cursor-pointer"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>Logout Admin</span>
-                  </button>
-                </>
-              ) : (
-                <Link 
-                  href="/admin/login"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2 text-sm text-[#F1F1F1] hover:bg-white/5 rounded-lg transition-colors"
-                >
-                  <User className="h-4 w-4 text-red-500" />
-                  <span>Login Administrator</span>
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </header>
   );
