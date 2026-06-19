@@ -48,6 +48,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Replay Protection: Require and validate timestamp
+    const timestampStr = request.headers.get("X-Timestamp");
+    if (!timestampStr) {
+      return NextResponse.json(
+        { error: "Unauthorized: Missing X-Timestamp header for replay protection." },
+        { status: 401 }
+      );
+    }
+
+    const requestTime = parseInt(timestampStr, 10);
+    const currentTime = Date.now();
+    const ALLOWED_DRIFT_MS = 5 * 60 * 1000; // 5 minutes
+
+    if (isNaN(requestTime) || Math.abs(currentTime - requestTime) > ALLOWED_DRIFT_MS) {
+      return NextResponse.json(
+        { error: "Unauthorized: Request expired or timestamp out of bounds (replay protection)." },
+        { status: 401 }
+      );
+    }
+
     let body;
     try {
       body = await request.json();
