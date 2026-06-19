@@ -30,7 +30,7 @@ async function main() {
 
   console.log("Admin user seeded successfully.");
   console.log(`Email: ${email}`);
-  console.log(`Password: ${defaultPassword}`);
+  console.log("Password: [REDACTED — set in .env]");
 }
 
 main()

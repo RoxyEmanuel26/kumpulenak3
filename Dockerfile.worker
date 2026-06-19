@@ -1,4 +1,6 @@
-FROM node:18-alpine
+FROM node:18.20-alpine3.21
+
+RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
@@ -13,7 +15,12 @@ RUN npx prisma generate
 # Build the worker typescript code
 RUN npm run build:worker
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
-# Run the compiled javascript worker
-CMD ["node", "dist/workers/index.js"]
+# Create non-root user for the worker
+RUN addgroup --system --gid 1001 workergroup
+RUN adduser --system --uid 1001 workeruser
+USER workeruser
+
+# Use dumb-init for proper signal handling
+CMD ["dumb-init", "node", "dist/workers/index.js"]

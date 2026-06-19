@@ -1,64 +1,77 @@
 services:
   db:
-    image: postgres:15-alpine
-    container_name: eporner_db
+    image: postgres:15.13-alpine
+    container_name: app_db
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-eporner}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eporner_password}
-      POSTGRES_DB: ${POSTGRES_DB:-eporner_db}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    # No ports exposed — only accessible within Docker network
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
-    image: redis:7-alpine
-    container_name: eporner_redis
-    ports:
-      - "6379:6379"
+    image: redis:7.4-alpine
+    container_name: app_redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory-policy allkeys-lru
+    # No ports exposed — only accessible within Docker network
     volumes:
       - redisdata:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   web:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: eporner_web
+    container_name: app_web
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-eporner}:${POSTGRES_PASSWORD:-eporner_password}@db:5432/${POSTGRES_DB:-eporner_db}?schema=public
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-appuser}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-appdb}?schema=public
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      - JWT_SECRET=${JWT_SECRET}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: eporner_worker
+    container_name: app_worker
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-eporner}:${POSTGRES_PASSWORD:-eporner_password}@db:5432/${POSTGRES_DB:-eporner_db}?schema=public
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-appuser}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-appdb}?schema=public
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - JWT_SECRET=${JWT_SECRET}
       - WEBHOOK_SECRET=${WEBHOOK_SECRET}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

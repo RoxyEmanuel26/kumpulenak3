@@ -1,8 +1,8 @@
-FROM node:18-alpine AS base
+FROM node:18.20-alpine3.21 AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat dumb-init
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
@@ -19,7 +19,7 @@ COPY . .
 RUN npx prisma generate
 
 # Next.js telemetry is disabled
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
@@ -27,8 +27,11 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Copy dumb-init from deps stage
+COPY --from=deps /usr/bin/dumb-init /usr/bin/dumb-init
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -44,6 +47,7 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
 
-CMD ["node", "server.js"]
+# Use dumb-init for proper signal handling (graceful shutdown)
+CMD ["dumb-init", "node", "server.js"]

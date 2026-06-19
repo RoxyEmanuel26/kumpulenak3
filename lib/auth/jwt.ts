@@ -1,4 +1,20 @@
-const JWT_SECRET = process.env.JWT_SECRET || "default-secret-key-please-change-in-env";
+/**
+ * JWT utility using Web Crypto API (HMAC-SHA256).
+ * Compatible with Next.js proxy (edge-compatible).
+ *
+ * SECURITY: JWT_SECRET MUST be set in .env. No fallback allowed.
+ */
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "[FATAL] JWT_SECRET is not defined. Set it in your .env file. " +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
+  }
+  return secret;
+}
 
 // Helper to convert string or Uint8Array to Base64URL
 function base64url(str: string | Uint8Array): string {
@@ -31,15 +47,23 @@ async function getCryptoKey(secret: string): Promise<CryptoKey> {
 
 /**
  * Sign a payload with HMAC-SHA256 and return a JWT string.
+ * Automatically adds `iss` and `iat` claims.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function signJWT(payload: Record<string, any>): Promise<string> {
   const header = { alg: "HS256", typ: "JWT" };
+  
+  const enrichedPayload = {
+    ...payload,
+    iss: "kumpulenak3",
+    iat: Date.now(),
+  };
+  
   const encodedHeader = base64url(JSON.stringify(header));
-  const encodedPayload = base64url(JSON.stringify(payload));
+  const encodedPayload = base64url(JSON.stringify(enrichedPayload));
   const dataToSign = `${encodedHeader}.${encodedPayload}`;
   
-  const key = await getCryptoKey(JWT_SECRET);
+  const key = await getCryptoKey(getJwtSecret());
   const enc = new TextEncoder();
   const signatureBuffer = await crypto.subtle.sign(
     "HMAC",
@@ -53,6 +77,7 @@ export async function signJWT(payload: Record<string, any>): Promise<string> {
 
 /**
  * Verify a JWT string and return the decoded payload if valid, or null if invalid/expired.
+ * Validates `iss` claim and `exp` timestamp.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function verifyJWT(token: string): Promise<Record<string, any> | null> {
@@ -63,7 +88,7 @@ export async function verifyJWT(token: string): Promise<Record<string, any> | nu
     const [encodedHeader, encodedPayload, signature] = parts;
     const dataToVerify = `${encodedHeader}.${encodedPayload}`;
     
-    const key = await getCryptoKey(JWT_SECRET);
+    const key = await getCryptoKey(getJwtSecret());
     const enc = new TextEncoder();
     
     // Decode signature with padding
@@ -87,6 +112,11 @@ export async function verifyJWT(token: string): Promise<Record<string, any> | nu
     if (!isValid) return null;
     
     const payload = JSON.parse(base64urlDecode(encodedPayload));
+    
+    // Validate issuer
+    if (payload.iss !== "kumpulenak3") {
+      return null;
+    }
     
     // Check expiration
     if (payload.exp && Date.now() > payload.exp) {

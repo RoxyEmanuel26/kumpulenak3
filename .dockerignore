@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies (rebuilt in container)
+node_modules
+
+# Build artifacts
+.next
+dist
+build
+out
+
+# IDE / editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+
+# Agent / AI config
+.agents
+CLAUDE.md
+
+# Misc
+coverage
+lint_output.txt
+*.log
+docker-compose*.yml
