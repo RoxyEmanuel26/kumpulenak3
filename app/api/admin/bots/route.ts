@@ -6,6 +6,14 @@ export async function GET() {
   try {
     const bots = await prisma.telegramBot.findMany({
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
     return NextResponse.json(bots);
   } catch (err) { const error = err as Error;
@@ -48,6 +56,14 @@ export async function POST(request: NextRequest) {
         name: botInfo.first_name,
         username: botInfo.username,
         isActive: typeof isActive === "boolean" ? isActive : true,
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 

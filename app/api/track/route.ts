@@ -23,15 +23,23 @@ export async function GET(request: NextRequest) {
   // Perform redirect validation to prevent Open Redirect vulnerability
   let safeRedirect = "/";
   if (redirect) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-    
-    // Check if it's a relative path (starts with / and not //)
-    const isRelative = redirect.startsWith("/") && !redirect.startsWith("//");
-    // Check if it's an absolute path matching the app's base URL
-    const isAbsoluteToApp = redirect.startsWith(appUrl);
-    
-    if (isRelative || isAbsoluteToApp) {
-      safeRedirect = redirect;
+    try {
+      // If it starts with a single slash (and not //), it's safe
+      if (redirect.startsWith("/") && !redirect.startsWith("//")) {
+        safeRedirect = redirect;
+      } else {
+        // Otherwise, strictly parse and validate the origin
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+        const parsedAppUrl = new URL(appUrl);
+        const parsedRedirect = new URL(redirect);
+        
+        if (parsedRedirect.origin === parsedAppUrl.origin) {
+          safeRedirect = redirect;
+        }
+      }
+    } catch {
+      // Invalid URL or parsing failed, fallback to safe default
+      safeRedirect = "/";
     }
   }
 

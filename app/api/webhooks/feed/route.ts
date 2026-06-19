@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const authHeader = request.headers.get("Authorization") || request.nextUrl.searchParams.get("secret");
+    const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       return NextResponse.json(
-        { error: "Unauthorized: Missing authentication." },
+        { error: "Unauthorized: Missing Authorization header." },
         { status: 401 }
       );
     }
@@ -48,7 +48,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Bad Request: Invalid JSON body." },
+        { status: 400 }
+      );
+    }
     const { videoId } = body;
 
     if (!videoId) {

@@ -25,8 +25,11 @@ export async function GET(
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { aiScoreTrending, aiScoreEngagement, aiScoreSpam, aiSpamFlag, ...safeVideo } = video;
+
     return NextResponse.json({
-      ...video,
+      ...safeVideo,
       title: cleanEpornerText(video.title),
       keywords: cleanEpornerText(video.keywords || ""),
     });
