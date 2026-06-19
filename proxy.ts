@@ -26,9 +26,12 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const isAdminApi = pathname === "/api/admin" || pathname.startsWith("/api/admin/");
+  const isAdminPage = pathname === "/admin" || pathname.startsWith("/admin/");
+
   // 1. Protect all /api/admin routes (return JSON 401)
   if (
-    pathname.startsWith("/api/admin") &&
+    isAdminApi &&
     pathname !== "/api/admin/login" &&
     pathname !== "/api/admin/logout"
   ) {
@@ -49,7 +52,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2. Protect all /admin pages (redirect to login)
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  if (isAdminPage && pathname !== "/admin/login") {
     const sessionToken = request.cookies.get("admin_session")?.value;
 
     if (!sessionToken) {

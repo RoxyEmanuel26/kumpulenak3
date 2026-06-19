@@ -25,9 +25,44 @@ export async function GET() {
   }
 }
 
+interface SanitizedRoutingRules {
+  order?: string;
+  categories?: string[];
+  tags?: string[];
+}
+
+// Sanitizer to ensure routingRules contains only valid fields and prevents prototype pollution or DB injection
+function sanitizeRoutingRules(rules: unknown): SanitizedRoutingRules | null {
+  if (!rules || typeof rules !== "object" || Array.isArray(rules)) {
+    return null;
+  }
+
+  const obj = rules as Record<string, unknown>;
+  const sanitized: SanitizedRoutingRules = {};
+
+  if (typeof obj.order === "string") {
+    sanitized.order = obj.order;
+  }
+
+  if (Array.isArray(obj.categories)) {
+    sanitized.categories = obj.categories
+      .filter((c): c is string => typeof c === "string")
+      .map((c) => c.trim());
+  }
+
+  if (Array.isArray(obj.tags)) {
+    sanitized.tags = obj.tags
+      .filter((t): t is string => typeof t === "string")
+      .map((t) => t.trim());
+  }
+
+  return sanitized;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { id, name, isActive, template, routingRules, botId } = await request.json();
+    const body = await request.json();
+    const { id, name, isActive, template, routingRules, botId } = body;
 
     if (!id || !name) {
       return NextResponse.json(
@@ -36,6 +71,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof id !== "string" || typeof name !== "string") {
+      return NextResponse.json(
+        { error: "Channel ID and Channel Name must be strings." },
+        { status: 400 }
+      );
+    }
+
+    if (template && typeof template !== "string") {
+      return NextResponse.json(
+        { error: "Template must be a string." },
+        { status: 400 }
+      );
+    }
+
+    if (botId && typeof botId !== "string") {
+      return NextResponse.json(
+        { error: "Bot ID must be a string." },
+        { status: 400 }
+      );
+    }
+
+    const cleanRoutingRules = routingRules ? sanitizeRoutingRules(routingRules) : null;
+
     // Upsert the channel
     const channel = await prisma.telegramChannel.upsert({
       where: { id },
@@ -43,7 +101,7 @@ export async function POST(request: NextRequest) {
         name,
         isActive: typeof isActive === "boolean" ? isActive : true,
         template: template || null,
-        routingRules: routingRules ? JSON.parse(JSON.stringify(routingRules)) : null,
+        routingRules: cleanRoutingRules ? JSON.parse(JSON.stringify(cleanRoutingRules)) : null,
         botId: botId || null,
       },
       create: {
@@ -51,7 +109,7 @@ export async function POST(request: NextRequest) {
         name,
         isActive: typeof isActive === "boolean" ? isActive : true,
         template: template || null,
-        routingRules: routingRules ? JSON.parse(JSON.stringify(routingRules)) : null,
+        routingRules: cleanRoutingRules ? JSON.parse(JSON.stringify(cleanRoutingRules)) : null,
         botId: botId || null,
       },
     });
