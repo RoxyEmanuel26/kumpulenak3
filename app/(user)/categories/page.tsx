@@ -141,7 +141,7 @@ export default async function CategoriesPage() {
   const categoryList = [...CATEGORY_MAPPING];
 
   // Add DB categories if they are not in the mapping list
-  dbCategories.forEach((dbCat) => {
+  dbCategories.forEach((dbCat: any) => {
     const lowerName = dbCat.name.toLowerCase();
     if (lowerName === "gay") {
       return;
@@ -152,7 +152,7 @@ export default async function CategoriesPage() {
     );
     if (!exists) {
       // Generate a stable fallback image ID based on category name character code sum
-      const charCodeSum = Array.from(dbCat.name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const charCodeSum = Array.from(dbCat.name as string).reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
       const fallbackIds = ["1", "3", "6", "9", "11", "12", "17", "25", "33", "47", "53", "59", "66", "72"];
       const fallbackImageId = fallbackIds[charCodeSum % fallbackIds.length];
 
