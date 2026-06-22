@@ -51,6 +51,9 @@ export const metadata: Metadata = {
     description: "Watch thousands of premium adult videos instantly in high quality on LustHub.",
     images: ["/opengraph-image"],
   },
+  verification: {
+    google: "G71CC4n1uaSgqVnjIvv3JSKs78kXb2lYNn_yJXiEb7Q",
+  },
 };
 
 
