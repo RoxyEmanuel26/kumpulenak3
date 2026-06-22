@@ -182,14 +182,14 @@ export default async function UserHome({
           adKey="361158242f9f7ba4b97dddf961d303d6"
           width={728}
           height={90}
-          className="hidden md:flex my-2"
+          className="hidden lg:flex my-2"
         />
         {/* Mobile Banner 320x50: shown only on mobile */}
         <AdsterraBanner
           adKey="1657e4fb76c1445cfbb411b5b0a859ee"
           width={320}
           height={50}
-          className="flex md:hidden my-2"
+          className="flex lg:hidden my-2"
         />
 
         {/* Grid Video Container */}
@@ -206,13 +206,13 @@ export default async function UserHome({
           adKey="361158242f9f7ba4b97dddf961d303d6"
           width={728}
           height={90}
-          className="hidden md:flex my-2"
+          className="hidden lg:flex my-2"
         />
         <AdsterraBanner
           adKey="1657e4fb76c1445cfbb411b5b0a859ee"
           width={320}
           height={50}
-          className="flex md:hidden my-2"
+          className="flex lg:hidden my-2"
         />
 
         {/* Pagination Controls */}

@@ -38,13 +38,21 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
   useEffect(() => {
     if (injectedRef.current || !containerRef.current || containerRef.current.firstChild) return;
 
-    // Viewport-based responsive check to avoid race conditions on global atOptions
+    // Viewport-based responsive check to avoid race conditions on global atOptions.
+    // Supports both Tailwind md (768px) and lg (1024px) breakpoints.
     const isMd = window.matchMedia("(min-width: 768px)").matches;
-    const isDesktopOnly = className.includes("hidden md:flex") || (className.includes("md:flex") && className.includes("hidden"));
-    const isMobileOnly = className.includes("md:hidden");
+    const isLg = window.matchMedia("(min-width: 1024px)").matches;
 
-    if (isDesktopOnly && !isMd) return;
-    if (isMobileOnly && isMd) return;
+    // Detect which breakpoint this banner uses for its show/hide logic
+    const isDesktopOnlyLg = className.includes("hidden lg:flex") || (className.includes("lg:flex") && className.includes("hidden"));
+    const isDesktopOnlyMd = !isDesktopOnlyLg && (className.includes("hidden md:flex") || (className.includes("md:flex") && className.includes("hidden")));
+    const isMobileOnlyLg = className.includes("lg:hidden");
+    const isMobileOnlyMd = !isMobileOnlyLg && className.includes("md:hidden");
+
+    if (isDesktopOnlyLg && !isLg) return;
+    if (isDesktopOnlyMd && !isMd) return;
+    if (isMobileOnlyLg && isLg) return;
+    if (isMobileOnlyMd && isMd) return;
 
     injectedRef.current = true;
 
