@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface AdsterraBannerProps {
   adKey: string;
@@ -10,6 +10,7 @@ interface AdsterraBannerProps {
 }
 
 export function AdsterraBanner({ adKey, width, height, className = "" }: AdsterraBannerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {
@@ -31,6 +32,51 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
     setShouldRender(true);
   }, [className]);
 
+  useEffect(() => {
+    if (!shouldRender || !containerRef.current || containerRef.current.hasChildNodes()) return;
+
+    // Define atOptions globally for the Adsterra script to read
+    if (typeof window !== "undefined") {
+      (window as any).atOptions = {
+        key: adKey,
+        format: "iframe",
+        height: height,
+        width: width,
+        params: {}
+      };
+    }
+
+    // Create configuration script (for redundancy or older Adsterra scripts)
+    const confScript = document.createElement("script");
+    confScript.type = "text/javascript";
+    confScript.innerHTML = `
+      atOptions = {
+        'key' : '${adKey}',
+        'format' : 'iframe',
+        'height' : ${height},
+        'width' : ${width},
+        'params' : {}
+      };
+    `;
+
+    // Create invoke script
+    const invokeScript = document.createElement("script");
+    invokeScript.type = "text/javascript";
+    invokeScript.src = `https://glamournakedemployee.com/${adKey}/invoke.js`;
+    invokeScript.async = true;
+
+    // Append both to the container
+    containerRef.current.appendChild(confScript);
+    containerRef.current.appendChild(invokeScript);
+
+    return () => {
+      // Clean up when unmounting to avoid duplicate ads if component remounts
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
+    };
+  }, [shouldRender, adKey, height, width]);
+
   return (
     <div
       className={`flex items-center justify-center overflow-hidden ${className}`}
@@ -38,46 +84,7 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
       aria-hidden="true"
     >
       {shouldRender ? (
-        <iframe
-          srcDoc={`
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <meta charset="utf-8">
-                <style>
-                  html, body {
-                    margin: 0;
-                    padding: 0;
-                    width: 100%;
-                    height: 100%;
-                    overflow: hidden;
-                    background: transparent;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                  }
-                </style>
-              </head>
-              <body>
-                <script type="text/javascript">
-                  var atOptions = {
-                    'key' : '${adKey}',
-                    'format' : 'iframe',
-                    'height' : ${height},
-                    'width' : ${width},
-                    'params' : {}
-                  };
-                </script>
-                <script type="text/javascript" src="https://glamournakedemployee.com/${adKey}/invoke.js"></script>
-              </body>
-            </html>
-          `}
-          width={width}
-          height={height}
-          style={{ border: "none", overflow: "hidden", maxWidth: "100%" }}
-          scrolling="no"
-          title={`Ad Banner ${adKey}`}
-        />
+        <div ref={containerRef} className="w-full h-full flex justify-center items-center" />
       ) : (
         <div />
       )}

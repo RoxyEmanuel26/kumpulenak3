@@ -188,21 +188,14 @@ export default async function ResultsPage({
       <VideoGrid videos={videos} />
 
       {/* ── Adsterra Banner ──────────────────────────────────────
+           Medium Rectangle 300x250
            Placed after VideoGrid for mid-page viewability.
-           Leaderboard 728×90 — desktop & tablet
-           Mobile Banner 320×50 — mobile only
       ─────────────────────────────────────────────────── */}
       <AdsterraBanner
-        adKey="361158242f9f7ba4b97dddf961d303d6"
-        width={728}
-        height={90}
-        className="hidden lg:flex my-2"
-      />
-      <AdsterraBanner
-        adKey="1657e4fb76c1445cfbb411b5b0a859ee"
-        width={320}
-        height={50}
-        className="flex lg:hidden my-2"
+        adKey="3f7aeb74bde61edc8e369b2303797899"
+        width={300}
+        height={250}
+        className="flex my-4"
       />
 
       {/* Pagination Controls */}
