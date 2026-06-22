@@ -82,15 +82,17 @@ export async function generateSitemaps() {
 export default async function sitemap({
   id,
 }: {
-  id: number;
+  id?: number | string;
 }): Promise<MetadataRoute.Sitemap> {
-  // id=0: static pages + all Tier-1 category pages
-  if (id === 0) {
+  const segmentId = Number(id) || 0;
+  
+  // segmentId=0: static pages + all Tier-1 category pages
+  if (segmentId === 0) {
     return buildStaticSegment();
   }
 
-  // id=1+: video chunks (id=1 → chunk index 0, etc.)
-  return buildVideoSegment(id - 1);
+  // segmentId=1+: video chunks (segmentId=1 → chunk index 0, etc.)
+  return buildVideoSegment(segmentId - 1);
 }
 
 // ─── Segment: Static + Categories ───────────────────────────────────────────

@@ -1,33 +1,34 @@
-# LustHub AI Governance & Architecture Rules
+# LustHub Architecture Constraints & AI Governance
 
-You are working on LustHub, a Next.js 16 App Router application. The repository has entered long-term maintenance mode. Your primary directive is to preserve stability, maintainability, and SEO consistency.
+The repository is now considered production-grade, stable, and in "Observation + Controlled Optimization Mode".
 
-## 1. Web-First, SEO-First
-- DO NOT integrate messaging platforms, Telegram bots, or community features.
-- DO NOT alter the `quality-control` suite (`scripts/qc/*`) to bypass errors. Fix the underlying code instead.
+Do NOT initiate new large-scale architectural phases or feature expansions without explicit authorization.
 
-## 2. Zero-State Architecture
-- All user history (Continue Watching) and preferences MUST be stored in `localStorage` or `sessionStorage`.
-- DO NOT introduce user authentication (NextAuth, Clerk, etc.).
-- DO NOT add `User`, `Admin`, or `Session` tables to Prisma.
+## Strict Rules
 
-## 3. Strict Next.js App Router Paradigms
-- DO NOT use `getServerSideProps` or `getStaticProps`.
-- USE Server Components by default. Only use `"use client"` when hooks or interactivity are absolutely required.
-- PREFER native `fetch` over external libraries like `axios`.
+1.  **NO TELEGRAM**: Do not add Telegram bots, webhooks, or messaging integrations under any circumstances.
+2.  **NO USER STATE**: Do not add auth, login, or user tracking beyond basic local storage for "continue watching" or "favorites".
+3.  **NATIVE FETCH**: Use native `fetch` over external libraries like `axios`. The dependency footprint must remain minimal.
+4.  **NO ARCHITECTURAL CHURN**: Do not rewrite stable modules or introduce new patterns just for stylistic reasons. Stick to the current Next.js App Router conventions.
+5.  **EVIDENCE-BASED OPTIMIZATION**: Do not refactor for speculative performance gains. Require measurable CWV data. Do not add heavy telemetry SDKs.
+6.  **NO OVER-ENGINEERING**: Do not implement custom memory caching layers or background worker queues inside the Next.js process. Rely on native Next.js cache capabilities or external standard tools if absolutely necessary.
+7.  **NO NEW UI FRAMEWORKS**: Do not introduce new CSS frameworks or heavyweight UI component libraries. Use the existing TailwindCSS foundation.
+8.  **DEPLOYMENT STABILITY**: Always prioritize rollback-safe deployments. Avoid changes that break existing environments or URLs.
+9.  **MINIMAL DIFFS**: Any changes must be surgical, strictly necessary, and contain minimal diffs. Avoid reformatting entire files when fixing a single bug.
+10. **SEO STABILITY**: Do not perform SEO rewrites without data-driven evidence. Monitor Search Console and Web Vitals. No speculative metadata changes.
 
-## 4. Minimal Dependencies
-- DO NOT install heavy UI libraries (e.g., Material UI, Framer Motion) when Tailwind CSS + plain React or standard Radix/Shadcn primitives are sufficient.
-- Check `package.json` before adding any new utility. Avoid overlapping libraries.
+## Maintenance Workflow
 
-## 5. Architectural Churn
-- DO NOT refactor working systems unnecessarily.
-- Prefer minimal-diff updates.
-- Keep components inside `components/` and utility functions inside `lib/`. Do not fragment files unnecessarily.
+Future changes must follow this priority list:
+1.  Production deployment stability
+2.  Real-world indexing observation
+3.  Core Web Vitals monitoring
+4.  Search Console monitoring
+5.  Crawl anomaly detection
+6.  Metadata consistency monitoring
+7.  Controlled UX improvements
+8.  Controlled SEO tuning
+9.  Performance regression prevention
+10. Long-term maintainability
 
-## 6. Controlled Optimization & Telemetry
-- **Evidence-Based Changes**: DO NOT optimize speculatively. Any optimization to components or routing must be backed by measurable Core Web Vitals (CWV) or analytics data.
-- **Lightweight Observability**: We use a custom `useReportWebVitals` hook in `components/analytics/WebVitals.tsx` feeding into `lib/analytics.ts`. DO NOT introduce external telemetry SDKs like Sentry, Datadog, or New Relic without explicit permission.
-- **Rollback Safety**: Ensure any new feature or layout change is isolated and easily reversible if it negatively impacts CWV or SEO ranking.
-
-Any deviation from these rules requires explicit user approval.
+Treat this repository as a stable production platform under controlled optimization.
