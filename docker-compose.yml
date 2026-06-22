@@ -10,6 +10,10 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    # Memory limit: PostgreSQL needs enough for shared_buffers + working sets.
+    # 512MB is conservative — increase to 1g on servers with >4GB RAM.
+    mem_limit: 512m
+    memswap_limit: 512m  # Disable swap extension (mem == memswap = no swap)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser}"]
       interval: 10s
@@ -19,11 +23,15 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: app_redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory-policy allkeys-lru
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 96mb --maxmemory-policy allkeys-lru
     # No ports exposed — only accessible within Docker network
     volumes:
       - redisdata:/data
     restart: unless-stopped
+    # Memory limit: Redis is configured with --maxmemory 96mb above.
+    # Container limit is 128mb to allow OS overhead above the Redis maxmemory.
+    mem_limit: 128m
+    memswap_limit: 128m
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -49,6 +57,10 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # Memory limit: Next.js standalone + Node.js runtime.
+    # 512MB supports most traffic loads. Increase to 1g if you see OOM kills.
+    mem_limit: 512m
+    memswap_limit: 512m
 
   worker:
     build:
@@ -67,6 +79,9 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # Memory limit: BullMQ worker + Gemini API calls. 256MB is sufficient.
+    mem_limit: 256m
+    memswap_limit: 256m
 
 volumes:
   pgdata:

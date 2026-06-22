@@ -5,6 +5,11 @@ import { CategoriesClient } from "./CategoriesClient";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
+// ISR: regenerate the categories page once per day.
+// Category metadata and video counts change slowly — daily refresh is sufficient.
+// Eliminates per-request DB queries for stable, non-personalized content.
+export const revalidate = 86400;
+
 export const metadata: Metadata = {
   title: "Categories",
   description: "Browse all porn video categories on LustHub. Find exactly what you're looking for — from amateur to HD, Asian to MILF and everything in between.",

@@ -49,5 +49,13 @@ EXPOSE 3000
 
 ENV PORT=3000
 
+# Health check — Docker uses this to determine container health.
+# Calls /api/health every 30s; marks container unhealthy after 3 consecutive failures.
+# 20s start period gives Next.js time to initialize before checks begin.
+# wget is available on alpine without adding curl.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
 # Use dumb-init for proper signal handling (graceful shutdown)
 CMD ["dumb-init", "node", "server.js"]
+
