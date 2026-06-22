@@ -45,6 +45,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Intercept sitemap index requests to route them through our custom API endpoint
+  // This circumvents Next.js Cloudflare Edge bug where automatically generated sitemap indexes return 404
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/sitemap.xml',
+          destination: '/api/sitemap-index',
+        },
+        {
+          source: '/sitemap_index.xml',
+          destination: '/api/sitemap-index',
+        },
+      ],
+    };
+  },
+
   // Permanent 301 redirect for legacy /video/{id} path format
   // This runs at the routing layer before React, guaranteeing a real 301.
   async redirects() {
