@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - KumpulEnak",
-  description: "Read our privacy policy regarding local storage settings, logging, and data safety.",
+  title: "Privacy Policy",
+  description: "Read the LustHub Privacy Policy regarding local storage, data handling, cookies, and third-party integrations.",
 };
 
 export default function PrivacyPage() {
@@ -13,10 +13,10 @@ export default function PrivacyPage() {
       </h1>
       
       <p className="text-sm text-foreground/80 leading-relaxed">
-        Your privacy is important to us. We operate KumpulEnak under privacy-by-design standards:
+        Your privacy is important to us. We operate LustHub under privacy-by-design standards:
       </p>
 
-      <h2 className="text-xl font-bold mt-6 text-white/90">1. Local Configuration & Storage</h2>
+      <h2 className="text-xl font-bold mt-6 text-white/90">1. Local Configuration &amp; Storage</h2>
       <p className="text-sm text-foreground/80 leading-relaxed">
         Your video likes and watch history are stored entirely locally on your own device using 
         browser-based <code className="bg-white/10 px-1 py-0.5 rounded text-xs">localStorage</code>. 

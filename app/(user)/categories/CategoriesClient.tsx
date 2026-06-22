@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Search, Hash } from "lucide-react";
+import { TIER1_SLUGS } from "@/lib/category-config";
+import { slugify } from "@/lib/utils";
 
 interface CategoryItem {
   name: string;
@@ -20,6 +22,19 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
   const filtered = categories.filter((c) =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  /**
+   * Returns the appropriate href for a category:
+   * - Tier-1 categories → /category/{slug}  (real SEO page)
+   * - All others        → /results?search_query={name}  (search fallback)
+   */
+  const getCategoryHref = (name: string): string => {
+    const slug = slugify(name);
+    if (TIER1_SLUGS.has(slug)) {
+      return `/category/${slug}`;
+    }
+    return `/results?search_query=${encodeURIComponent(name)}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -42,39 +57,51 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
 
       {/* Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-        {filtered.map((cat) => (
-          <Link
-            key={cat.name}
-            href={`/results?search_query=${encodeURIComponent(cat.name)}`}
-            className="group relative overflow-hidden aspect-[4/3] rounded-2xl border border-white/5 shadow-md hover:shadow-xl hover:border-white/10 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer flex flex-col justify-end p-3 sm:p-4"
-          >
-            {/* Background Image with lazy loading via css background or img tag */}
-            <div 
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-              style={{
-                backgroundImage: `url(https://static-sg-cdn.eporner.com/catimg/${cat.imageId}.jpg)`
-              }}
-            />
+        {filtered.map((cat) => {
+          const href = getCategoryHref(cat.name);
+          const isTier1 = TIER1_SLUGS.has(slugify(cat.name));
 
-            {/* Dark gradient overlay to ensure text is readable */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/10 group-hover:via-black/40 transition-colors duration-300" />
-            
-            {/* Tag/Category symbol (top right) */}
-            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1 sm:p-1.5 bg-black/40 rounded-lg backdrop-blur-md border border-white/10 z-10">
-              <Hash className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white/80" />
-            </div>
+          return (
+            <Link
+              key={cat.name}
+              href={href}
+              className="group relative overflow-hidden aspect-[4/3] rounded-2xl border border-white/5 shadow-md hover:shadow-xl hover:border-white/10 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer flex flex-col justify-end p-3 sm:p-4"
+            >
+              {/* Background Image */}
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                style={{
+                  backgroundImage: `url(https://static-sg-cdn.eporner.com/catimg/${cat.imageId}.jpg)`,
+                }}
+              />
 
-            {/* Name and Count */}
-            <div className="relative z-10 text-left">
-              <h3 className="font-extrabold text-xs sm:text-sm md:text-base text-white tracking-tight leading-tight group-hover:underline line-clamp-2">
-                {cat.name}
-              </h3>
-              <p className="text-[8px] sm:text-[9px] md:text-[10px] text-white/60 font-mono font-semibold mt-1">
-                {cat.count > 0 ? `${cat.count} videos synced` : "Explore videos"}
-              </p>
-            </div>
-          </Link>
-        ))}
+              {/* Dark gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/10 group-hover:via-black/40 transition-colors duration-300" />
+
+              {/* Tag/Category symbol (top right) */}
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1 sm:p-1.5 bg-black/40 rounded-lg backdrop-blur-md border border-white/10 z-10">
+                <Hash className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white/80" />
+              </div>
+
+              {/* Tier-1 badge — subtle indicator that this has a real page */}
+              {isTier1 && (
+                <div className="absolute top-2 left-2 sm:top-3 sm:left-3 px-1.5 py-0.5 bg-red-600/80 rounded text-[7px] font-bold text-white uppercase tracking-wide z-10 backdrop-blur-sm">
+                  HD
+                </div>
+              )}
+
+              {/* Name and Count */}
+              <div className="relative z-10 text-left">
+                <h3 className="font-extrabold text-xs sm:text-sm md:text-base text-white tracking-tight leading-tight group-hover:underline line-clamp-2">
+                  {cat.name}
+                </h3>
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] text-white/60 font-mono font-semibold mt-1">
+                  {cat.count > 0 ? `${cat.count} videos synced` : "Explore videos"}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
 
         {filtered.length === 0 && (
           <div className="col-span-full py-16 text-center text-muted-foreground text-xs font-mono uppercase tracking-widest bg-card/25 rounded-2xl border border-white/5">

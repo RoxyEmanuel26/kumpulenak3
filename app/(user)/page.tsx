@@ -2,6 +2,47 @@ import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Metadata } from "next";
+import { TIER1_CATEGORIES } from "@/lib/category-config";
+
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+
+// ISR: regenerate homepage every 30 minutes in the background.
+// Shows freshly synced videos without requiring a full redeploy.
+// 1800 seconds = 30 minutes — appropriate for a "latest videos" feed.
+export const revalidate = 1800;
+
+export const metadata: Metadata = {
+  title: "LustHub — Free HD Porn Videos",
+  description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
+  alternates: {
+    canonical: "https://lusthub.web.id",
+  },
+  openGraph: {
+    title: "LustHub — Free HD Porn Videos",
+    description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
+    type: "website",
+    url: "https://lusthub.web.id",
+    siteName: "LustHub",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "LustHub — Free HD Porn Videos",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LustHub — Free HD Porn Videos",
+    description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
+    images: ["/opengraph-image"],
+  },
+};
+
+
 
 export default async function UserHome({
   searchParams,
@@ -45,57 +86,133 @@ export default async function UserHome({
     return `/?${params.toString()}`;
   };
 
+  // ── WebSite + Organization JSON-LD ────────────────────────────────────────
+  // @graph bundles both types in one script tag to avoid multiple LD+JSON blocks.
+  // WebSite enables Sitelinks Searchbox; Organization anchors the brand entity.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        "name": "LustHub",
+        "url": SITE_URL,
+        "description": "Free HD porn videos updated daily. No registration required.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": `${SITE_URL}/results?search_query={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        "name": "LustHub",
+        "url": SITE_URL,
+        "logo": {
+          "@type": "ImageObject",
+          "url": `${SITE_URL}/og-image.png`,
+        },
+      },
+    ],
+  };
+
   return (
-    <div className="px-4 py-3 space-y-6">
-      {/* Grid Video Container */}
-      <VideoGrid 
-        videos={videos} 
+    <>
+      {/* JSON-LD — injected server-side, invisible to users */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 pt-6 pb-12 font-semibold">
-          {page > 1 ? (
-            <Link 
-              href={getPageUrl(page - 1)}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#272727] hover:bg-[#3F3F3F] text-xs transition-colors text-white cursor-pointer border border-white/5"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Previous</span>
-            </Link>
-          ) : (
-            <button 
-              disabled
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#1F1F1F] text-xs text-muted-foreground opacity-30 cursor-not-allowed border border-white/5"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Previous</span>
-            </button>
-          )}
+      <div className="px-4 py-3 space-y-6">
+        {/* H1 — required for SEO; styled small and unobtrusive */}
+        <h1 className="sr-only">Latest Free HD Porn Videos</h1>
 
-          <span className="text-xs text-[#AAAAAA] px-4 font-mono">
-            Page <span className="text-white font-bold">{page}</span> of <span className="text-white font-bold">{totalPages}</span>
-          </span>
+        {/* ── Featured Categories ────────────────────────────────────────────
+             Server-rendered direct links to the 8 highest-demand Tier-1 categories.
+             Shown only on page 1. Reduces category crawl depth from 2 clicks to 1.
+             Authority flows: Homepage → /category/{slug} directly.
+        */}
+        {page === 1 && (
+          <nav aria-label="Featured categories" className="pb-2 border-b border-white/5">
+            <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest font-mono mb-3">
+              Featured Categories
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {TIER1_CATEGORIES.slice(0, 8).map((cat) => (
+                <Link
+                  key={cat.slug}
+                  href={`/category/${cat.slug}`}
+                  className="px-3 py-1.5 rounded-full bg-[#1F1F1F] border border-white/10 text-xs text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] hover:border-red-600/40 transition-all font-medium"
+                >
+                  {cat.name}
+                </Link>
+              ))}
+              <Link
+                href="/categories"
+                className="px-3 py-1.5 rounded-full bg-red-600/10 border border-red-600/20 text-xs text-red-400 hover:text-red-300 hover:bg-red-600/20 hover:border-red-600/40 transition-all font-medium"
+              >
+                All Categories →
+              </Link>
+            </div>
+          </nav>
+        )}
 
-          {page < totalPages ? (
-            <Link 
-              href={getPageUrl(page + 1)}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#272727] hover:bg-[#3F3F3F] text-xs transition-colors text-white cursor-pointer border border-white/5"
-            >
-              <span>Next</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          ) : (
-            <button 
-              disabled
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#1F1F1F] text-xs text-muted-foreground opacity-30 cursor-not-allowed border border-white/5"
-            >
-              <span>Next</span>
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+        {/* Grid Video Container */}
+        <VideoGrid
+          videos={videos}
+        />
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 pt-6 pb-12 font-semibold">
+            {page > 1 ? (
+              <Link
+                href={getPageUrl(page - 1)}
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#272727] hover:bg-[#3F3F3F] text-xs transition-colors text-white cursor-pointer border border-white/5"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Previous</span>
+              </Link>
+            ) : (
+              <button
+                disabled
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#1F1F1F] text-xs text-muted-foreground opacity-30 cursor-not-allowed border border-white/5"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Previous</span>
+              </button>
+            )}
+
+            <span className="text-xs text-[#AAAAAA] px-4 font-mono">
+              Page <span className="text-white font-bold">{page}</span> of{" "}
+              <span className="text-white font-bold">{totalPages}</span>
+            </span>
+
+            {page < totalPages ? (
+              <Link
+                href={getPageUrl(page + 1)}
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#272727] hover:bg-[#3F3F3F] text-xs transition-colors text-white cursor-pointer border border-white/5"
+              >
+                <span>Next</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <button
+                disabled
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#1F1F1F] text-xs text-muted-foreground opacity-30 cursor-not-allowed border border-white/5"
+              >
+                <span>Next</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

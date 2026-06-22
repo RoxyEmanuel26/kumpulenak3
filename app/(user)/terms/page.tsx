@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - KumpulEnak",
-  description: "Read our terms of service regarding platform utilization and feed scraping limitations.",
+  title: "Terms of Service",
+  description: "Read the LustHub Terms of Service regarding platform utilization, content attribution, and limitations of liability.",
 };
 
 export default function TermsPage() {
@@ -13,7 +13,7 @@ export default function TermsPage() {
       </h1>
       
       <p className="text-sm text-foreground/80 leading-relaxed">
-        Welcome to KumpulEnak. By accessing our platform, you agree to the following terms:
+        Welcome to LustHub. By accessing our platform, you agree to the following terms:
       </p>
 
       <h2 className="text-xl font-bold mt-6 text-white/90">1. Usage Limitation</h2>
@@ -24,7 +24,7 @@ export default function TermsPage() {
 
       <h2 className="text-xl font-bold mt-6 text-white/90">2. Content Attribution</h2>
       <p className="text-sm text-foreground/80 leading-relaxed">
-        KumpulEnak is a search aggregator. We do not host or compile media files. All streams are served via 
+        LustHub is a search aggregator. We do not host or compile media files. All streams are served via 
         standard iframe integrations directly from third-party media suppliers.
       </p>
 

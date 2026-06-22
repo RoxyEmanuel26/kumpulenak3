@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Eye, Star } from "lucide-react";
 import { EpornerVideo } from "../../types/eporner";
+import { formatVideoDate } from "@/lib/utils";
+
 
 interface VideoCardProps {
   video: EpornerVideo;
@@ -31,7 +33,7 @@ export function VideoCard({ video }: VideoCardProps) {
 
   return (
     <Link 
-      href={`/watch?v=${video.id}`} 
+      href={`/watch/${video.id}`} 
       className="group block w-full space-y-2.5"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
@@ -59,8 +61,8 @@ export function VideoCard({ video }: VideoCardProps) {
 
         {/* Video tags / quality badge (left) */}
         {video.rate && parseFloat(video.rate) > 0 && (
-          <span className="absolute top-2 left-2 bg-black/80 text-yellow-500 border border-white/5 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold flex items-center gap-0.5">
-            <Star className="h-2 w-2 fill-current" /> {Math.round(parseFloat(video.rate) * 20)}%
+          <span className="absolute top-2 left-2 bg-black/80 text-yellow-500 border border-white/5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-0.5">
+            <Star className="h-2.5 w-2.5 fill-current" /> {Math.round(parseFloat(video.rate) * 20)}%
           </span>
         )}
 
@@ -88,7 +90,7 @@ export function VideoCard({ video }: VideoCardProps) {
             {video.added && (
               <>
                 <span>•</span>
-                <span>{video.added}</span>
+                <span>{formatVideoDate(video.added)}</span>
               </>
             )}
           </div>

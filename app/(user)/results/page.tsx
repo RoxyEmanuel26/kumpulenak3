@@ -2,6 +2,83 @@ import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Metadata } from "next";
+import { TIER1_CATEGORIES } from "@/lib/category-config";
+import { slugify } from "@/lib/utils";
+
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ search_query?: string; order?: string }>;
+}): Promise<Metadata> {
+  const resolved = await searchParams;
+  const query = resolved.search_query;
+  const order = resolved.order;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+
+  if (query && query !== "all") {
+    const title = `"${query}" Porn Videos \u2014 LustHub`;
+    const description = `Watch free HD porn videos for "${query}" on LustHub. Thousands of results updated daily. No registration required.`;
+    const canonicalUrl = `${baseUrl}/results?search_query=${encodeURIComponent(query)}`;
+    return {
+      title,
+      description,
+      alternates: { canonical: canonicalUrl },
+      openGraph: {
+        title,
+        description,
+        type: "website",
+        url: canonicalUrl,
+        siteName: "LustHub",
+        images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630, alt: "LustHub" }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [`${baseUrl}/opengraph-image`],
+      },
+    };
+  }
+
+  const orderLabels: Record<string, string> = {
+    "top-weekly": "Top Trending This Week",
+    "top-monthly": "Top Trending This Month",
+    "most-popular": "Most Popular",
+    "longest": "Longest Videos",
+    "shortest": "Shortest Videos",
+  };
+
+  const label = (order && orderLabels[order]) || "Latest Videos";
+  const title = `${label} \u2014 LustHub`;
+  const description = `${label} — Browse free HD porn videos on LustHub, updated daily. No registration required.`;
+  const canonicalUrl = order
+    ? `${baseUrl}/results?order=${encodeURIComponent(order)}`
+    : `${baseUrl}/results`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: canonicalUrl,
+      siteName: "LustHub",
+      images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630, alt: "LustHub" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${baseUrl}/opengraph-image`],
+    },
+  };
+}
+
+
 
 export default async function ResultsPage({
   searchParams,
@@ -37,18 +114,57 @@ export default async function ResultsPage({
     return `/results?${params.toString()}`;
   };
 
+  // ── Related categories for this search query ──────────────────────────────────────
+  // Pure server-side computation — no API call.
+  // Only shown when query is a real search term (not 'all' or order-only pages).
+  const relatedCats = query !== "all"
+    ? TIER1_CATEGORIES.filter((cat) => {
+        const qLower = query.toLowerCase();
+        const qSlug = slugify(query);
+        return (
+          cat.name.toLowerCase().includes(qLower) ||
+          cat.slug.includes(qSlug) ||
+          qLower.includes(cat.name.toLowerCase()) ||
+          qSlug.includes(cat.slug)
+        );
+      }).slice(0, 4)
+    : [];
+
   return (
     <div className="container mx-auto max-w-7xl px-4 py-6 space-y-6">
       <div className="border-b border-white/5 pb-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        {/* H1 — heading hierarchy fix: was h2, now h1 */}
+        <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <Search className="h-5 w-5 text-red-500" />
-          {query !== "all" 
-            ? `Search Results for: "${query}"` 
+          {query !== "all"
+            ? `Search Results for: "${query}"`
             : "Explore Videos"
           }
-        </h2>
+        </h1>
         <p className="text-xs text-muted-foreground mt-1 font-mono">{res?.total_count?.toLocaleString("en-US") || 0} videos found</p>
       </div>
+
+      {/* ── Related Categories row ─────────────────────────────────────────
+           Only shown when the search query overlaps with a Tier-1 category.
+           Transforms search dead-ends into category discovery funnels.
+           Authority flow: /results?search_query=X → /category/{slug}
+      */}
+      {relatedCats.length > 0 && (
+        <nav aria-label="Related categories" className="flex flex-wrap items-center gap-2 pt-1 pb-3 border-b border-white/5">
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest shrink-0">
+            Categories:
+          </span>
+          {relatedCats.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/category/${cat.slug}`}
+              className="px-3 py-1.5 rounded-full bg-[#1F1F1F] border border-white/10 text-xs text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] hover:border-red-600/40 transition-all font-medium"
+            >
+              {cat.name}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       <VideoGrid videos={videos} />
 

@@ -6,8 +6,8 @@ import { cleanEpornerText } from "@/lib/api/eporner";
 
 
 export const metadata: Metadata = {
-  title: "Library - KumpulEnak",
-  description: "Manage your watch history and liked videos.",
+  title: "Library",
+  description: "Your personal video library on LustHub — browse your watch history and liked videos.",
 };
 
 export default async function LibraryPage() {

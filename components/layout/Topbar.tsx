@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUI } from "./UIContext";
 import { Menu, Search, ArrowLeft } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
+
 
 export function Topbar() {
   const router = useRouter();
@@ -15,10 +17,13 @@ export function Topbar() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      // Track search engagement (query_length only — never the actual query string)
+      trackEvent("search_submit", { query_length: searchQuery.trim().length });
       router.push(`/results?search_query=${encodeURIComponent(searchQuery)}`);
       setShowMobileSearch(false);
     }
   };
+
 
   if (showMobileSearch) {
     return (
@@ -74,7 +79,7 @@ export function Topbar() {
         
         <Link href="/" className="flex items-center space-x-1 select-none">
           <span className="font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent text-lg md:text-xl font-heading">
-            KumpulEnak
+            LustHub
           </span>
           <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse self-end mb-1"></span>
         </Link>

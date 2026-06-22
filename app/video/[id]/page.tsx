@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 
 export default async function VideoPage({
   params,
@@ -6,5 +6,7 @@ export default async function VideoPage({
   params: Promise<{ id: string }>;
 }) {
   const resolvedParams = await params;
-  redirect(`/watch?v=${resolvedParams.id}`);
+  // Belt-and-suspenders: primary redirect is the 301 in next.config.ts.
+  // Both now point to the canonical /watch/{id} path.
+  redirect(`/watch/${resolvedParams.id}`, RedirectType.permanent);
 }

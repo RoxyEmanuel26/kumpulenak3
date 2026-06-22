@@ -31,7 +31,7 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
 
   return (
     <Link 
-      href={`/watch?v=${video.id}`} 
+      href={`/watch/${video.id}`} 
       className="group flex gap-2.5 w-full text-left"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {

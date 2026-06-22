@@ -197,7 +197,7 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-3 border-t border-white/5">
-                  <Link href={`/video/${video.id}`} className="block">
+                  <Link href={`/watch/${video.id}`} className="block">
                     <Button variant="ghost" className="text-xs font-semibold rounded-xl border border-white/5 hover:bg-white/5 cursor-pointer">
                       Details
                     </Button>

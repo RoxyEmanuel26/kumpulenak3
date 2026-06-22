@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EpornerVideo } from "@/types/eporner";
+import { slugify, formatVideoDate } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
+import { TIER1_SLUGS } from "@/lib/category-config";
+
 
 interface WatchPageClientProps {
   video: EpornerVideo;
@@ -131,24 +135,63 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
             </span>
           </div>
 
+          {/* ── Contextual Category Links ────────────────────────────────────
+               Derives Tier-1 category links from the video's keywords.
+               Shows up to 3 matches — never spams, only renders if relevant.
+               These are always visible (not hidden behind "Show more").
+               Authority flow: /watch/{id} → /category/{slug}
+          */}
+          {(() => {
+            const catLinks = keywordsList
+              .map((tag) => ({ tag, slug: slugify(tag) }))
+              .filter(({ slug }) => TIER1_SLUGS.has(slug))
+              .slice(0, 3);
+
+            if (catLinks.length === 0) return null;
+
+            return (
+              <div className="flex flex-wrap items-center gap-2 py-2">
+                <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest shrink-0">
+                  Browse:
+                </span>
+                {catLinks.map(({ tag, slug }) => (
+                  <Link
+                    key={slug}
+                    href={`/category/${slug}`}
+                    onClick={() => trackEvent("category_cta_click", { category: slug, from_video: video.id })}
+                    className="px-2.5 py-1 rounded-full bg-[#1F1F1F] border border-white/10 text-xs text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] hover:border-red-600/40 transition-all font-medium"
+                  >
+                    {tag}
+                  </Link>
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Description Box */}
           <div className="bg-[#272727] rounded-xl p-4 hover:bg-[#3F3F3F] transition-colors mt-4">
             <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold mb-2 text-muted-foreground">
               <span className="text-white">{video.views.toLocaleString("en-US")} views</span>
               <span>•</span>
-              <span className="text-white">{video.added}</span>
+              <span className="text-white">{formatVideoDate(video.added)}</span>
             </div>
             
             <div className={`text-xs sm:text-sm text-[#F1F1F1] leading-relaxed whitespace-pre-wrap ${!descExpanded ? "line-clamp-3" : ""}`}>
-               {(descExpanded ? keywordsList : keywordsList.slice(0, 10)).map((tag, idx) => (
-                  <Link 
-                    key={idx} 
-                    href={`/results?search_query=${encodeURIComponent(tag)}`}
-                    className="text-blue-400 hover:underline mr-2 inline-block"
-                  >
-                    #{tag.replace(/\s+/g, '')}
-                  </Link>
-               ))}
+              {(descExpanded ? keywordsList : keywordsList.slice(0, 10)).map((tag, idx) => {
+                  const slug = slugify(tag);
+                  const href = TIER1_SLUGS.has(slug)
+                    ? `/category/${slug}`
+                    : `/results?search_query=${encodeURIComponent(tag)}`;
+                  return (
+                    <Link
+                      key={idx}
+                      href={href}
+                      className="text-blue-400 hover:underline mr-2 inline-block"
+                    >
+                      #{tag.replace(/\s+/g, '')}
+                    </Link>
+                  );
+                })}
             </div>
 
             <button 
@@ -161,13 +204,19 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
             {/* Tags / Categories badges inside desc */}
             {descExpanded && (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
-                {keywordsList.map((tag, index) => (
-                  <Link key={index} href={`/results?search_query=${encodeURIComponent(tag)}`}>
-                    <Badge variant="secondary" className="bg-white/10 text-xs text-[#F1F1F1] hover:bg-white/20 border-0 cursor-pointer py-1 px-2.5 rounded-lg">
-                      {tag}
-                    </Badge>
-                  </Link>
-                ))}
+                {keywordsList.map((tag, index) => {
+                  const tagSlug = slugify(tag);
+                  const tagHref = TIER1_SLUGS.has(tagSlug)
+                    ? `/category/${tagSlug}`
+                    : `/results?search_query=${encodeURIComponent(tag)}`;
+                  return (
+                    <Link key={index} href={tagHref}>
+                      <Badge variant="secondary" className="bg-white/10 text-xs text-[#F1F1F1] hover:bg-white/20 border-0 cursor-pointer py-1 px-2.5 rounded-lg">
+                        {tag}
+                      </Badge>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -185,6 +234,24 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
               <VideoCardMini key={relVideo.id} video={relVideo} />
             ))}
           </div>
+
+          {/* ── Continuation CTA ─────────────────────────────────────────
+               Shown after the related list to prevent dead-end exits.
+               Uses first keyword as search anchor — one link only.
+          */}
+          {keywordsList.length > 0 && (
+            <div className="pt-3 border-t border-white/5 text-center">
+              <Link
+                href={`/results?search_query=${encodeURIComponent(keywordsList[0])}`}
+                onClick={() => trackEvent("see_more_click", { keyword: keywordsList[0] })}
+                className="text-xs text-muted-foreground hover:text-red-400 transition-colors font-medium inline-flex items-center gap-1 group"
+              >
+                See more {keywordsList[0]} videos
+                <span className="transition-transform group-hover:translate-x-0.5">→</span>
+              </Link>
+            </div>
+          )}
+
         </div>
 
       </div>

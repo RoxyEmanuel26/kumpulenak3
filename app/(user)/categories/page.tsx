@@ -3,10 +3,37 @@ import { Metadata } from "next";
 import { LayoutGrid } from "lucide-react";
 import { CategoriesClient } from "./CategoriesClient";
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+
 export const metadata: Metadata = {
-  title: "Video Categories - KumpulEnak",
-  description: "Browse adult videos by categories and find matching content instantly.",
+  title: "Categories",
+  description: "Browse all porn video categories on LustHub. Find exactly what you're looking for — from amateur to HD, Asian to MILF and everything in between.",
+  alternates: {
+    canonical: `${SITE_URL}/categories`,
+  },
+  openGraph: {
+    title: "Browse All Categories \u2014 LustHub",
+    description: "Browse all porn video categories on LustHub. Find exactly what you're looking for — amateur, HD, Asian, MILF, Lesbian and more.",
+    type: "website",
+    url: `${SITE_URL}/categories`,
+    siteName: "LustHub",
+    images: [
+      {
+        url: `${SITE_URL}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: "LustHub \u2014 Browse All Categories",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Browse All Categories \u2014 LustHub",
+    description: "Browse all porn video categories on LustHub.",
+    images: [`${SITE_URL}/opengraph-image`],
+  },
 };
+
 
 const CATEGORY_MAPPING = [
   { name: "Japanese", imageId: "52" },
@@ -145,10 +172,10 @@ export default async function CategoriesPage() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-6 space-y-6">
       <div className="border-b border-white/5 pb-4 text-left">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <LayoutGrid className="h-5 w-5 text-red-500" />
           Browse Categories
-        </h2>
+        </h1>
         <p className="text-xs text-muted-foreground mt-1 font-mono">
           Explore all {finalCategories.length} media classification channels
         </p>

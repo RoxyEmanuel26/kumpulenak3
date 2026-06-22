@@ -1,19 +1,19 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About Us - KumpulEnak",
-  description: "Learn more about KumpulEnak video aggregation, synchronization, and streaming capabilities.",
+  title: "About Us",
+  description: "Learn more about LustHub — a fast, automated HD porn video platform with advanced streaming, caching, and custom player solutions.",
 };
 
 export default function AboutPage() {
   return (
     <div className="container mx-auto px-4 md:px-8 py-10 max-w-3xl text-left text-white space-y-6">
       <h1 className="text-3xl font-extrabold bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent font-heading mb-4">
-        About KumpulEnak
+        About LustHub
       </h1>
       
       <p className="text-sm text-foreground/80 leading-relaxed">
-        KumpulEnak is a highly optimized, fully automated high-performance video aggregator. 
+        LustHub is a highly optimized, fully automated high-performance video aggregator. 
         It integrates advanced streaming, caching, and custom player solutions to deliver 
         unparalleled speed and reliability for automated content indexing.
       </p>

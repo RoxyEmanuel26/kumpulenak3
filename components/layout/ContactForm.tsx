@@ -21,7 +21,7 @@ export function ContactForm() {
     try {
       const subject = encodeURIComponent(`Contact from ${name}`);
       const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`);
-      window.open(`mailto:admin@kumpulenak.com?subject=${subject}&body=${body}`, '_blank');
+      window.open(`mailto:admin@lusthub.web.id?subject=${subject}&body=${body}`, '_blank');
       setSuccess(true);
       setName("");
       setEmail("");
@@ -176,7 +176,7 @@ export function ContactForm() {
                     <div className="p-2.5 bg-primary/10 rounded-xl text-primary transition-transform duration-300 group-hover:scale-110"><Mail className="h-4.5 w-4.5" /></div>
                     <div>
                       <div className="text-[10px] text-muted-foreground font-mono uppercase">Email Address</div>
-                      <a href="mailto:admin@kumpulenak.com" className="text-xs font-semibold text-white hover:text-primary transition-colors">admin@kumpulenak.com</a>
+                      <a href="mailto:admin@lusthub.web.id" className="text-xs font-semibold text-white hover:text-primary transition-colors">admin@lusthub.web.id</a>
                     </div>
                   </div>
 
@@ -185,7 +185,7 @@ export function ContactForm() {
                     <div className="p-2.5 bg-purple-500/10 rounded-xl text-purple-400 transition-transform duration-300 group-hover:scale-110"><MessageCircle className="h-4.5 w-4.5" /></div>
                     <div>
                       <div className="text-[10px] text-muted-foreground font-mono uppercase">Telegram Support</div>
-                      <a href="https://t.me/kumpulenak_support" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-white hover:text-primary transition-colors">@kumpulenak_support</a>
+                      <a href="https://t.me/lusthub_support" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-white hover:text-primary transition-colors">@lusthub_support</a>
                     </div>
                   </div>
                 </div>

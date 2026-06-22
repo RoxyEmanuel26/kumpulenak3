@@ -31,8 +31,18 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     try {
-      const savedLikes = localStorage.getItem("kumpulenak_likes");
-      const savedHistory = localStorage.getItem("kumpulenak_history");
+      // Migrate from old kumpulenak_ keys if present
+      const migrateKey = (oldKey: string, newKey: string) => {
+        const oldVal = localStorage.getItem(oldKey);
+        if (oldVal) {
+          localStorage.setItem(newKey, oldVal);
+          localStorage.removeItem(oldKey);
+          return oldVal;
+        }
+        return localStorage.getItem(newKey);
+      };
+      const savedLikes = migrateKey("kumpulenak_likes", "lusthub_likes");
+      const savedHistory = migrateKey("kumpulenak_history", "lusthub_history");
       if (savedLikes) setLikedVideos(JSON.parse(savedLikes));
       if (savedHistory) setWatchHistory(JSON.parse(savedHistory));
     } catch (e) {
@@ -46,7 +56,7 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isMounted) return;
     try {
-      localStorage.setItem("kumpulenak_likes", JSON.stringify(likedVideos));
+      localStorage.setItem("lusthub_likes", JSON.stringify(likedVideos));
     } catch (e) {
       console.error("Failed to save likes:", e);
     }
@@ -56,7 +66,7 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isMounted) return;
     try {
-      localStorage.setItem("kumpulenak_history", JSON.stringify(watchHistory));
+      localStorage.setItem("lusthub_history", JSON.stringify(watchHistory));
     } catch (e) {
       console.error("Failed to save history:", e);
     }
