@@ -36,7 +36,16 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
   const injectedRef = useRef(false);
 
   useEffect(() => {
-    if (injectedRef.current || !containerRef.current) return;
+    if (injectedRef.current || !containerRef.current || containerRef.current.firstChild) return;
+
+    // Viewport-based responsive check to avoid race conditions on global atOptions
+    const isMd = window.matchMedia("(min-width: 768px)").matches;
+    const isDesktopOnly = className.includes("hidden md:flex") || (className.includes("md:flex") && className.includes("hidden"));
+    const isMobileOnly = className.includes("md:hidden");
+
+    if (isDesktopOnly && !isMd) return;
+    if (isMobileOnly && isMd) return;
+
     injectedRef.current = true;
 
     // Set atOptions on the window before the invoke script runs
@@ -57,7 +66,7 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
     invokeScript.src = `https://glamournakedemployee.com/${adKey}/invoke.js`;
     invokeScript.async = true;
     containerRef.current.appendChild(invokeScript);
-  }, [adKey, width, height]);
+  }, [adKey, width, height, className]);
 
   return (
     <div
