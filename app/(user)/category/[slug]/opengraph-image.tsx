@@ -14,28 +14,17 @@ import { getCategoryBySlug, TIER1_CATEGORIES } from "@/lib/category-config";
 export const runtime = "edge";
 export const alt = "LustHub Category";
 export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
-
-// Pre-generate at build time for all Tier-1 slugs
-export function generateImageMetadata() {
-  return TIER1_CATEGORIES.map((cat) => ({
-    id: cat.slug,
-    alt: `${cat.title} — LustHub`,
-    size,
-    contentType,
-  }));
-}
-
-export default function CategoryOGImage({
+export default async function CategoryOGImage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const cat = getCategoryBySlug(params.slug);
+  const { slug } = await params;
+  const cat = getCategoryBySlug(slug);
 
   // Fallback if slug is not recognized
-  const categoryName = cat?.name ?? params.slug;
-  const categoryTitle = cat?.title ?? `${params.slug} Porn Videos`;
+  const categoryName = cat?.name ?? slug;
+  const categoryTitle = cat?.title ?? `${slug} Porn Videos`;
 
   return new ImageResponse(
     (
