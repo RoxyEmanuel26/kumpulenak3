@@ -1,28 +1,6 @@
 "use client";
 
-import Script from "next/script";
-import { useEffect, useRef } from "react";
-
-/**
- * AdsterraBanner
- *
- * Renders a single Adsterra iframe banner unit.
- *
- * Props:
- *   - adKey:   The Adsterra ad unit key
- *   - width:   Banner width in pixels
- *   - height:  Banner height in pixels
- *   - className: Optional wrapper class (for responsive show/hide)
- *
- * Supported units:
- *   - 728×90  (Leaderboard) — desktop/tablet only
- *   - 320×50  (Mobile Banner) — mobile only
- *   - 300×250 (Medium Rectangle) — sidebar / watch page
- *
- * The script tag sets window.atOptions before invoking the ad script.
- * We use a ref-keyed container so React doesn't accidentally
- * re-inject the script on re-renders.
- */
+import { useEffect, useState } from "react";
 
 interface AdsterraBannerProps {
   adKey: string;
@@ -32,14 +10,10 @@ interface AdsterraBannerProps {
 }
 
 export function AdsterraBanner({ adKey, width, height, className = "" }: AdsterraBannerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const injectedRef = useRef(false);
+  const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {
-    if (injectedRef.current || !containerRef.current || containerRef.current.firstChild) return;
-
-    // Viewport-based responsive check to avoid race conditions on global atOptions.
-    // Supports both Tailwind md (768px) and lg (1024px) breakpoints.
+    // Viewport-based responsive check to avoid race conditions.
     const isMd = window.matchMedia("(min-width: 768px)").matches;
     const isLg = window.matchMedia("(min-width: 1024px)").matches;
 
@@ -54,27 +28,8 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
     if (isMobileOnlyLg && isLg) return;
     if (isMobileOnlyMd && isMd) return;
 
-    injectedRef.current = true;
-
-    // Set atOptions on the window before the invoke script runs
-    const optionsScript = document.createElement("script");
-    optionsScript.text = `
-      atOptions = {
-        'key': '${adKey}',
-        'format': 'iframe',
-        'height': ${height},
-        'width': ${width},
-        'params': {}
-      };
-    `;
-    containerRef.current.appendChild(optionsScript);
-
-    // Load the invoke script
-    const invokeScript = document.createElement("script");
-    invokeScript.src = `https://glamournakedemployee.com/${adKey}/invoke.js`;
-    invokeScript.async = true;
-    containerRef.current.appendChild(invokeScript);
-  }, [adKey, width, height, className]);
+    setShouldRender(true);
+  }, [className]);
 
   return (
     <div
@@ -82,7 +37,50 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
       style={{ minHeight: height, minWidth: width, maxWidth: "100%" }}
       aria-hidden="true"
     >
-      <div ref={containerRef} />
+      {shouldRender ? (
+        <iframe
+          srcDoc={`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta charset="utf-8">
+                <style>
+                  html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                    background: transparent;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                  }
+                </style>
+              </head>
+              <body>
+                <script type="text/javascript">
+                  var atOptions = {
+                    'key' : '${adKey}',
+                    'format' : 'iframe',
+                    'height' : ${height},
+                    'width' : ${width},
+                    'params' : {}
+                  };
+                </script>
+                <script type="text/javascript" src="https://glamournakedemployee.com/${adKey}/invoke.js"></script>
+              </body>
+            </html>
+          `}
+          width={width}
+          height={height}
+          style={{ border: "none", overflow: "hidden", maxWidth: "100%" }}
+          scrolling="no"
+          title={`Ad Banner ${adKey}`}
+        />
+      ) : (
+        <div />
+      )}
     </div>
   );
 }
