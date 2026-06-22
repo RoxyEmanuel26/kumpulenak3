@@ -3,7 +3,11 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Read the LustHub Privacy Policy regarding local storage, data handling, cookies, and third-party integrations.",
+  alternates: {
+    canonical: "https://lusthub.web.id/privacy",
+  },
 };
+
 
 export default function PrivacyPage() {
   return (

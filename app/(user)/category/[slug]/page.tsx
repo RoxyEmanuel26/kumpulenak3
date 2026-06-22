@@ -98,6 +98,19 @@ export default async function CategoryPage({
   const videos = res?.videos || [];
   const totalPages = res?.total_pages || 1;
 
+  // Soft-404 guard: if a paginated request returns no videos and is beyond page 1,
+  // return a proper 404 instead of rendering an empty grid.
+  // An empty paginated page is a soft-404 risk — Google flags it as low-value content.
+  // Page 1 with zero results is intentionally allowed (category exists but may be sparse).
+  if (page > 1 && videos.length === 0) {
+    return notFound();
+  }
+
+  // Clamp page to valid range — prevents rendering "Page 50 of 3" style confusion
+  if (page > totalPages && totalPages > 0) {
+    return notFound();
+  }
+
   // Related categories for internal linking (exclude self)
   const relatedCats = cat.related
     .map((rSlug) => TIER1_CATEGORIES.find((c) => c.slug === rSlug))

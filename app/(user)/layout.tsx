@@ -2,6 +2,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PageWrapper } from "@/components/layout/PageWrapper";
+import { WebVitals } from "@/components/analytics/WebVitals";
 import { Suspense } from "react";
 
 export default async function UserLayout({
@@ -11,6 +12,7 @@ export default async function UserLayout({
 }>) {
   return (
     <div className="flex flex-col min-h-screen bg-[#0F0F0F]">
+      <WebVitals />
       {/* Premium Top Navigation Bar */}
       <Topbar />
       

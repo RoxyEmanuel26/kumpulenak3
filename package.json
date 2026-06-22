@@ -7,13 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "build:worker": "npx tsc -p tsconfig.worker.json"
+    "build:worker": "npx tsc -p tsconfig.worker.json",
+    "qc": "npx ts-node --project scripts/qc/tsconfig.json scripts/qc/run-all.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "axios": "^1.18.0",
     "bullmq": "^5.78.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -45,4 +45,3 @@
     "typescript": "^5"
   }
 }
-

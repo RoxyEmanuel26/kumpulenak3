@@ -3,7 +3,11 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "18 U.S.C. 2257 Compliance",
   description: "Read the LustHub 18 U.S.C. 2257 record-keeping compliance statement.",
+  alternates: {
+    canonical: "https://lusthub.web.id/compliance",
+  },
 };
+
 
 export default function CompliancePage() {
   return (

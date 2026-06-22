@@ -3,7 +3,11 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "DMCA Copyright Policy",
   description: "Read the LustHub DMCA Copyright Policy — copyright respect, takedown request procedures, and counter-notification details.",
+  alternates: {
+    canonical: "https://lusthub.web.id/dmca",
+  },
 };
+
 
 export default function DmcaPage() {
   return (

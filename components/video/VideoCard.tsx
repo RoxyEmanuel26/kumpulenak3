@@ -11,6 +11,21 @@ interface VideoCardProps {
   video: EpornerVideo;
 }
 
+// 7 days in milliseconds — videos newer than this get a "NEW" badge.
+// This is a constant so it's evaluated once per module load, not per render.
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Returns true if the video was added within the last 7 days. */
+function isNewVideo(addedDateStr?: string): boolean {
+  if (!addedDateStr) return false;
+  try {
+    const addedTs = new Date(addedDateStr).getTime();
+    return Date.now() - addedTs < SEVEN_DAYS_MS;
+  } catch {
+    return false;
+  }
+}
+
 export function VideoCard({ video }: VideoCardProps) {
 
   // Hover Thumbnail Slideshow Logic
@@ -70,6 +85,13 @@ export function VideoCard({ video }: VideoCardProps) {
         <span className="absolute bottom-2 right-2 bg-black/85 px-1.5 py-0.5 text-[9px] text-[#F1F1F1] rounded font-mono font-bold tracking-wide border border-white/5">
           {video.length_min || "0:00"}
         </span>
+
+        {/* NEW badge — shown for videos added within last 7 days (top right) */}
+        {isNewVideo(video.added) && (
+          <span className="absolute top-2 right-2 bg-red-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide font-mono leading-none">
+            NEW
+          </span>
+        )}
       </div>
 
       {/* Title and stats */}

@@ -8,7 +8,15 @@ import { cleanEpornerText } from "@/lib/api/eporner";
 export const metadata: Metadata = {
   title: "Library",
   description: "Your personal video library on LustHub — browse your watch history and liked videos.",
+  // Belt-and-suspenders: robots.txt already disallows /library.
+  // noindex ensures this user-specific page is excluded from indexing
+  // even if a bot ignores robots.txt or if the disallow rule ever changes.
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
+
 
 export default async function LibraryPage() {
   const videos = await prisma.video.findMany({

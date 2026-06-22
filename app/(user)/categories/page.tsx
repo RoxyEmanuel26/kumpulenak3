@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { Metadata } from "next";
 import { LayoutGrid } from "lucide-react";
 import { CategoriesClient } from "./CategoriesClient";
+import { TIER1_CATEGORIES } from "@/lib/category-config";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
@@ -174,7 +175,32 @@ export default async function CategoriesPage() {
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
+  // ── ItemList JSON-LD ──────────────────────────────────────────────────────
+  // Enumerates all Tier-1 category pages that have dedicated SEO-optimized routes.
+  // Helps Google understand /categories as a navigational hub.
+  // Only includes categories with real canonical /category/{slug} pages (Tier-1).
+  const categoriesJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Adult Video Categories — LustHub",
+    "description": "Browse all adult video categories on LustHub — free HD porn organized by type.",
+    "url": `${SITE_URL}/categories`,
+    "numberOfItems": TIER1_CATEGORIES.length,
+    "itemListElement": TIER1_CATEGORIES.map((cat, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "name": cat.name,
+      "url": `${SITE_URL}/category/${cat.slug}`,
+    })),
+  };
+
   return (
+    <>
+      {/* ItemList JSON-LD — server-side, invisible to users */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoriesJsonLd) }}
+      />
     <div className="container mx-auto max-w-7xl px-4 py-6 space-y-6">
       <div className="border-b border-white/5 pb-4 text-left">
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
@@ -188,5 +214,6 @@ export default async function CategoriesPage() {
 
       <CategoriesClient categories={finalCategories} />
     </div>
+    </>
   );
 }

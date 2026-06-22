@@ -5,6 +5,7 @@ import { EpornerAPI } from "../lib/api/eporner";
 import { prisma } from "../lib/db/prisma";
 import { GeminiAPI } from "../lib/api/gemini";
 import { Prisma } from "@prisma/client";
+import { TIER1_CATEGORIES } from "../lib/category-config";
 
 
 export const syncWorker = new Worker(
@@ -129,19 +130,27 @@ export const syncWorker = new Worker(
                   })),
                 },
                 
-                // Handle category
-                categories: {
-                  create: [
-                    {
-                      category: {
-                        connectOrCreate: {
-                          where: { name: aiResult.category.trim() },
-                          create: { name: aiResult.category.trim() },
+                // Handle category (Strict validation against TIER1_CATEGORIES)
+                ...((() => {
+                  const aiCatName = aiResult.category.trim().toLowerCase();
+                  const matchedCat = TIER1_CATEGORIES.find((c) => c.name.toLowerCase() === aiCatName);
+                  if (!matchedCat) return {}; // Skip category if it's hallucinated
+                  
+                  return {
+                    categories: {
+                      create: [
+                        {
+                          category: {
+                            connectOrCreate: {
+                              where: { name: matchedCat.name },
+                              create: { name: matchedCat.name },
+                            },
+                          },
                         },
-                      },
+                      ],
                     },
-                  ],
-                },
+                  };
+                })()),
               },
             });
 

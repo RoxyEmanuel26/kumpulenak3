@@ -30,6 +30,15 @@
  * search_submit         → Search form submitted
  *   { query_length: number }   (length only — never the actual query string for privacy)
  *
+ * share                 → Share button clicked (Phase 13)
+ *   { method: "native" | "clipboard" }
+ *
+ * continue_watching_click → "Continue Watching" video clicked (Phase 13)
+ *   { position: number }
+ *
+ * web_vitals            → Core Web Vitals performance metrics (Phase 16)
+ *   { metric: string; value: number; rating: string }
+ *
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -83,3 +92,22 @@ export function trackEvent(
     console.info("[Analytics]", event, props ?? "");
   }
 }
+
+// ── Typed event helpers (Phase 13 additions) ─────────────────────────────────
+// Provides autocomplete and prevents typos in event names.
+// All existing trackEvent() call sites are unaffected — this is additive.
+
+export const Analytics = {
+  /** Share button clicked — native Web Share API or clipboard fallback */
+  share: (method: "native" | "clipboard") =>
+    trackEvent("share", { method }),
+
+  /** "Continue Watching" video clicked — position is 0-indexed */
+  continueWatchingClick: (position: number) =>
+    trackEvent("continue_watching_click", { position }),
+
+  /** Core Web Vitals metric logged */
+  trackWebVital: (metric: string, value: number, rating: string) =>
+    trackEvent("web_vitals", { metric, value, rating }),
+} as const;
+

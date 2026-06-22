@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
+import { ContinueWatching } from "@/components/video/ContinueWatching";
 
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
@@ -132,18 +133,26 @@ export default async function UserHome({
         {/* H1 — required for SEO; styled small and unobtrusive */}
         <h1 className="sr-only">Latest Free HD Porn Videos</h1>
 
-        {/* ── Featured Categories ────────────────────────────────────────────
-             Server-rendered direct links to the 8 highest-demand Tier-1 categories.
+        {/* ── Continue Watching (return visitor row) ────────────────────────
+             Client component — reads watchHistory from UIContext (localStorage).
+             Renders nothing for first-time visitors or when history is empty.
+             Only shown on page 1 to keep the homepage clean on paginated views.
+        */}
+        {page === 1 && <ContinueWatching />}
+
+        {/* ── Featured Categories ─────────────────────────────────────────────────────
+             Server-rendered direct links to all 15 Tier-1 categories.
              Shown only on page 1. Reduces category crawl depth from 2 clicks to 1.
              Authority flows: Homepage → /category/{slug} directly.
+             Expanded from 8 → 15 to expose all SEO-indexed category pages.
         */}
         {page === 1 && (
           <nav aria-label="Featured categories" className="pb-2 border-b border-white/5">
             <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest font-mono mb-3">
-              Featured Categories
+              Browse Categories
             </h2>
             <div className="flex flex-wrap gap-2">
-              {TIER1_CATEGORIES.slice(0, 8).map((cat) => (
+              {TIER1_CATEGORIES.map((cat) => (
                 <Link
                   key={cat.slug}
                   href={`/category/${cat.slug}`}

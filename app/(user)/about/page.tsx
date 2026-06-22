@@ -3,7 +3,11 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "About Us",
   description: "Learn more about LustHub — a fast, automated HD porn video platform with advanced streaming, caching, and custom player solutions.",
+  alternates: {
+    canonical: "https://lusthub.web.id/about",
+  },
 };
+
 
 export default function AboutPage() {
   return (

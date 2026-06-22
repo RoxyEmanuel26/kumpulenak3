@@ -14,6 +14,7 @@ import { EpornerVideo } from "@/types/eporner";
 import { slugify, formatVideoDate } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { TIER1_SLUGS } from "@/lib/category-config";
+import { ShareButton } from "./ShareButton";
 
 
 interface WatchPageClientProps {
@@ -130,9 +131,17 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
               </button>
             </div>
 
-            <span className="text-[10px] sm:text-xs text-muted-foreground font-mono bg-[#161616]/40 border border-white/5 px-2.5 sm:px-3 py-1.5 rounded-full backdrop-blur-md shrink-0">
-              {currentPercent}% approval
-            </span>
+            {/* Right side: approval % + share button */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-mono bg-[#161616]/40 border border-white/5 px-2.5 sm:px-3 py-1.5 rounded-full backdrop-blur-md">
+                {currentPercent}% approval
+              </span>
+              {/* Share button — Web Share API on mobile, clipboard on desktop */}
+              <ShareButton
+                url={`https://lusthub.web.id/watch/${video.id}`}
+                title={video.title}
+              />
+            </div>
           </div>
 
           {/* ── Contextual Category Links ────────────────────────────────────
@@ -168,7 +177,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
             );
           })()}
 
-          {/* Description Box */}
+
           <div className="bg-[#272727] rounded-xl p-4 hover:bg-[#3F3F3F] transition-colors mt-4">
             <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold mb-2 text-muted-foreground">
               <span className="text-white">{video.views.toLocaleString("en-US")} views</span>

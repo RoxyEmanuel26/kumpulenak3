@@ -1,0 +1,33 @@
+# LustHub AI Governance & Architecture Rules
+
+You are working on LustHub, a Next.js 16 App Router application. The repository has entered long-term maintenance mode. Your primary directive is to preserve stability, maintainability, and SEO consistency.
+
+## 1. Web-First, SEO-First
+- DO NOT integrate messaging platforms, Telegram bots, or community features.
+- DO NOT alter the `quality-control` suite (`scripts/qc/*`) to bypass errors. Fix the underlying code instead.
+
+## 2. Zero-State Architecture
+- All user history (Continue Watching) and preferences MUST be stored in `localStorage` or `sessionStorage`.
+- DO NOT introduce user authentication (NextAuth, Clerk, etc.).
+- DO NOT add `User`, `Admin`, or `Session` tables to Prisma.
+
+## 3. Strict Next.js App Router Paradigms
+- DO NOT use `getServerSideProps` or `getStaticProps`.
+- USE Server Components by default. Only use `"use client"` when hooks or interactivity are absolutely required.
+- PREFER native `fetch` over external libraries like `axios`.
+
+## 4. Minimal Dependencies
+- DO NOT install heavy UI libraries (e.g., Material UI, Framer Motion) when Tailwind CSS + plain React or standard Radix/Shadcn primitives are sufficient.
+- Check `package.json` before adding any new utility. Avoid overlapping libraries.
+
+## 5. Architectural Churn
+- DO NOT refactor working systems unnecessarily.
+- Prefer minimal-diff updates.
+- Keep components inside `components/` and utility functions inside `lib/`. Do not fragment files unnecessarily.
+
+## 6. Controlled Optimization & Telemetry
+- **Evidence-Based Changes**: DO NOT optimize speculatively. Any optimization to components or routing must be backed by measurable Core Web Vitals (CWV) or analytics data.
+- **Lightweight Observability**: We use a custom `useReportWebVitals` hook in `components/analytics/WebVitals.tsx` feeding into `lib/analytics.ts`. DO NOT introduce external telemetry SDKs like Sentry, Datadog, or New Relic without explicit permission.
+- **Rollback Safety**: Ensure any new feature or layout change is isolated and easily reversible if it negatively impacts CWV or SEO ranking.
+
+Any deviation from these rules requires explicit user approval.

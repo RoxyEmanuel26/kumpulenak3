@@ -1,4 +1,3 @@
-import axios from "axios";
 
 export interface GeminiClassificationResult {
   cleanedTags: string[];
@@ -48,27 +47,17 @@ export const GeminiAPI = {
         5. Write a compelling SEO description in English (1-2 sentences) to improve Google search performance.
       `;
 
-      const response = await axios.post(
-        API_URL,
-        {
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
             responseSchema: {
               type: "OBJECT",
               properties: {
-                cleanedTags: {
-                  type: "ARRAY",
-                  items: { type: "STRING" },
-                },
+                cleanedTags: { type: "ARRAY", items: { type: "STRING" } },
                 category: { type: "STRING" },
                 isSpam: { type: "BOOLEAN" },
                 scores: {
@@ -85,15 +74,15 @@ export const GeminiAPI = {
               required: ["cleanedTags", "category", "isSpam", "scores", "seoDescription"],
             },
           },
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+        }),
+      });
 
-      const jsonText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!res.ok) {
+        throw new Error(`HTTP Error: ${res.status}`);
+      }
+
+      const responseData = await res.json();
+      const jsonText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
         throw new Error("Empty response from Gemini API");
       }

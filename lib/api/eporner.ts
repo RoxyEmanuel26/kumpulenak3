@@ -1,4 +1,3 @@
-import axios from "axios";
 import { EpornerSearchResponse, EpornerVideo } from "../../types/eporner";
 
 const BASE_URL = "https://www.eporner.com/api/v2/video";
@@ -57,9 +56,17 @@ export const EpornerAPI = {
     lq?: 0 | 1 | 2;
     format?: "json" | "xml";
   } = {}): Promise<EpornerSearchResponse> {
-    const { data } = await axios.get<EpornerSearchResponse>(`${BASE_URL}/search/`, {
-      params: { format: "json", per_page: 100, order: "latest", ...params, gay: 0, lq: 0 },
+    const queryParams = new URLSearchParams({
+      format: "json",
+      per_page: "100",
+      order: "latest",
+      ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+      gay: "0",
+      lq: "0",
     });
+    const res = await fetch(`${BASE_URL}/search/?${queryParams.toString()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data: EpornerSearchResponse = await res.json();
     if (data && Array.isArray(data.videos)) {
       data.videos = data.videos.map(cleanVideoData);
     }
@@ -68,9 +75,10 @@ export const EpornerAPI = {
 
   async getById(id: string): Promise<EpornerVideo | null> {
     try {
-      const { data } = await axios.get(`${BASE_URL}/id/`, {
-        params: { id, format: "json" },
-      });
+      const queryParams = new URLSearchParams({ id, format: "json" });
+      const res = await fetch(`${BASE_URL}/id/?${queryParams.toString()}`);
+      if (!res.ok) return null;
+      const data = await res.json();
       return (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;
     } catch {
       return null;
@@ -78,11 +86,10 @@ export const EpornerAPI = {
   },
 
   async getRemoved(): Promise<string> {
-    const { data } = await axios.get<string>(`${BASE_URL}/removed/`, {
-      params: { format: "json" },
-      responseType: "text",
-    });
-    return data;
+    const queryParams = new URLSearchParams({ format: "json" });
+    const res = await fetch(`${BASE_URL}/removed/?${queryParams.toString()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
   },
 };
 
