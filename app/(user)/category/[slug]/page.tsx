@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, LayoutGrid } from "lucide-react";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import { getCategoryBySlug, TIER1_CATEGORIES } from "@/lib/category-config";
+import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
@@ -232,6 +233,24 @@ export default async function CategoryPage({
           </div>
         </div>
       )}
+
+      {/* ── Adsterra Banner ─────────────────────────────────────
+           Leaderboard 728×90 — desktop & tablet
+           Mobile Banner 320×50 — mobile only
+           Placed above video grid for maximum viewability.
+      ────────────────────────────────────────────────────────── */}
+      <AdsterraBanner
+        adKey="361158242f9f7ba4b97dddf961d303d6"
+        width={728}
+        height={90}
+        className="hidden md:flex my-2"
+      />
+      <AdsterraBanner
+        adKey="1657e4fb76c1445cfbb411b5b0a859ee"
+        width={320}
+        height={50}
+        className="flex md:hidden my-2"
+      />
 
       {/* ── Video Grid — Server Component renders initial HTML ──── */}
       <VideoGrid videos={videos} />
