@@ -3,6 +3,7 @@ import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { UIProvider } from "../components/layout/UIContext";
+import { AdsterraSitewide } from "../components/ads/AdsterraSitewide";
 
 
 const inter = Inter({ 
@@ -69,6 +70,12 @@ export default function RootLayout({
         <UIProvider>
           {children}
         </UIProvider>
+
+        {/* ── Adsterra Sitewide Ads ──────────────────────────────────────────
+            Loads Popunder + Social Bar once per session across all pages.
+            strategy="afterInteractive" ensures LCP is never blocked.
+        ─────────────────────────────────────────────────────────────────── */}
+        <AdsterraSitewide />
 
         {/*
           ── Plausible Analytics ────────────────────────────────────────────

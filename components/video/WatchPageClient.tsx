@@ -15,6 +15,7 @@ import { slugify, formatVideoDate } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { TIER1_SLUGS } from "@/lib/category-config";
 import { ShareButton } from "./ShareButton";
+import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 
 
 interface WatchPageClientProps {
@@ -237,6 +238,17 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
           <div className="flex items-center justify-between pb-2">
             <h3 className="font-bold text-lg">Recommended</h3>
           </div>
+
+          {/* ── Adsterra 300×250 Medium Rectangle ─────────────────────────────
+               Positioned at top of sidebar for maximum viewability.
+               One of the highest-CPM placements in display advertising.
+          ────────────────────────────────────────────────────────── */}
+          <AdsterraBanner
+            adKey="3f7aeb74bde61edc8e369b2303797899"
+            width={300}
+            height={250}
+            className="flex justify-center w-full"
+          />
           
           <div className="flex flex-col gap-3">
             {relatedVideos.map((relVideo) => (
