@@ -56,15 +56,23 @@ export const EpornerAPI = {
     lq?: 0 | 1 | 2;
     format?: "json" | "xml";
   } = {}): Promise<EpornerSearchResponse> {
+    // BUG FIX: Defaults must come FIRST in the spread, then caller params override them.
+    // Previous code had gay:"0" and lq:"0" AFTER the params spread, silently
+    // ignoring whatever the caller passed for these fields.
     const queryParams = new URLSearchParams({
       format: "json",
       per_page: "100",
       order: "latest",
+      gay: "0",   // default — overridable by caller
+      lq: "0",    // default — overridable by caller
       ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      gay: "0",
-      lq: "0",
     });
-    const res = await fetch(`${BASE_URL}/search/?${queryParams.toString()}`);
+    const res = await fetch(`${BASE_URL}/search/?${queryParams.toString()}`, {
+      // Cache search results for 5 minutes at the Next.js fetch layer.
+      // Under high load, many simultaneous searches for the same query
+      // collapse into a single upstream Eporner API call.
+      next: { revalidate: 300 },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data: EpornerSearchResponse = await res.json();
     if (data && Array.isArray(data.videos)) {

@@ -6,9 +6,15 @@ import { syncVideoToDatabase } from "@/lib/video/sync";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 
-// Always render dynamically — videos can be removed by the sync worker at any time,
-// so stale cached pages must never be served.
-export const dynamic = "force-dynamic";
+// ISR: Regenerate watch pages every 5 minutes.
+// Video metadata (title, thumbnail, views) rarely changes within minutes.
+// 10,000 users hitting the same popular video → ~12 DB/API hits per hour
+// instead of 600,000+ under force-dynamic.
+//
+// The canonical slug redirect still works correctly — slugParam comparison
+// runs at render time on the cached page output.
+// For truly real-time view counts, Eporner's embed handles that client-side.
+export const revalidate = 300;
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 

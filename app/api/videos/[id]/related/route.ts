@@ -45,7 +45,13 @@ export async function GET(
       keywords: cleanEpornerText(v.keywords || ""),
     }));
 
-    return NextResponse.json(cleanedRelated);
+    return NextResponse.json(cleanedRelated, {
+      headers: {
+        // Related video lists are stable — same video always returns the same related set.
+        // Cache at CDN edge for 10 minutes, serve stale for up to 1 hour.
+        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600',
+      },
+    });
   } catch (err) { const error = err as Error;
     console.error("[RelatedVideosAPI] Error fetching related videos:", error.message);
     return NextResponse.json(
