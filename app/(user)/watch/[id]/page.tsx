@@ -2,19 +2,14 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
 import { EpornerAPI } from "@/lib/api/eporner";
-import { syncVideoToDatabase } from "@/lib/video/sync";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 
-// ISR: Regenerate watch pages every 5 minutes.
-// Video metadata (title, thumbnail, views) rarely changes within minutes.
-// 10,000 users hitting the same popular video → ~12 DB/API hits per hour
-// instead of 600,000+ under force-dynamic.
-//
-// The canonical slug redirect still works correctly — slugParam comparison
-// runs at render time on the cached page output.
-// For truly real-time view counts, Eporner's embed handles that client-side.
-export const revalidate = 300;
+// ISR: Regenerate watch pages every 1 hour.
+// Video metadata (title, thumbnail, views) almost never changes within hours.
+// Sync is now handled exclusively by the /api/cron/sync endpoint (cron-job.org)
+// rather than being triggered on every page render.
+export const revalidate = 3600;
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
@@ -131,11 +126,10 @@ export default async function WatchVideoPage({
     permanentRedirect(canonicalPath);
   }
 
-  // HYBRID SYNC: trigger background sync without blocking the UI.
-  // This keeps the DB up-to-date with view counts and status.
-  syncVideoToDatabase(video.id).catch((err) => {
-    console.error(`[WatchVideoPage] Error in background sync:`, err.message);
-  });
+  // REMOVED: syncVideoToDatabase() was previously triggered here on every
+  // watch page render, causing excess function invocations.
+  // Video syncing is now handled exclusively by the /api/cron/sync endpoint
+  // which is called every 30 minutes via cron-job.org.
 
   // Fetch related videos using the first keyword for contextual relevance
   const keywords = video.keywords ? video.keywords.split(",") : [];

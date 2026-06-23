@@ -28,9 +28,11 @@ import { prisma } from "../lib/db/prisma";
 import { TIER1_CATEGORIES } from "../lib/category-config";
 import { buildWatchUrl } from "../lib/video/slug";
 
-// Regenerate sitemap every hour so new synced videos appear quickly.
-// ISR-safe: works on Vercel and self-hosted Next.js.
-export const revalidate = 3600;
+// Regenerate sitemap every 12 hours — down from 1 hour.
+// Google crawls sitemaps every few days, not every hour.
+// 12h ISR = 2 regenerations/day instead of 24, saving ~22 function invocations/day.
+// New videos synced via cron-job.org will appear in the next 12h sitemap window.
+export const revalidate = 43200;
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
