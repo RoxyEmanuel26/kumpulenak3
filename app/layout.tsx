@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { UIProvider } from "../components/layout/UIContext";
 import { AdsterraSitewide } from "../components/ads/AdsterraSitewide";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 
 const inter = Inter({ 
@@ -98,6 +99,12 @@ export default function RootLayout({
           data-domain="lusthub.web.id"
           strategy="afterInteractive"
         />
+
+        {/* ── Vercel Speed Insights ──────────────────────────────────────────
+            Real-time performance monitoring for Core Web Vitals.
+            Automatically collects and reports performance metrics.
+        ─────────────────────────────────────────────────────────────────── */}
+        <SpeedInsights />
       </body>
     </html>
   );
