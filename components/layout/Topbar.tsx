@@ -82,9 +82,9 @@ export function Topbar() {
           <Image 
             src="/logo.webp" 
             alt="LustHub Logo" 
-            width={120} 
-            height={44} 
-            className="object-contain h-11 w-auto scale-150 origin-left ml-2"
+            width={160} 
+            height={50} 
+            className="object-contain h-12 w-auto ml-2"
             priority
           />
         </Link>

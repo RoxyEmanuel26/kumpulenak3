@@ -27,6 +27,15 @@ export interface CategoryConfig {
 
 export const TIER1_CATEGORIES: CategoryConfig[] = [
   {
+    slug: "indonesia",
+    name: "Indonesia",
+    imageId: "8", // I will just use 8 or something generic since it doesn't really matter, maybe 0
+    title: "Indonesian Porn Videos",
+    description: "Watch the best free Indonesian porn videos on LustHub. Featuring amateur, scandalous, and viral Indonesian adult content in HD quality.",
+    intro: "Indonesian porn is highly sought after, featuring authentic amateur couples, viral scandals, and hidden camera footage. LustHub brings you thousands of free Indonesian videos in HD.",
+    related: ["asian", "amateur", "homemade"],
+  },
+  {
     slug: "japanese",
     name: "Japanese",
     imageId: "52",

@@ -74,11 +74,18 @@ export function ContinueWatching() {
             const res = await fetch(`/api/videos/${id}`);
             if (res.ok) {
               const data = await res.json();
-              const thumbnail =
-                data.defaultThumb?.src ||
-                data.default_thumb?.src ||
-                data.thumbs?.[0]?.src ||
-                "";
+              
+              let thumbObj = data.defaultThumb || data.default_thumb || data.thumbs?.[0];
+              if (typeof thumbObj === "string") {
+                try {
+                  thumbObj = JSON.parse(thumbObj);
+                } catch (e) {
+                  // ignore
+                }
+              }
+
+              const thumbnail = thumbObj?.src || "";
+              
               details[id] = {
                 title: data.title || "",
                 thumbnail,

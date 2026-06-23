@@ -118,7 +118,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               onClick={() => trackEvent("sidebar_cat_click", { category: item.slug })}
-              className="flex items-center px-4 py-2 rounded-xl text-sm text-[#AAAAAA] hover:bg-white/5 hover:text-white transition-all cursor-pointer"
+              className="flex items-center px-4 py-2 rounded-xl text-sm text-[#f6e4eb] hover:bg-white/5 hover:text-white transition-all cursor-pointer"
             >
               {item.label}
             </Link>
@@ -164,9 +164,9 @@ export function Sidebar() {
               <Image 
                 src="/logo.webp" 
                 alt="LustHub Logo" 
-                width={100} 
-                height={36} 
-                className="object-contain h-9 w-auto scale-150 origin-left"
+                width={160} 
+                height={50} 
+                className="object-contain h-12 w-auto"
               />
             </div>
 
@@ -192,7 +192,7 @@ export function Sidebar() {
                     trackEvent("sidebar_cat_click", { category: item.slug });
                     setMobileMenuOpen(false);
                   }}
-                  className="flex items-center px-4 py-2 rounded-xl text-sm text-[#AAAAAA] hover:bg-white/5 hover:text-white transition-all cursor-pointer"
+                  className="flex items-center px-4 py-2 rounded-xl text-sm text-[#f6e4eb] hover:bg-white/5 hover:text-white transition-all cursor-pointer"
                 >
                   {item.label}
                 </Link>
