@@ -16,6 +16,9 @@ import { trackEvent } from "@/lib/analytics";
 import { TIER1_SLUGS } from "@/lib/category-config";
 import { ShareButton } from "./ShareButton";
 import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
+import { buildWatchUrl } from "@/lib/video/slug";
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
 
 interface WatchPageClientProps {
@@ -139,7 +142,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
               </span>
               {/* Share button — Web Share API on mobile, clipboard on desktop */}
               <ShareButton
-                url={`https://lusthub.web.id/watch/${video.id}`}
+                url={`${SITE_URL}${buildWatchUrl(video.id, video.title)}`}
                 title={video.title}
               />
             </div>

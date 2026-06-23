@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Eye, Star } from "lucide-react";
 import { EpornerVideo } from "../../types/eporner";
 import { formatVideoDate } from "@/lib/utils";
+import { buildWatchUrl } from "@/lib/video/slug";
 
 
 interface VideoCardProps {
@@ -48,7 +49,7 @@ export function VideoCard({ video }: VideoCardProps) {
 
   return (
     <Link 
-      href={`/watch/${video.id}`} 
+      href={buildWatchUrl(video.id, video.title)} 
       className="group block w-full space-y-2.5"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {

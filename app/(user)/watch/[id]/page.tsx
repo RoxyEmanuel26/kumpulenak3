@@ -1,9 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { syncVideoToDatabase } from "@/lib/video/sync";
 import { cache } from "react";
+import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 
 // Always render dynamically — videos can be removed by the sync worker at any time,
 // so stale cached pages must never be served.
@@ -50,9 +51,13 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
-  const video = await getCachedVideoById(id);
+  // `id` here is the full slug param (e.g. "step-sis-2fPfA79DdjL")
+  const { id: slugParam } = await params;
+  const videoId = extractVideoId(slugParam);
+  const video = await getCachedVideoById(videoId);
   if (!video) return { title: "Video Not Found" };
+
+  const canonicalUrl = `${SITE_URL}${buildWatchUrl(video.id, video.title)}`;
 
   const thumbUrl =
     video.default_thumb?.src ||
@@ -64,15 +69,15 @@ export async function generateMetadata({
   return {
     title: video.title,
     description,
-    // Self-referencing canonical — this is now the authoritative URL
+    // Canonical always points to the slug-based URL — never the bare ID URL
     alternates: {
-      canonical: `${SITE_URL}/watch/${id}`,
+      canonical: canonicalUrl,
     },
     openGraph: {
       title: `${video.title} — LustHub`,
       description,
       type: "video.other",
-      url: `${SITE_URL}/watch/${id}`,
+      url: canonicalUrl,
       siteName: "LustHub",
       ...(thumbUrl ? { images: [{ url: thumbUrl, width: 1280, height: 720, alt: video.title }] } : {}),
     },
@@ -92,11 +97,33 @@ export default async function WatchVideoPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  if (!id) return notFound();
+  // `slugParam` is the full Next.js [id] segment — could be:
+  //   "2fPfA79DdjL"                     (bare ID — legacy, redirect)
+  //   "random-text-2fPfA79DdjL"         (wrong slug — redirect)
+  //   "step-sis-caught-me-2fPfA79DdjL"  (canonical — render)
+  const { id: slugParam } = await params;
+  if (!slugParam) return notFound();
 
-  const video = await getCachedVideoById(id);
+  // Extract the raw video ID from the end of the slug param
+  const videoId = extractVideoId(slugParam);
+
+  const video = await getCachedVideoById(videoId);
   if (!video) return notFound();
+
+  // Build the canonical slug URL for this video
+  const canonicalPath = buildWatchUrl(video.id, video.title);
+  // Derive the slug param portion from canonical path (strip leading "/watch/")
+  const canonicalParam = canonicalPath.replace(/^\/watch\//, "");
+
+  // ── Canonical Redirect ────────────────────────────────────────────────────
+  // If the current URL param doesn't exactly match the canonical slug param,
+  // issue a 308 Permanent Redirect. This handles:
+  //   - Bare ID visits:     /watch/2fPfA79DdjL  → 308 → /watch/step-sis-2fPfA79DdjL
+  //   - Wrong slug visits:  /watch/wrong-2fPfA79DdjL → 308 → /watch/step-sis-2fPfA79DdjL
+  // Always a single redirect hop — no chains.
+  if (slugParam !== canonicalParam) {
+    permanentRedirect(canonicalPath);
+  }
 
   // HYBRID SYNC: trigger background sync without blocking the UI.
   // This keeps the DB up-to-date with view counts and status.
@@ -120,7 +147,7 @@ export default async function WatchVideoPage({
 
   const duration = toISO8601Duration(video.length_sec);
   const description = buildVideoDescription(video.title, video.keywords);
-  const canonicalUrl = `${SITE_URL}/watch/${id}`;
+  const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
   // Conditionally build schema fields — never include undefined/null values
   const videoSchema: Record<string, unknown> = {
@@ -143,12 +170,39 @@ export default async function WatchVideoPage({
     };
   }
 
+  // ── BreadcrumbList JSON-LD ─────────────────────────────────────────────
+  // Provides Google with structured breadcrumb data for rich results in SERP.
+  // Simple 2-level: Home → Video Title
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": video.title,
+        "item": canonicalUrl,
+      },
+    ],
+  };
+
   return (
     <>
       {/* VideoObject JSON-LD — server-side, invisible to users */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(videoSchema) }}
+      />
+      {/* BreadcrumbList JSON-LD — server-side, enables rich breadcrumbs in SERP */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
       <WatchPageClient video={video} relatedVideos={related} />
     </>

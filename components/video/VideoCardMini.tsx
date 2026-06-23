@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Eye, Star } from "lucide-react";
 import { EpornerVideo } from "../../types/eporner";
+import { buildWatchUrl } from "@/lib/video/slug";
 
 interface VideoCardMiniProps {
   video: EpornerVideo;
@@ -31,7 +32,7 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
 
   return (
     <Link 
-      href={`/watch/${video.id}`} 
+      href={buildWatchUrl(video.id, video.title)} 
       className="group flex gap-2.5 w-full text-left"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {

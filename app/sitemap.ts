@@ -26,6 +26,7 @@
 import { MetadataRoute } from "next";
 import { prisma } from "../lib/db/prisma";
 import { TIER1_CATEGORIES } from "../lib/category-config";
+import { buildWatchUrl } from "../lib/video/slug";
 
 // Regenerate sitemap every hour so new synced videos appear quickly.
 // ISR-safe: works on Vercel and self-hosted Next.js.
@@ -163,6 +164,7 @@ async function buildVideoSegment(chunkIndex: number): Promise<MetadataRoute.Site
       where: QUALITY_FILTER,
       select: {
         id: true,
+        title: true,
         updatedAt: true,
       },
       orderBy: { addedAt: "desc" },
@@ -176,7 +178,8 @@ async function buildVideoSegment(chunkIndex: number): Promise<MetadataRoute.Site
     }
 
     return videos.map((v) => ({
-      url: `${BASE_URL}/watch/${v.id}`,
+      // Use SEO-friendly slug URL: /watch/{title-slug}-{id}
+      url: `${BASE_URL}${buildWatchUrl(v.id, v.title)}`,
       // Use the DB updatedAt for accurate lastModified — not new Date()
       lastModified: v.updatedAt,
       changeFrequency: "weekly" as const,

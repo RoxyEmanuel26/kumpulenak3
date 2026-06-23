@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "./VideoPlayer";
 import Link from "next/link";
+import { buildWatchUrl } from "@/lib/video/slug";
 
 interface TagItem {
   tag: {
@@ -197,7 +198,7 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-3 border-t border-white/5">
-                  <Link href={`/watch/${video.id}`} className="block">
+                  <Link href={buildWatchUrl(video.id, video.title)} className="block">
                     <Button variant="ghost" className="text-xs font-semibold rounded-xl border border-white/5 hover:bg-white/5 cursor-pointer">
                       Details
                     </Button>
