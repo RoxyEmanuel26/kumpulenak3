@@ -78,18 +78,15 @@ export function Topbar() {
           <Menu className="h-5 w-5" />
         </button>
         
-        <Link href="/" className="flex items-center gap-2 select-none">
+        <Link href="/" className="flex items-center select-none py-1">
           <Image 
             src="/logo.webp" 
             alt="LustHub Logo" 
-            width={32} 
-            height={32} 
-            className="rounded-lg object-contain"
+            width={120} 
+            height={44} 
+            className="object-contain h-11 w-auto scale-150 origin-left ml-2"
             priority
           />
-          <span className="font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent text-lg md:text-xl font-heading">
-            LustHub
-          </span>
         </Link>
       </div>
 

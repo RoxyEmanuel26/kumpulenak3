@@ -47,8 +47,8 @@
   --bg-elevated: #1A1A1A;
   --bg-overlay: #242424;
 
-  --accent-primary: #C0392B;
-  --accent-glow: rgba(192, 57, 43, 0.35);
+  --accent-primary: #f6396c;
+  --accent-glow: rgba(246, 57, 108, 0.35);
   --accent-secondary: #8B5CF6;
 
   --text-primary: #F5F5F5;
@@ -67,8 +67,8 @@
   --card-foreground: var(--text-primary);
   --popover: var(--bg-surface);
   --popover-foreground: var(--text-primary);
-  --primary: var(--accent-primary);
-  --primary-foreground: var(--text-primary);
+  --primary: #f6e4eb;
+  --primary-foreground: #f6396c;
   --secondary: var(--bg-elevated);
   --secondary-foreground: var(--text-primary);
   --muted: var(--bg-elevated);

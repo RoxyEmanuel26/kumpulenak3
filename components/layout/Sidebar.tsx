@@ -100,13 +100,14 @@ export function Sidebar() {
         </div>
 
         {/* ── Top Categories section ───────────────────────────────
-             5 hardcoded Tier-1 categories — gives site-wide direct
+             6 hardcoded Tier-1 categories — gives site-wide direct
              pathway to category pages on every page for crawlers and users.
              Text-only links (no icons) to keep sidebar compact.
         */}
         <div className="px-2 py-4 border-b border-white/5">
-          <h4 className="px-4 text-[11px] font-bold text-[#AAAAAA] uppercase tracking-wider mb-2 font-mono">Top Categories</h4>
+          <h4 className="px-4 text-[11px] font-bold text-[#f6396c] uppercase tracking-wider mb-2 font-mono">Top Categories</h4>
           {[
+            { label: "Indonesia", href: "/category/indonesia", slug: "indonesia" },
             { label: "Japanese", href: "/category/japanese", slug: "japanese" },
             { label: "MILF", href: "/category/milf", slug: "milf" },
             { label: "Lesbian", href: "/category/lesbian", slug: "lesbian" },
@@ -126,7 +127,7 @@ export function Sidebar() {
 
         {/* Personal section */}
         <div className="px-2 py-4 border-b border-white/5 space-y-0.5">
-          <h4 className="px-4 text-[11px] font-bold text-[#AAAAAA] uppercase tracking-wider mb-2 font-mono">Library</h4>
+          <h4 className="px-4 text-[11px] font-bold text-[#f6396c] uppercase tracking-wider mb-2 font-mono">Library</h4>
           {personalItems.map(renderItem)}
         </div>
 
@@ -159,17 +160,14 @@ export function Sidebar() {
           {/* Drawer Panel */}
           <aside className="relative w-64 bg-[#0F0F0F] h-full flex flex-col py-4 shadow-2xl border-r border-white/5 overflow-y-auto no-scrollbar animate-in slide-in-from-left duration-200">
             {/* Header branding in drawer */}
-            <div className="px-6 pb-6 border-b border-white/5 flex items-center gap-2">
+            <div className="px-6 pb-6 border-b border-white/5 flex items-center py-2">
               <Image 
                 src="/logo.webp" 
                 alt="LustHub Logo" 
-                width={28} 
-                height={28} 
-                className="rounded-md object-contain"
+                width={100} 
+                height={36} 
+                className="object-contain h-9 w-auto scale-150 origin-left"
               />
-              <span className="font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent text-lg font-heading">
-                LustHub
-              </span>
             </div>
 
             <div className="px-2 py-4 space-y-0.5">
@@ -178,8 +176,9 @@ export function Sidebar() {
 
             {/* Top Categories — mobile drawer */}
             <div className="px-2 py-4 border-t border-white/5">
-              <h4 className="px-4 text-[10px] font-bold text-[#AAAAAA] uppercase tracking-wider mb-2 font-mono">Top Categories</h4>
+              <h4 className="px-4 text-[10px] font-bold text-[#f6396c] uppercase tracking-wider mb-2 font-mono">Top Categories</h4>
               {[
+                { label: "Indonesia", href: "/category/indonesia", slug: "indonesia" },
                 { label: "Japanese", href: "/category/japanese", slug: "japanese" },
                 { label: "MILF", href: "/category/milf", slug: "milf" },
                 { label: "Lesbian", href: "/category/lesbian", slug: "lesbian" },
@@ -201,7 +200,7 @@ export function Sidebar() {
             </div>
 
             <div className="px-2 py-4 border-t border-white/5 space-y-0.5">
-              <h4 className="px-4 text-[10px] font-bold text-[#AAAAAA] uppercase tracking-wider mb-2 font-mono">Library</h4>
+              <h4 className="px-4 text-[10px] font-bold text-[#f6396c] uppercase tracking-wider mb-2 font-mono">Library</h4>
               {personalItems.map(renderItem)}
             </div>
 

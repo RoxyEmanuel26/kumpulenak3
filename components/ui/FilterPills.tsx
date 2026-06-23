@@ -53,9 +53,9 @@ export function FilterPills({ categories, activeCategory }: FilterPillsProps) {
       >
         <button
           onClick={() => handleCategoryChange("all")}
-          className={`text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 border ${
+          className={`text-xs sm:text-sm font-semibold px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 border ${
             activeCategory === "all"
-              ? "bg-[#F1F1F1] text-black border-white"
+              ? "bg-[#f6e4eb] text-[#f6396c] border-[#f6e4eb]"
               : "bg-[#272727] text-white border-transparent hover:bg-[#3F3F3F]"
           }`}
         >
@@ -68,9 +68,9 @@ export function FilterPills({ categories, activeCategory }: FilterPillsProps) {
             <button
               key={cat}
               onClick={() => handleCategoryChange(cat)}
-              className={`text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 border ${
+              className={`text-xs sm:text-sm font-semibold px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 border ${
                 isActive
-                  ? "bg-[#F1F1F1] text-black border-white"
+                  ? "bg-[#f6e4eb] text-[#f6396c] border-[#f6e4eb]"
                   : "bg-[#272727] text-white border-transparent hover:bg-[#3F3F3F]"
               }`}
             >
