@@ -40,6 +40,7 @@ import Link from "next/link";
 import { Clock } from "lucide-react";
 import { useUI } from "@/components/layout/UIContext";
 import { Analytics } from "@/lib/analytics";
+import { buildWatchUrl } from "@/lib/video/slug";
 
 const MAX_DISPLAY = 3;
 
@@ -76,15 +77,22 @@ export function ContinueWatching() {
               const data = await res.json();
               
               let thumbObj = data.defaultThumb || data.default_thumb || data.thumbs?.[0];
-              if (typeof thumbObj === "string") {
-                try {
-                  thumbObj = JSON.parse(thumbObj);
-                } catch (e) {
-                  // ignore
-                }
-              }
+              let thumbnail = "";
 
-              const thumbnail = thumbObj?.src || "";
+              if (typeof thumbObj === "string") {
+                if (thumbObj.startsWith("http") || thumbObj.startsWith("//")) {
+                  thumbnail = thumbObj;
+                } else {
+                  try {
+                    const parsed = JSON.parse(thumbObj);
+                    thumbnail = parsed?.src || "";
+                  } catch (e) {
+                    // ignore
+                  }
+                }
+              } else if (thumbObj && typeof thumbObj === "object") {
+                thumbnail = thumbObj.src || "";
+              }
               
               details[id] = {
                 title: data.title || "",
@@ -126,7 +134,7 @@ export function ContinueWatching() {
         {recentVideos.map((videoId, index) => (
           <Link
             key={videoId}
-            href={`/watch/${videoId}`}
+            href={videoDetails[videoId]?.title ? buildWatchUrl(videoId, videoDetails[videoId].title) : `/watch/${videoId}`}
             onClick={() => Analytics.continueWatchingClick(index)}
             className="group flex items-center gap-2 bg-[#1F1F1F] hover:bg-[#2A2A2A] border border-white/10 hover:border-red-600/30 rounded-lg px-2 py-1.5 transition-all"
             title={videoDetails[videoId]?.title || `Continue watching video ${index + 1}`}

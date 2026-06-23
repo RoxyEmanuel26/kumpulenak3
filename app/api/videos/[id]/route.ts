@@ -19,6 +19,28 @@ export async function GET(
     });
 
     if (!video || video.status !== "ACTIVE") {
+      // Fallback: If not in local DB (e.g. hasn't synced yet, or DB was reset but local storage remains),
+      // fetch directly from Eporner API to serve basic metadata needed by ContinueWatching.
+      try {
+        const fallbackVideo = await EpornerAPI.getById(id);
+        if (fallbackVideo) {
+          return NextResponse.json({
+            id: fallbackVideo.id,
+            title: cleanEpornerText(fallbackVideo.title),
+            keywords: cleanEpornerText(fallbackVideo.keywords || ""),
+            defaultThumb: fallbackVideo.default_thumb,
+            thumbs: fallbackVideo.thumbs,
+            lengthSec: fallbackVideo.length_sec,
+            rate: fallbackVideo.rate,
+            views: fallbackVideo.views,
+            addedAt: fallbackVideo.added,
+            status: "ACTIVE"
+          });
+        }
+      } catch (fallbackErr) {
+        console.error(`[VideoDetailsAPI] Fallback fetch failed for ${id}:`, fallbackErr);
+      }
+
       return NextResponse.json(
         { error: "Video not found or is no longer active." },
         { status: 404 }
