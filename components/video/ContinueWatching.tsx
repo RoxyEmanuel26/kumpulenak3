@@ -43,26 +43,62 @@ import { Analytics } from "@/lib/analytics";
 
 const MAX_DISPLAY = 3;
 
-// Eporner CDN thumbnail pattern — slot 2 is a medium-quality still frame
-// that is consistently available for all indexed videos.
-// Format: https://www.eporner.com/hd-thumbs/{videoId}/2.jpg
-function getEpornerThumb(videoId: string): string {
-  return `https://www.eporner.com/hd-thumbs/${videoId}/2.jpg`;
+interface VideoDetail {
+  title: string;
+  thumbnail: string;
 }
 
 export function ContinueWatching() {
   const { watchHistory } = useUI();
   const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Don't render until mounted (prevents SSR/hydration mismatch)
-  if (!isMounted) return null;
+  const [videoDetails, setVideoDetails] = useState<Record<string, VideoDetail>>({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loading, setLoading] = useState(true);
 
   // Take the last MAX_DISPLAY watched videos (most recent first)
   const recentVideos = watchHistory.slice(0, MAX_DISPLAY);
+
+  useEffect(() => {
+    setIsMounted(true);
+
+    if (recentVideos.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchDetails = async () => {
+      const details: Record<string, VideoDetail> = {};
+      try {
+        await Promise.all(
+          recentVideos.map(async (id) => {
+            const res = await fetch(`/api/videos/${id}`);
+            if (res.ok) {
+              const data = await res.json();
+              const thumbnail =
+                data.defaultThumb?.src ||
+                data.default_thumb?.src ||
+                data.thumbs?.[0]?.src ||
+                "";
+              details[id] = {
+                title: data.title || "",
+                thumbnail,
+              };
+            }
+          })
+        );
+      } catch (err) {
+        console.error("Error fetching continue watching video details:", err);
+      } finally {
+        setVideoDetails(details);
+        setLoading(false);
+      }
+    };
+
+    fetchDetails();
+  }, [watchHistory]);
+
+  // Don't render until mounted (prevents SSR/hydration mismatch)
+  if (!isMounted) return null;
 
   // Don't render if no history
   if (recentVideos.length === 0) return null;
@@ -86,21 +122,23 @@ export function ContinueWatching() {
             href={`/watch/${videoId}`}
             onClick={() => Analytics.continueWatchingClick(index)}
             className="group flex items-center gap-2 bg-[#1F1F1F] hover:bg-[#2A2A2A] border border-white/10 hover:border-red-600/30 rounded-lg px-2 py-1.5 transition-all"
-            title={`Continue watching video ${index + 1}`}
+            title={videoDetails[videoId]?.title || `Continue watching video ${index + 1}`}
           >
             {/* Thumbnail */}
             <div className="w-14 h-9 rounded overflow-hidden bg-[#161616] shrink-0 relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={getEpornerThumb(videoId)}
-                alt=""
-                loading="lazy"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                onError={(e) => {
-                  // Hide broken thumbnail gracefully
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
+              {videoDetails[videoId]?.thumbnail ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={videoDetails[videoId].thumbnail}
+                  alt=""
+                  loading="lazy"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+              ) : (
+                <div className="w-full h-full bg-red-600/10 flex items-center justify-center">
+                  <span className="text-[10px] text-red-500 font-bold">▶</span>
+                </div>
+              )}
               {/* Overlay play hint */}
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
                 <span className="text-[8px] text-white font-bold">▶</span>

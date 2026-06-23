@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUI } from "./UIContext";
 import { Menu, Search, ArrowLeft } from "lucide-react";
@@ -77,11 +78,18 @@ export function Topbar() {
           <Menu className="h-5 w-5" />
         </button>
         
-        <Link href="/" className="flex items-center space-x-1 select-none">
+        <Link href="/" className="flex items-center gap-2 select-none">
+          <Image 
+            src="/logo.webp" 
+            alt="LustHub Logo" 
+            width={32} 
+            height={32} 
+            className="rounded-lg object-contain"
+            priority
+          />
           <span className="font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent text-lg md:text-xl font-heading">
             LustHub
           </span>
-          <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse self-end mb-1"></span>
         </Link>
       </div>
 

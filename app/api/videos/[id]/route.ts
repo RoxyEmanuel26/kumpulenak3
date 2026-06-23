@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { cleanEpornerText } from "@/lib/api/eporner";
+import { cleanEpornerText, EpornerAPI } from "@/lib/api/eporner";
 
 export async function GET(
   request: NextRequest,
@@ -25,11 +25,36 @@ export async function GET(
       );
     }
 
+    let defaultThumb = video.defaultThumb;
+    let thumbs = video.thumbs;
+
+    if (!defaultThumb || !thumbs) {
+      try {
+        const epornerVideo = await EpornerAPI.getById(id);
+        if (epornerVideo) {
+          defaultThumb = epornerVideo.default_thumb as any;
+          thumbs = epornerVideo.thumbs as any;
+
+          await prisma.video.update({
+            where: { id },
+            data: {
+              defaultThumb: epornerVideo.default_thumb as any,
+              thumbs: epornerVideo.thumbs as any,
+            },
+          });
+        }
+      } catch (enrichErr) {
+        console.error(`[VideoDetailsAPI] Failed to dynamically enrich thumbs for ${id}:`, enrichErr);
+      }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { aiScoreTrending, aiScoreEngagement, aiScoreSpam, aiSpamFlag, ...safeVideo } = video;
 
     return NextResponse.json({
       ...safeVideo,
+      defaultThumb,
+      thumbs,
       title: cleanEpornerText(video.title),
       keywords: cleanEpornerText(video.keywords || ""),
     });

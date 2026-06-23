@@ -54,6 +54,11 @@ export const metadata: Metadata = {
   verification: {
     google: "G71CC4n1uaSgqVnjIvv3JSKs78kXb2lYNn_yJXiEb7Q",
   },
+  icons: {
+    icon: "/favicon.webp",
+    shortcut: "/favicon.webp",
+    apple: "/favicon.webp",
+  },
 };
 
 

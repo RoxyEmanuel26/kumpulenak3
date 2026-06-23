@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useUI } from "./UIContext";
 import {
@@ -158,11 +159,17 @@ export function Sidebar() {
           {/* Drawer Panel */}
           <aside className="relative w-64 bg-[#0F0F0F] h-full flex flex-col py-4 shadow-2xl border-r border-white/5 overflow-y-auto no-scrollbar animate-in slide-in-from-left duration-200">
             {/* Header branding in drawer */}
-            <div className="px-6 pb-6 border-b border-white/5">
+            <div className="px-6 pb-6 border-b border-white/5 flex items-center gap-2">
+              <Image 
+                src="/logo.webp" 
+                alt="LustHub Logo" 
+                width={28} 
+                height={28} 
+                className="rounded-md object-contain"
+              />
               <span className="font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent text-lg font-heading">
-              LustHub
+                LustHub
               </span>
-              <span className="w-1.5 h-1.5 bg-red-600 rounded-full inline-block ml-0.5" />
             </div>
 
             <div className="px-2 py-4 space-y-0.5">
