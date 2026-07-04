@@ -64,13 +64,7 @@ export async function generateMetadata({
   };
 }
 
-// ─── Static params for the 15 Tier-1 categories ──────────────────────────────
-// Pre-generates the route list at build time so Next.js knows these slugs exist.
-// Unknown slugs still render dynamically (notFound() is called).
-
-export function generateStaticParams() {
-  return TIER1_CATEGORIES.map((cat) => ({ slug: cat.slug }));
-}
+// generateStaticParams removed because it conflicts with export const runtime = "edge" in Cloudflare Pages
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
