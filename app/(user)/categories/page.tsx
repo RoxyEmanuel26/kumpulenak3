@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db/prisma";
+import { neon } from "@neondatabase/serverless";
 import { Metadata } from "next";
 import { LayoutGrid } from "lucide-react";
 import { CategoriesClient } from "./CategoriesClient";
@@ -129,15 +129,25 @@ const CATEGORY_MAPPING = [
 ];
 
 export default async function CategoriesPage() {
-  // Retrieve categories from the database
-  const dbCategories = await prisma.category.findMany({
-    orderBy: { name: "asc" },
-    include: {
-      _count: {
-        select: { videos: true }
-      }
-    }
-  });
+  // Retrieve categories from the database directly using neon HTTP to avoid Prisma build edge-runtime bundling issues
+  let dbCategories: { name: string; count: number }[] = [];
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    const rawCategories = await sql`
+      SELECT c.name, COUNT(vc."videoId") as count
+      FROM "Category" c
+      LEFT JOIN "VideoCategory" vc ON c.id = vc."categoryId"
+      GROUP BY c.id
+      ORDER BY c.name ASC
+    `;
+    
+    dbCategories = rawCategories.map(row => ({
+      name: row.name as string,
+      count: parseInt(row.count as string, 10) || 0
+    }));
+  } catch (err) {
+    console.error("Categories SQL fetch failed:", err);
+  }
 
   const categoryList = [...CATEGORY_MAPPING];
 
@@ -172,7 +182,7 @@ export default async function CategoriesPage() {
     return {
       name: cat.name,
       imageId: cat.imageId,
-      count: dbMatch ? dbMatch._count.videos : 0
+      count: dbMatch ? dbMatch.count : 0
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 

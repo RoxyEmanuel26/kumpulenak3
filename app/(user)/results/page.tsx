@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";

@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
+export const runtime = "edge";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
