@@ -1,11 +1,10 @@
-import { prisma } from "@/lib/db/prisma";
+import { neon } from "@neondatabase/serverless";
 import { LibraryClient } from "@/components/video/LibraryClient";
 import { Metadata } from "next";
 import { EpornerVideo } from "@/types/eporner";
 import { cleanEpornerText } from "@/lib/api/eporner";
 
 export const runtime = "edge";
-
 
 export const metadata: Metadata = {
   title: "Library",
@@ -21,25 +20,35 @@ export const metadata: Metadata = {
 
 
 export default async function LibraryPage() {
-  const videos = await prisma.video.findMany({
-    where: { status: "ACTIVE" },
-  });
+  let mappedVideos: EpornerVideo[] = [];
 
-  // Map to EpornerVideo shape
-  const mappedVideos: EpornerVideo[] = videos.map((v) => ({
-    id: v.id,
-    title: cleanEpornerText(v.title),
-    keywords: cleanEpornerText(v.keywords || ""),
-    views: v.views,
-    rate: v.rate || "",
-    url: "",
-    added: v.addedAt?.toISOString() || "",
-    length_sec: v.lengthSec || 0,
-    length_min: v.lengthMin || "",
-    embed: v.embedUrl || "",
-    default_thumb: v.defaultThumb as unknown as EpornerVideo["default_thumb"],
-    thumbs: v.thumbs as unknown as EpornerVideo["thumbs"],
-  }));
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    const videos = await sql`
+      SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin",
+             "embedUrl", "defaultThumb", thumbs
+      FROM "Video"
+      WHERE status = 'ACTIVE'
+      ORDER BY "addedAt" DESC
+    `;
+
+    mappedVideos = videos.map((v) => ({
+      id: v.id as string,
+      title: cleanEpornerText(v.title as string),
+      keywords: cleanEpornerText((v.keywords as string) || ""),
+      views: v.views as number,
+      rate: (v.rate as string) || "",
+      url: "",
+      added: (v.addedAt as Date)?.toISOString() || "",
+      length_sec: (v.lengthSec as number) || 0,
+      length_min: (v.lengthMin as string) || "",
+      embed: (v.embedUrl as string) || "",
+      default_thumb: v.defaultThumb as unknown as EpornerVideo["default_thumb"],
+      thumbs: v.thumbs as unknown as EpornerVideo["thumbs"],
+    }));
+  } catch (err) {
+    console.error("[LibraryPage] Failed to fetch videos:", err);
+  }
 
   return <LibraryClient allVideos={mappedVideos} />;
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { neon } from "@neondatabase/serverless";
 import { cleanEpornerText } from "@/lib/api/eporner";
 
 export const runtime = "edge";
@@ -12,39 +12,52 @@ export async function GET(
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
-    const video = await prisma.video.findUnique({
-      where: { id },
-      include: { 
-        tags: { select: { tagId: true } }, 
-        categories: { select: { categoryId: true } } 
-      },
-    });
+    const sql = neon(process.env.DATABASE_URL!);
 
-    if (!video) {
+    // Get the video's tag and category IDs
+    const videoRows = await sql`
+      SELECT
+        v.id,
+        COALESCE(array_agg(DISTINCT vt."tagId") FILTER (WHERE vt."tagId" IS NOT NULL), '{}') AS "tagIds",
+        COALESCE(array_agg(DISTINCT vc."categoryId") FILTER (WHERE vc."categoryId" IS NOT NULL), '{}') AS "categoryIds"
+      FROM "Video" v
+      LEFT JOIN "VideoTag" vt ON v.id = vt."videoId"
+      LEFT JOIN "VideoCategory" vc ON v.id = vc."videoId"
+      WHERE v.id = ${id}
+      GROUP BY v.id
+    `;
+
+    if (!videoRows[0]) {
       return NextResponse.json({ error: "Video not found." }, { status: 404 });
     }
 
-    const tagIds = video.tags.map((t) => t.tagId);
-    const categoryIds = video.categories.map((c) => c.categoryId);
+    const tagIds = videoRows[0].tagIds as string[];
+    const categoryIds = videoRows[0].categoryIds as string[];
 
     // Fetch related videos matching categories or tags
-    const related = await prisma.video.findMany({
-      where: {
-        status: "ACTIVE",
-        id: { not: video.id },
-        OR: [
-          { categories: { some: { categoryId: { in: categoryIds } } } },
-          { tags: { some: { tagId: { in: tagIds } } } },
-        ],
-      },
-      take: 4, // 4 items for modal sidebar recommendations
-      orderBy: { views: "desc" },
-    });
+    const related = await sql`
+      SELECT
+        v.id, v.title, v.keywords, v.views, v.rate, v."addedAt", v."lengthSec",
+        v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs
+      FROM "Video" v
+      WHERE v.status = 'ACTIVE'
+        AND v.id != ${id}
+        AND (
+          EXISTS (
+            SELECT 1 FROM "VideoCategory" vc WHERE vc."videoId" = v.id AND vc."categoryId" = ANY(${categoryIds})
+          )
+          OR EXISTS (
+            SELECT 1 FROM "VideoTag" vt WHERE vt."videoId" = v.id AND vt."tagId" = ANY(${tagIds})
+          )
+        )
+      ORDER BY v.views DESC
+      LIMIT 4
+    `;
 
     const cleanedRelated = related.map((v) => ({
       ...v,
-      title: cleanEpornerText(v.title),
-      keywords: cleanEpornerText(v.keywords || ""),
+      title: cleanEpornerText(v.title as string),
+      keywords: cleanEpornerText((v.keywords as string) || ""),
     }));
 
     return NextResponse.json(cleanedRelated, {

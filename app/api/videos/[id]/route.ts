@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { neon } from "@neondatabase/serverless";
 import { cleanEpornerText, EpornerAPI } from "@/lib/api/eporner";
 
 export const runtime = "edge";
@@ -12,13 +12,29 @@ export async function GET(
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
-    const video = await prisma.video.findUnique({
-      where: { id },
-      include: {
-        tags: { include: { tag: true } },
-        categories: { include: { category: true } },
-      },
-    });
+    const sql = neon(process.env.DATABASE_URL!);
+    const rows = await sql`
+      SELECT
+        v.id, v.title, v.keywords, v.views, v.rate, v."addedAt", v."lengthSec",
+        v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs, v.status,
+        COALESCE(
+          json_agg(DISTINCT jsonb_build_object('tag', jsonb_build_object('name', t.name, 'id', t.id))) 
+          FILTER (WHERE t.id IS NOT NULL), '[]'
+        ) AS tags,
+        COALESCE(
+          json_agg(DISTINCT jsonb_build_object('category', jsonb_build_object('name', c.name, 'id', c.id)))
+          FILTER (WHERE c.id IS NOT NULL), '[]'
+        ) AS categories
+      FROM "Video" v
+      LEFT JOIN "VideoTag" vt ON v.id = vt."videoId"
+      LEFT JOIN "Tag" t ON vt."tagId" = t.id
+      LEFT JOIN "VideoCategory" vc ON v.id = vc."videoId"
+      LEFT JOIN "Category" c ON vc."categoryId" = c.id
+      WHERE v.id = ${id}
+      GROUP BY v.id
+    `;
+
+    const video = rows[0];
 
     if (!video || video.status !== "ACTIVE") {
       // Fallback: If not in local DB (e.g. hasn't synced yet, or DB was reset but local storage remains),
@@ -54,38 +70,21 @@ export async function GET(
       );
     }
 
-    let defaultThumb = video.defaultThumb;
-    let thumbs = video.thumbs;
-
-    if (!defaultThumb || !thumbs) {
-      try {
-        const epornerVideo = await EpornerAPI.getById(id);
-        if (epornerVideo) {
-          defaultThumb = epornerVideo.default_thumb as any;
-          thumbs = epornerVideo.thumbs as any;
-
-          await prisma.video.update({
-            where: { id },
-            data: {
-              defaultThumb: epornerVideo.default_thumb as any,
-              thumbs: epornerVideo.thumbs as any,
-            },
-          });
-        }
-      } catch (enrichErr) {
-        console.error(`[VideoDetailsAPI] Failed to dynamically enrich thumbs for ${id}:`, enrichErr);
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { aiScoreTrending, aiScoreEngagement, aiScoreSpam, aiSpamFlag, ...safeVideo } = video;
-
     return NextResponse.json({
-      ...safeVideo,
-      defaultThumb,
-      thumbs,
-      title: cleanEpornerText(video.title),
-      keywords: cleanEpornerText(video.keywords || ""),
+      id: video.id,
+      title: cleanEpornerText(video.title as string),
+      keywords: cleanEpornerText((video.keywords as string) || ""),
+      views: video.views,
+      rate: video.rate,
+      addedAt: video.addedAt,
+      lengthSec: video.lengthSec,
+      lengthMin: video.lengthMin,
+      embedUrl: video.embedUrl,
+      defaultThumb: video.defaultThumb,
+      thumbs: video.thumbs,
+      status: video.status,
+      tags: video.tags,
+      categories: video.categories,
     }, {
       headers: {
         // Cache at CDN edge for 5 minutes, serve stale for up to 1 hour while revalidating.

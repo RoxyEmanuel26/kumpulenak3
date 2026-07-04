@@ -16,30 +16,19 @@ let prismaInstance: PrismaClient;
 if (globalForPrisma.prisma) {
   prismaInstance = globalForPrisma.prisma;
 } else {
-  const connectionString = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_D3Yv9HMEPCUA@ep-cool-boat-aoi3pbi8-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+  const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL environment variable is not defined.");
   }
-  console.log("===> CONNECTION STRING:", connectionString);
 
-  const pool = new Pool({
-    connectionString,
-    host: "ep-cool-boat-aoi3pbi8-pooler.c-2.ap-southeast-1.aws.neon.tech",
-    user: "neondb_owner",
-    password: "npg_D3Yv9HMEPCUA",
-    database: "neondb",
-    ssl: true,
-    max: 1,
-    idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 5_000,
-  });
-  
+  const pool = new Pool({ connectionString });
+
   const adapter = new PrismaNeon(pool as any);
   prismaInstance = new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['query'] : [],
   });
-  
+
   globalForPrisma.prisma = prismaInstance;
 }
 
