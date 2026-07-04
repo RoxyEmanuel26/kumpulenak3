@@ -4,9 +4,12 @@ const nextConfig: NextConfig = {
   // Fix #11: Remove X-Powered-By header to avoid leaking framework info
   poweredByHeader: false,
   
-  // Optimize large libraries to fix Cloudflare 25MB bundle limit
-  experimental: {
-    optimizePackageImports: ["lucide-react", "date-fns"],
+  // Optimize large libraries to fix Cloudflare 3MiB bundle limit
+  modularizeImports: {
+    "lucide-react": {
+      transform: "lucide-react/dist/esm/icons/{{kebabCase member}}",
+      preventFullImport: true,
+    },
   },
 
   // Centralized security headers applied natively by Next.js to all routes
