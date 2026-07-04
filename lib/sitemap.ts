@@ -5,23 +5,22 @@
  * Migrated to a library file to bypass Next.js segmented sitemap Edge runtime bugs.
  */
 
-import { prisma } from "./db/prisma";
+import { neon } from "@neondatabase/serverless";
 import { TIER1_CATEGORIES } from "./category-config";
 import { buildWatchUrl } from "./video/slug";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 const CHUNK_SIZE = 5_000;
 
-const QUALITY_FILTER = {
-  status: "ACTIVE" as const,
-  aiSpamFlag: false,
-  aiScoreSpam: { lt: 65 },
-} as const;
-
 export async function generateSitemaps() {
   let videoCount = 0;
   try {
-    videoCount = await prisma.video.count({ where: QUALITY_FILTER });
+    const sql = neon(process.env.DATABASE_URL!);
+    const [row] = await sql`
+      SELECT COUNT(*) as count FROM "Video"
+      WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+    `;
+    videoCount = parseInt(row.count as string, 10) || 0;
   } catch (err) {
     console.error("[Sitemap] Failed to count videos for segment generation:", err);
     return [{ id: 0 }, { id: 1 }];
@@ -107,21 +106,17 @@ function buildStaticSegment(): SitemapItem[] {
 
 async function buildVideoSegment(chunkIndex: number): Promise<SitemapItem[]> {
   try {
-    const videos = await prisma.video.findMany({
-      where: QUALITY_FILTER,
-      select: {
-        id: true,
-        title: true,
-        updatedAt: true,
-      },
-      orderBy: { addedAt: "desc" },
-      skip: chunkIndex * CHUNK_SIZE,
-      take: CHUNK_SIZE,
-    });
+    const sql = neon(process.env.DATABASE_URL!);
+    const videos = await sql`
+      SELECT id, title, "updatedAt" FROM "Video"
+      WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+      ORDER BY "addedAt" DESC
+      LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
+    `;
 
     return videos.map((v) => ({
-      url: `${BASE_URL}${buildWatchUrl(v.id, v.title)}`,
-      lastModified: v.updatedAt,
+      url: `${BASE_URL}${buildWatchUrl(v.id as string, v.title as string)}`,
+      lastModified: v.updatedAt as Date,
       changeFrequency: "weekly",
       priority: 0.6,
     }));
