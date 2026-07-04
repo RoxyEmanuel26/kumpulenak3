@@ -20,6 +20,7 @@
  */
 
 export const dynamic = "force-dynamic"; // Never cache — health checks must be live
+export const runtime = "edge";
 
 export async function GET() {
   return Response.json(

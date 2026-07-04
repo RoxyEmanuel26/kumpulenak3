@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncVideoToDatabase } from "../../../../lib/video/sync";
-import { timingSafeEqual } from "node:crypto";
+
+export const runtime = "edge";
 
 /**
  * Timing-safe comparison to prevent timing attacks on webhook secret.
  */
 function verifyWebhookSecret(provided: string, expected: string): boolean {
-  try {
-    const a = Buffer.from(provided, "utf-8");
-    const b = Buffer.from(expected, "utf-8");
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
-  } catch {
-    return false;
+  if (provided.length !== expected.length) return false;
+  let result = 0;
+  for (let i = 0; i < provided.length; i++) {
+    result |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
   }
+  return result === 0;
 }
 
 export async function POST(request: NextRequest) {

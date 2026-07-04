@@ -10,7 +10,12 @@ export function repairMojibake(str: string): string {
 
   return str.replace(utf8Regex, (match) => {
     try {
-      return Buffer.from(match, 'binary').toString('utf8');
+      // Replace Node.js Buffer with Edge-compatible Web APIs
+      const bytes = new Uint8Array(match.length);
+      for (let i = 0; i < match.length; i++) {
+        bytes[i] = match.charCodeAt(i);
+      }
+      return new TextDecoder('utf-8').decode(bytes);
     } catch {
       return match;
     }

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client/edge";
 
 export async function syncVideoToDatabase(videoId: string) {
   console.log(`[SyncVideo] Starting internal sync for video ID: ${videoId}`);

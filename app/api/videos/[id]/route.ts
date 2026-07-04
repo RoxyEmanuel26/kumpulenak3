@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { cleanEpornerText, EpornerAPI } from "@/lib/api/eporner";
 
+export const runtime = "edge";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

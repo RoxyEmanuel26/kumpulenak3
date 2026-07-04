@@ -32,10 +32,10 @@ import { prisma } from "@/lib/db/prisma";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
-import { Prisma } from "@prisma/client";
-import { timingSafeEqual } from "node:crypto";
+import { Prisma } from "@prisma/client/edge";
 
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 // Vercel Hobby plan: 10-second max. We hard-stop at 7s to leave buffer for response.
 const HARD_STOP_MS = 7_000;
@@ -46,14 +46,12 @@ const HARD_STOP_MS = 7_000;
 const MAX_NEW_PER_RUN = 2;
 
 function verifySecret(provided: string, expected: string): boolean {
-  try {
-    const a = Buffer.from(provided, "utf-8");
-    const b = Buffer.from(expected, "utf-8");
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
-  } catch {
-    return false;
+  if (provided.length !== expected.length) return false;
+  let result = 0;
+  for (let i = 0; i < provided.length; i++) {
+    result |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
   }
+  return result === 0;
 }
 
 export async function POST(request: NextRequest) {
