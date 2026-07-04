@@ -1,5 +1,7 @@
 import { permanentRedirect } from "next/navigation";
 
+export const runtime = "edge";
+
 /**
  * Legacy /video/{id} path handler.
  *

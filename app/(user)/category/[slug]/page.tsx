@@ -7,6 +7,8 @@ import { VideoGrid } from "@/components/video/VideoGrid";
 import { getCategoryBySlug, TIER1_CATEGORIES } from "@/lib/category-config";
 import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 
+export const runtime = "edge";
+
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
 // ISR: regenerate category pages every hour in the background.
