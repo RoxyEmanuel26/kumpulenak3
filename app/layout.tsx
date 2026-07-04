@@ -4,7 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { UIProvider } from "../components/layout/UIContext";
 import { AdsterraSitewide } from "../components/ads/AdsterraSitewide";
-
+export const runtime = "edge";
 
 const inter = Inter({ 
   subsets: ["latin"],
