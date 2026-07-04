@@ -1,19 +1,20 @@
-import { prisma } from "@/lib/db/prisma";
+import { neon } from "@neondatabase/serverless";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
-import { Prisma } from "@prisma/client/edge";
 
 export async function syncVideoToDatabase(videoId: string) {
   console.log(`[SyncVideo] Starting internal sync for video ID: ${videoId}`);
 
-  // Check if video already exists in database
-  const existing = await prisma.video.findUnique({
-    where: { id: videoId },
-  });
+  const sql = neon(process.env.DATABASE_URL!);
 
-  if (existing) {
+  // Check if video already exists in database
+  const existing = await sql`
+    SELECT id FROM "Video" WHERE id = ${videoId} LIMIT 1
+  `;
+
+  if (existing.length > 0) {
     console.log(`[SyncVideo] Video ${videoId} already exists in database.`);
-    return existing;
+    return existing[0];
   }
 
   // Fetch video details from Eporner API
@@ -26,63 +27,65 @@ export async function syncVideoToDatabase(videoId: string) {
   console.log(`[SyncVideo] Running Gemini AI classification for: "${v.title}"`);
   const aiResult = await GeminiAPI.classifyVideo(v.title, v.keywords);
 
-  const rawTags = aiResult.cleanedTags.length > 0 
-    ? aiResult.cleanedTags 
+  const rawTags = aiResult.cleanedTags.length > 0
+    ? aiResult.cleanedTags
     : v.keywords.split(",");
   const finalTags = Array.from(new Set(rawTags.map((t) => t.trim().toLowerCase()))).filter(Boolean);
 
-  // Save to DB
-  const newVideo = await prisma.video.create({
-    data: {
-      id: v.id,
-      title: v.title,
-      lengthMin: v.length_min,
-      lengthSec: v.length_sec,
-      addedAt: v.added ? new Date(v.added) : undefined,
-      rate: v.rate,
-      views: v.views,
-      defaultThumb: v.default_thumb as unknown as Prisma.InputJsonValue,
-      thumbs: v.thumbs as unknown as Prisma.InputJsonValue,
-      keywords: v.keywords,
-      embedUrl: v.embed,
-      status: aiResult.isSpam ? "DRAFT" : "ACTIVE",
-      
-      // AI features
-      aiScoreTrending: aiResult.scores.trending,
-      aiScoreEngagement: aiResult.scores.engagement,
-      aiScoreSpam: aiResult.scores.spam,
-      aiSpamFlag: aiResult.isSpam,
-      aiDescription: aiResult.seoDescription,
-      
-      // Handle tags
-      tags: {
-        create: finalTags.map((cleanTag) => ({
-          tag: {
-            connectOrCreate: {
-              where: { name: cleanTag },
-              create: { name: cleanTag },
-            },
-          },
-        })),
-      },
-      
-      // Handle category
-      categories: {
-        create: [
-          {
-            category: {
-              connectOrCreate: {
-                where: { name: aiResult.category.trim() },
-                create: { name: aiResult.category.trim() },
-              },
-            },
-          },
-        ],
-      },
-    },
-  });
+  // Insert video
+  const [newVideo] = await sql`
+    INSERT INTO "Video" (
+      id, title, "lengthMin", "lengthSec", "addedAt", rate, views,
+      "defaultThumb", thumbs, keywords, "embedUrl", status,
+      "aiScoreTrending", "aiScoreEngagement", "aiScoreSpam", "aiSpamFlag", "aiDescription"
+    ) VALUES (
+      ${v.id}, ${v.title}, ${v.length_min}, ${v.length_sec},
+      ${v.added ? new Date(v.added).toISOString() : null},
+      ${v.rate}, ${v.views},
+      ${JSON.stringify(v.default_thumb)}, ${JSON.stringify(v.thumbs)},
+      ${v.keywords}, ${v.embed},
+      ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
+      ${aiResult.scores.trending}, ${aiResult.scores.engagement}, ${aiResult.scores.spam},
+      ${aiResult.isSpam}, ${aiResult.seoDescription}
+    )
+    ON CONFLICT (id) DO NOTHING
+    RETURNING *
+  `;
 
-  // Video sync completed
+  if (!newVideo) {
+    // Already inserted (race condition), return existing
+    const [row] = await sql`SELECT * FROM "Video" WHERE id = ${videoId}`;
+    return row;
+  }
+
+  // Insert tags (connectOrCreate equivalent)
+  for (const tagName of finalTags) {
+    // Upsert tag
+    const [tag] = await sql`
+      INSERT INTO "Tag" (name) VALUES (${tagName})
+      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+      RETURNING id
+    `;
+    // Link video-tag
+    await sql`
+      INSERT INTO "VideoTag" ("videoId", "tagId") VALUES (${v.id}, ${tag.id})
+      ON CONFLICT DO NOTHING
+    `;
+  }
+
+  // Insert category (connectOrCreate equivalent)
+  const catName = aiResult.category.trim();
+  if (catName) {
+    const [cat] = await sql`
+      INSERT INTO "Category" (name) VALUES (${catName})
+      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+      RETURNING id
+    `;
+    await sql`
+      INSERT INTO "VideoCategory" ("videoId", "categoryId") VALUES (${v.id}, ${cat.id})
+      ON CONFLICT DO NOTHING
+    `;
+  }
 
   return newVideo;
 }

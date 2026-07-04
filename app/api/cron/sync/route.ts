@@ -4,10 +4,10 @@
  * Lightweight sync endpoint designed to be called by cron-job.org every 30 minutes.
  * Replaces the need for a running BullMQ/Redis/Docker worker on a dedicated server.
  *
- * DESIGN CONSTRAINTS (Vercel Hobby = 10s function timeout):
- * - Uses a single batch DB query instead of N individual findUnique calls (N+1 fix)
- * - Processes MAX_NEW_PER_RUN new videos per call to stay under 10s
- * - Hard time-guard at 7s to ensure clean response before Vercel cuts the connection
+ * DESIGN CONSTRAINTS (Cloudflare Edge = 30s CPU time):
+ * - Uses a single batch DB query instead of N individual queries (N+1 fix)
+ * - Processes MAX_NEW_PER_RUN new videos per call to stay under time limit
+ * - Hard time-guard at 25s to ensure clean response
  * - Eporner API calls are cached via Next.js fetch cache (5 min) to reduce upstream hits
  *
  * SECURITY:
@@ -20,7 +20,7 @@
  * 2. Method: POST
  * 3. Header: Authorization: Bearer <your-CRON_SECRET-value>
  * 4. Schedule: Every 30 minutes
- * 5. Timeout: 30 seconds (cron-job.org side; Vercel will respond within 10s)
+ * 5. Timeout: 30 seconds (cron-job.org side)
  *
  * For daily removed-video cleanup, use a separate cron job:
  * 1. URL: https://lusthub.web.id/api/cron/sync?cleanup=true
@@ -28,21 +28,19 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { neon } from "@neondatabase/serverless";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
-import { Prisma } from "@prisma/client/edge";
 
 export const dynamic = "force-dynamic";
 export const runtime = "edge";
 
-// Vercel Hobby plan: 10-second max. We hard-stop at 7s to leave buffer for response.
-const HARD_STOP_MS = 7_000;
+// Hard stop at 25s to leave buffer for response (Cloudflare edge allows 30s CPU)
+const HARD_STOP_MS = 25_000;
 
 // Max new videos to classify+insert per cron run.
 // Each new video needs ~2-3s for Gemini + DB insert.
-// 2 × 3s = 6s → safely within 7s hard stop.
 const MAX_NEW_PER_RUN = 2;
 
 function verifySecret(provided: string, expected: string): boolean {
@@ -74,6 +72,8 @@ export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const doCleanup = searchParams.get("cleanup") === "true";
 
+  const sql = neon(process.env.DATABASE_URL!);
+
   const result = {
     fetchedFromEporner: 0,
     newVideosFound: 0,
@@ -89,11 +89,12 @@ export async function POST(request: NextRequest) {
     // ── 1. Removed Videos Cleanup (daily, only when ?cleanup=true) ───────────
     if (doCleanup) {
       console.log("[CronSync] Running removed videos cleanup...");
-      const lastSyncSetting = await prisma.settings.findUnique({
-        where: { key: "last_removed_sync_at" },
-      });
+
+      const [lastSyncSetting] = await sql`
+        SELECT value FROM "Settings" WHERE key = 'last_removed_sync_at'
+      `;
       const lastSync = lastSyncSetting
-        ? new Date(JSON.parse(lastSyncSetting.value))
+        ? new Date(JSON.parse(lastSyncSetting.value as string))
         : null;
       const now = new Date();
       const isDue =
@@ -102,14 +103,13 @@ export async function POST(request: NextRequest) {
 
       if (isDue) {
         const removedText = await EpornerAPI.getRemoved();
-        const activeVideos = await prisma.video.findMany({
-          where: { status: "ACTIVE" },
-          select: { id: true },
-        });
+        const activeVideos = await sql`
+          SELECT id FROM "Video" WHERE status = 'ACTIVE'
+        `;
 
         if (activeVideos.length > 0) {
           const removedIds = activeVideos
-            .map((v) => v.id)
+            .map((v) => v.id as string)
             .filter((id) => {
               const index = removedText.indexOf(id);
               if (index === -1) return false;
@@ -125,27 +125,23 @@ export async function POST(request: NextRequest) {
             });
 
           if (removedIds.length > 0) {
-            const { count } = await prisma.video.updateMany({
-              where: { id: { in: removedIds } },
-              data: { status: "REMOVED" },
-            });
-            result.removedVideosDeactivated = count;
+            const updated = await sql`
+              UPDATE "Video" SET status = 'REMOVED'
+              WHERE id = ANY(${removedIds})
+            `;
+            result.removedVideosDeactivated = (updated as unknown as { rowCount?: number }).rowCount ?? removedIds.length;
           }
         }
 
-        await prisma.settings.upsert({
-          where: { key: "last_removed_sync_at" },
-          create: {
-            key: "last_removed_sync_at",
-            value: JSON.stringify(now.toISOString()),
-          },
-          update: { value: JSON.stringify(now.toISOString()) },
-        });
+        await sql`
+          INSERT INTO "Settings" (key, value)
+          VALUES ('last_removed_sync_at', ${JSON.stringify(now.toISOString())})
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+        `;
       }
     }
 
     // ── 2. New Video Sync ────────────────────────────────────────────────────
-    // Guard: don't spend remaining time if cleanup already took too long
     if (Date.now() - startTime < HARD_STOP_MS - 2000) {
       // Fetch latest 50 videos from Eporner (cached 5 min by Next.js fetch layer)
       const latestRes = await EpornerAPI.search({ order: "latest", per_page: 50 });
@@ -153,25 +149,21 @@ export async function POST(request: NextRequest) {
       result.fetchedFromEporner = videos.length;
 
       if (videos.length > 0) {
-        // N+1 FIX: Single batch query instead of N individual findUnique calls.
-        // Check which video IDs already exist in DB in ONE round-trip.
+        // N+1 FIX: Single batch query instead of N individual queries.
         const ids = videos.map((v) => v.id);
-        const existing = await prisma.video.findMany({
-          where: { id: { in: ids } },
-          select: { id: true },
-        });
-        const existingIds = new Set(existing.map((v) => v.id));
+        const existing = await sql`
+          SELECT id FROM "Video" WHERE id = ANY(${ids})
+        `;
+        const existingIds = new Set(existing.map((v) => v.id as string));
 
         const newVideos = videos.filter((v) => !existingIds.has(v.id));
         result.newVideosFound = newVideos.length;
         result.videosSkipped = videos.length - newVideos.length;
 
-        // Process at most MAX_NEW_PER_RUN new videos to stay within Vercel timeout
         const toProcess = newVideos.slice(0, MAX_NEW_PER_RUN);
         result.pendingNewVideos = Math.max(0, newVideos.length - toProcess.length);
 
         for (const v of toProcess) {
-          // Hard time guard — stop processing if we're approaching the deadline
           if (Date.now() - startTime > HARD_STOP_MS) {
             console.warn("[CronSync] Hard time stop reached. Remaining videos will be processed on next run.");
             break;
@@ -193,53 +185,54 @@ export async function POST(request: NextRequest) {
               (c) => c.name.toLowerCase() === aiCatName
             );
 
-            await prisma.video.create({
-              data: {
-                id: v.id,
-                title: v.title,
-                lengthMin: v.length_min,
-                lengthSec: v.length_sec,
-                addedAt: v.added ? new Date(v.added) : undefined,
-                rate: v.rate,
-                views: v.views,
-                defaultThumb: v.default_thumb as unknown as Prisma.InputJsonValue,
-                thumbs: v.thumbs as unknown as Prisma.InputJsonValue,
-                keywords: v.keywords,
-                embedUrl: v.embed,
-                status: aiResult.isSpam ? "DRAFT" : "ACTIVE",
-                aiScoreTrending: aiResult.scores.trending,
-                aiScoreEngagement: aiResult.scores.engagement,
-                aiScoreSpam: aiResult.scores.spam,
-                aiSpamFlag: aiResult.isSpam,
-                aiDescription: aiResult.seoDescription,
-                tags: {
-                  create: finalTags.map((cleanTag) => ({
-                    tag: {
-                      connectOrCreate: {
-                        where: { name: cleanTag },
-                        create: { name: cleanTag },
-                      },
-                    },
-                  })),
-                },
-                ...(matchedCat
-                  ? {
-                      categories: {
-                        create: [
-                          {
-                            category: {
-                              connectOrCreate: {
-                                where: { name: matchedCat.name },
-                                create: { name: matchedCat.name },
-                              },
-                            },
-                          },
-                        ],
-                      },
-                    }
-                  : {}),
-              },
-            });
+            // Insert video
+            await sql`
+              INSERT INTO "Video" (
+                id, title, "lengthMin", "lengthSec", "addedAt", rate, views,
+                "defaultThumb", thumbs, keywords, "embedUrl", status,
+                "aiScoreTrending", "aiScoreEngagement", "aiScoreSpam", "aiSpamFlag", "aiDescription"
+              ) VALUES (
+                ${v.id}, ${v.title}, ${v.length_min}, ${v.length_sec},
+                ${v.added ? new Date(v.added).toISOString() : null},
+                ${v.rate}, ${v.views},
+                ${JSON.stringify(v.default_thumb)}, ${JSON.stringify(v.thumbs)},
+                ${v.keywords}, ${v.embed},
+                ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
+                ${aiResult.scores.trending}, ${aiResult.scores.engagement},
+                ${aiResult.scores.spam}, ${aiResult.isSpam}, ${aiResult.seoDescription}
+              )
+              ON CONFLICT (id) DO NOTHING
+            `;
+
+            // Insert tags
+            for (const tagName of finalTags) {
+              const [tag] = await sql`
+                INSERT INTO "Tag" (name) VALUES (${tagName})
+                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                RETURNING id
+              `;
+              if (tag) {
+                await sql`
+                  INSERT INTO "VideoTag" ("videoId", "tagId") VALUES (${v.id}, ${tag.id})
+                  ON CONFLICT DO NOTHING
+                `;
+              }
+            }
+
+            // Insert category
+            if (matchedCat) {
+              const [cat] = await sql`
+                INSERT INTO "Category" (name) VALUES (${matchedCat.name})
+                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                RETURNING id
+              `;
+              if (cat) {
+                await sql`
+                  INSERT INTO "VideoCategory" ("videoId", "categoryId") VALUES (${v.id}, ${cat.id})
+                  ON CONFLICT DO NOTHING
+                `;
+              }
+            }
 
             result.videosAdded++;
             console.log(`[CronSync] Added video: ${v.id} — "${v.title}"`);
