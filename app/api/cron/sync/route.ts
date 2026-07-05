@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
 
           if (removedIds.length > 0) {
             const updated = await sql`
-              UPDATE "Video" SET status = 'REMOVED'
+              UPDATE "Video" SET status = 'REMOVED', "updatedAt" = NOW()
               WHERE id = ANY(${removedIds})
             `;
             result.removedVideosDeactivated = (updated as unknown as { rowCount?: number }).rowCount ?? removedIds.length;
@@ -134,9 +134,9 @@ export async function POST(request: NextRequest) {
         }
 
         await sql`
-          INSERT INTO "Settings" (key, value)
-          VALUES ('last_removed_sync_at', ${JSON.stringify(now.toISOString())})
-          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+          INSERT INTO "Settings" (key, value, "updatedAt")
+          VALUES ('last_removed_sync_at', ${JSON.stringify(now.toISOString())}, NOW())
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = NOW()
         `;
       }
     }
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
               INSERT INTO "Video" (
                 id, title, "lengthMin", "lengthSec", "addedAt", rate, views,
                 "defaultThumb", thumbs, keywords, "embedUrl", status,
-                "aiScoreTrending", "aiScoreEngagement", "aiScoreSpam", "aiSpamFlag", "aiDescription"
+                "aiScoreTrending", "aiScoreEngagement", "aiScoreSpam", "aiSpamFlag", "aiDescription", "updatedAt"
               ) VALUES (
                 ${v.id}, ${v.title}, ${v.length_min}, ${v.length_sec},
                 ${v.added ? new Date(v.added).toISOString() : null},
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
                 ${v.keywords}, ${v.embed},
                 ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
                 ${aiResult.scores.trending}, ${aiResult.scores.engagement},
-                ${aiResult.scores.spam}, ${aiResult.isSpam}, ${aiResult.seoDescription}
+                ${aiResult.scores.spam}, ${aiResult.isSpam}, ${aiResult.seoDescription}, NOW()
               )
               ON CONFLICT (id) DO NOTHING
             `;
