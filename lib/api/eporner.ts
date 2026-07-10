@@ -50,6 +50,28 @@ function cleanVideoData(video: EpornerVideo): EpornerVideo {
   };
 }
 
+// In-memory cache to prevent Next.js from bloating the disk with .next/cache/fetch-cache
+// This ensures caching for performance but avoids ENOSPC errors on persistent servers.
+const memCache = new Map<string, { data: any; expires: number }>();
+
+function setCache(key: string, data: any, ttlSeconds: number) {
+  // Simple garbage collection to prevent memory leaks
+  if (memCache.size > 1000) {
+    const now = Date.now();
+    for (const [k, v] of memCache.entries()) {
+      if (v.expires <= now) memCache.delete(k);
+    }
+    if (memCache.size > 1000) memCache.clear();
+  }
+  memCache.set(key, { data, expires: Date.now() + ttlSeconds * 1000 });
+}
+
+function getCache(key: string) {
+  const cached = memCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.data;
+  return null;
+}
+
 export const EpornerAPI = {
   async search(params: {
     query?: string;
@@ -72,27 +94,39 @@ export const EpornerAPI = {
       lq: "0",    // default — overridable by caller
       ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
     });
-    const res = await fetch(`${BASE_URL}/search/?${queryParams.toString()}`, {
-      // Cache search results for 5 minutes at the Next.js fetch layer.
-      // Under high load, many simultaneous searches for the same query
-      // collapse into a single upstream Eporner API call.
-      next: { revalidate: 300 },
+    const url = `${BASE_URL}/search/?${queryParams.toString()}`;
+    
+    const cached = getCache(url);
+    if (cached) return cached;
+
+    const res = await fetch(url, {
+      cache: "no-store", // Disable Next.js disk cache entirely
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data: EpornerSearchResponse = await res.json();
     if (data && Array.isArray(data.videos)) {
       data.videos = data.videos.map(cleanVideoData);
     }
+    
+    setCache(url, data, 300); // 5 minutes cache
     return data;
   },
 
   async getById(id: string): Promise<EpornerVideo | null> {
     try {
       const queryParams = new URLSearchParams({ id, format: "json" });
-      const res = await fetch(`${BASE_URL}/id/?${queryParams.toString()}`);
+      const url = `${BASE_URL}/id/?${queryParams.toString()}`;
+      
+      const cached = getCache(url);
+      if (cached) return cached;
+
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) return null;
       const data = await res.json();
-      return (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;
+      const video = (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;
+      
+      if (video) setCache(url, video, 3600); // 1 hour cache
+      return video;
     } catch {
       return null;
     }
@@ -100,7 +134,7 @@ export const EpornerAPI = {
 
   async getRemoved(): Promise<string> {
     const queryParams = new URLSearchParams({ format: "json" });
-    const res = await fetch(`${BASE_URL}/removed/?${queryParams.toString()}`);
+    const res = await fetch(`${BASE_URL}/removed/?${queryParams.toString()}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();
   },
