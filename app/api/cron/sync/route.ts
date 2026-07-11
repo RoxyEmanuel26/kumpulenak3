@@ -108,21 +108,14 @@ export async function POST(request: NextRequest) {
         `;
 
         if (activeVideos.length > 0) {
+          // Parse the massive text file ONCE into an O(1) Set lookup to prevent event loop freeze
+          const removedIdsSet = new Set(
+            removedText.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean)
+          );
+
           const removedIds = activeVideos
             .map((v) => v.id as string)
-            .filter((id) => {
-              const index = removedText.indexOf(id);
-              if (index === -1) return false;
-              const charBefore = index > 0 ? removedText[index - 1] : "\n";
-              const charAfter =
-                index + id.length < removedText.length
-                  ? removedText[index + id.length]
-                  : "\n";
-              return (
-                (charBefore === "\n" || charBefore === "\r") &&
-                (charAfter === "\n" || charAfter === "\r")
-              );
-            });
+            .filter((id) => removedIdsSet.has(id));
 
           if (removedIds.length > 0) {
             const updated = await sql`
