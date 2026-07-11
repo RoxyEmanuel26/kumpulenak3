@@ -37,7 +37,8 @@ export async function syncVideoToDatabase(videoId: string) {
     INSERT INTO "Video" (
       id, title, "lengthMin", "lengthSec", "addedAt", rate, views,
       "defaultThumb", thumbs, keywords, "embedUrl", status,
-      "aiScoreTrending", "aiScoreEngagement", "aiScoreSpam", "aiSpamFlag", "aiDescription"
+      "aiScoreTrending", "aiScoreEngagement", "aiScoreSpam", "aiSpamFlag", "aiDescription",
+      "updatedAt"
     ) VALUES (
       ${v.id}, ${v.title}, ${v.length_min}, ${v.length_sec},
       ${v.added ? new Date(v.added).toISOString() : null},
@@ -46,7 +47,8 @@ export async function syncVideoToDatabase(videoId: string) {
       ${v.keywords}, ${v.embed},
       ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
       ${aiResult.scores.trending}, ${aiResult.scores.engagement}, ${aiResult.scores.spam},
-      ${aiResult.isSpam}, ${aiResult.seoDescription}
+      ${aiResult.isSpam}, ${aiResult.seoDescription},
+      NOW()
     )
     ON CONFLICT (id) DO NOTHING
     RETURNING *
@@ -61,8 +63,9 @@ export async function syncVideoToDatabase(videoId: string) {
   // Insert tags (connectOrCreate equivalent)
   for (const tagName of finalTags) {
     // Upsert tag
+    const tagId = crypto.randomUUID();
     const [tag] = await sql`
-      INSERT INTO "Tag" (name) VALUES (${tagName})
+      INSERT INTO "Tag" (id, name) VALUES (${tagId}, ${tagName})
       ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
       RETURNING id
     `;
@@ -76,8 +79,9 @@ export async function syncVideoToDatabase(videoId: string) {
   // Insert category (connectOrCreate equivalent)
   const catName = aiResult.category.trim();
   if (catName) {
+    const catId = crypto.randomUUID();
     const [cat] = await sql`
-      INSERT INTO "Category" (name) VALUES (${catName})
+      INSERT INTO "Category" (id, name) VALUES (${catId}, ${catName})
       ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
       RETURNING id
     `;

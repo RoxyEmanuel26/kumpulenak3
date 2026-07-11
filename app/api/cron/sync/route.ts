@@ -199,8 +199,9 @@ export async function POST(request: NextRequest) {
 
             // Insert tags
             for (const tagName of finalTags) {
+              const tagId = crypto.randomUUID();
               const [tag] = await sql`
-                INSERT INTO "Tag" (name) VALUES (${tagName})
+                INSERT INTO "Tag" (id, name) VALUES (${tagId}, ${tagName})
                 ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
                 RETURNING id
               `;
@@ -214,8 +215,9 @@ export async function POST(request: NextRequest) {
 
             // Insert category
             if (matchedCat) {
+              const catId = crypto.randomUUID();
               const [cat] = await sql`
-                INSERT INTO "Category" (name) VALUES (${matchedCat.name})
+                INSERT INTO "Category" (id, name) VALUES (${catId}, ${matchedCat.name})
                 ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
                 RETURNING id
               `;
