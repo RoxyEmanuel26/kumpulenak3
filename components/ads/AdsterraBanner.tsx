@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface AdsterraBannerProps {
   adKey: string;
@@ -10,6 +10,7 @@ interface AdsterraBannerProps {
 }
 
 export function AdsterraBanner({ adKey, width, height, className = "" }: AdsterraBannerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {
@@ -31,6 +32,38 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
     setShouldRender(true);
   }, [className]);
 
+  useEffect(() => {
+    if (!shouldRender || !containerRef.current) return;
+
+    // Check if scripts are already injected to prevent duplicates
+    if (containerRef.current.firstChild) return;
+
+    // Use DOM append for native injection.
+    // We use window.atAsyncOptions to prevent multiple banners on the same page from overwriting the global config.
+    const confScript = document.createElement("script");
+    confScript.type = "text/javascript";
+    confScript.innerHTML = `
+      if (typeof window.atAsyncOptions !== 'object') window.atAsyncOptions = [];
+      window.atAsyncOptions.push({
+        'key' : '${adKey}',
+        'format' : 'js',
+        'async' : true,
+        'container' : 'atContainer-${adKey}',
+        'height' : ${height},
+        'width' : ${width},
+        'params' : {}
+      });
+    `;
+
+    const invokeScript = document.createElement("script");
+    invokeScript.type = "text/javascript";
+    invokeScript.async = true;
+    invokeScript.src = `//glamournakedemployee.com/${adKey}/invoke.js`;
+
+    containerRef.current.appendChild(confScript);
+    containerRef.current.appendChild(invokeScript);
+  }, [shouldRender, adKey, height, width]);
+
   return (
     <div
       className={`flex items-center justify-center overflow-hidden ${className}`}
@@ -38,14 +71,7 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
       aria-hidden="true"
     >
       {shouldRender ? (
-        <iframe
-          src={`/ad-slot.html?key=${adKey}&width=${width}&height=${height}`}
-          width={width}
-          height={height}
-          style={{ border: "none", overflow: "hidden", maxWidth: "100%" }}
-          scrolling="no"
-          title={`Ad Banner ${adKey}`}
-        />
+        <div id={`atContainer-${adKey}`} ref={containerRef} style={{ width, height, overflow: "hidden" }} />
       ) : (
         <div />
       )}
