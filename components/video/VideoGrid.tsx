@@ -15,9 +15,9 @@ export function VideoGrid({ videos }: VideoGridProps) {
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-y-8 gap-x-4 animate-in fade-in duration-300">
         {videos.map((video, index) => (
           <React.Fragment key={video.id}>
-            {/* Inject Native Banner at index 5 (after first 5 videos, matching standard grid row) */}
+            {/* Inject Native Banner at index 5 (after first 5 videos) */}
             {index === 5 && (
-              <div className="flex w-full items-center justify-center overflow-hidden col-span-1 rounded-xl bg-[#161616]/50">
+              <div className="flex w-full items-center justify-center overflow-hidden col-span-full my-2">
                 <AdsterraNativeBanner />
               </div>
             )}
