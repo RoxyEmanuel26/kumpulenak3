@@ -79,18 +79,14 @@ export const EpornerAPI = {
     page?: number;
     thumbsize?: string;
     order?: "latest" | "top-weekly" | "top-monthly" | "most-popular" | "longest" | "shortest";
-    gay?: 0 | 1 | 2;
     lq?: 0 | 1 | 2;
     format?: "json" | "xml";
   } = {}): Promise<EpornerSearchResponse> {
-    // BUG FIX: Defaults must come FIRST in the spread, then caller params override them.
-    // Previous code had gay:"0" and lq:"0" AFTER the params spread, silently
-    // ignoring whatever the caller passed for these fields.
     const queryParams = new URLSearchParams({
       format: "json",
       per_page: "100",
       order: "latest",
-      gay: "0",   // default — overridable by caller
+      gay: "0",   // forced straight-only
       lq: "0",    // default — overridable by caller
       ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
     });

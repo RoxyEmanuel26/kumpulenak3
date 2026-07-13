@@ -40,6 +40,7 @@ export const GeminiAPI = {
         1. Clean up original keywords from duplicates, typos, and make clean tags in lowercase format (max 10 most relevant tags).
         2. Determine the single most matching category (e.g. Teen, Amateur, MILF, College, POV, Asian, Anal, Solo, etc.).
         3. Detect if the title contains spam, extreme clickbait, or scams (isSpam = true/false).
+        CRITICAL RULE: If the video contains or implies gay, male-on-male, shemale, ladyboy, trans, or homosexual content, you MUST set isSpam = true so it is filtered out of our straight-only catalog.
         4. Provide scores (0 to 100) for:
            - trending: current virality potential / trendiness.
            - engagement: viewer interest / click ratio.

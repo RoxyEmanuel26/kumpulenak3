@@ -163,6 +163,16 @@ export async function POST(request: NextRequest) {
           }
 
           try {
+            // Strict pre-filter to drop gay/trans content immediately
+            const lowerTitle = v.title.toLowerCase();
+            const lowerKeywords = v.keywords.toLowerCase();
+            const blacklistRegex = /\b(gay|shemale|tranny|ladyboy|trans|homo)\b/i;
+            
+            if (blacklistRegex.test(lowerTitle) || blacklistRegex.test(lowerKeywords)) {
+              console.log(`[CronSync] Skipped blacklisted video (gay/trans filter): ${v.id} - "${v.title}"`);
+              continue; // Skip this video completely, do not insert into DB
+            }
+
             const aiResult = await GeminiAPI.classifyVideo(v.title, v.keywords);
 
             const rawTags =

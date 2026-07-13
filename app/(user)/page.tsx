@@ -54,7 +54,6 @@ export default async function UserHome({
     q?: string; 
     page?: string; 
     order?: string;
-    gay?: string;
     lq?: string;
   }>;
 }) {
@@ -62,7 +61,6 @@ export default async function UserHome({
   const query = resolvedSearchParams.q || "all";
   const page = parseInt(resolvedSearchParams.page || "1");
   const order = (resolvedSearchParams.order as "latest" | "top-weekly" | "top-monthly" | "most-popular" | "longest" | "shortest") || "latest";
-  const gay = parseInt(resolvedSearchParams.gay || "0") as 0 | 1 | 2;
   const lq = parseInt(resolvedSearchParams.lq || "1") as 0 | 1 | 2;
   const per_page = 30; 
 
@@ -71,7 +69,6 @@ export default async function UserHome({
     page,
     per_page,
     order,
-    gay,
     lq,
   });
 
@@ -83,7 +80,6 @@ export default async function UserHome({
     const params = new URLSearchParams();
     if (query !== "all") params.set("q", query);
     if (order !== "latest") params.set("order", order);
-    if (gay !== 0) params.set("gay", gay.toString());
     if (lq !== 1) params.set("lq", lq.toString());
     params.set("page", targetPage.toString());
     return `/?${params.toString()}`;
