@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { ContinueWatching } from "@/components/video/ContinueWatching";
-import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
@@ -169,40 +168,9 @@ export default async function UserHome({
           </nav>
         )}
 
-        {/* ── Adsterra Banner ─────────────────────────────────────────────
-             Leaderboard 728×90 — desktop & tablet
-             Mobile Banner 320×50 — mobile only
-             Placed above the video grid for maximum viewability.
-        ─────────────────────────────────────────────────────────────── */}
-        {/* Leaderboard 728x90: hidden on mobile, shown on md+ */}
-        <AdsterraBanner
-          adKey="361158242f9f7ba4b97dddf961d303d6"
-          width={728}
-          height={90}
-          className="hidden lg:flex my-2"
-        />
-        {/* Mobile Banner 320x50: shown only on mobile */}
-        <AdsterraBanner
-          adKey="1657e4fb76c1445cfbb411b5b0a859ee"
-          width={320}
-          height={50}
-          className="flex lg:hidden my-2"
-        />
-
         {/* Grid Video Container */}
         <VideoGrid
           videos={videos}
-        />
-
-        {/* ── Adsterra Banner (below grid) ──────────────────────────────────
-             Medium Rectangle 300x250
-             Placed below the video grid for post-scroll viewability.
-        ─────────────────────────────────────────────────────────────── */}
-        <AdsterraBanner
-          adKey="3f7aeb74bde61edc8e369b2303797899"
-          width={300}
-          height={250}
-          className="flex my-4"
         />
 
         {/* Pagination Controls */}

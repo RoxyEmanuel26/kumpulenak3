@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { slugify } from "@/lib/utils";
-import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 
 
 export async function generateMetadata({
@@ -168,36 +167,11 @@ export default async function ResultsPage({
         </nav>
       )}
 
-      {/* ── Adsterra Banner (above grid) ─────────────────────────────
-           Leaderboard 728×90 — desktop & tablet
-           Mobile Banner 320×50 — mobile only
-           Placed above the video grid for top-of-page viewability.
-      ─────────────────────────────────────────────────── */}
-      <AdsterraBanner
-        adKey="361158242f9f7ba4b97dddf961d303d6"
-        width={728}
-        height={90}
-        className="hidden lg:flex my-2"
-      />
-      <AdsterraBanner
-        adKey="1657e4fb76c1445cfbb411b5b0a859ee"
-        width={320}
-        height={50}
-        className="flex lg:hidden my-2"
-      />
+
 
       <VideoGrid videos={videos} />
 
-      {/* ── Adsterra Banner ──────────────────────────────────────
-           Medium Rectangle 300x250
-           Placed after VideoGrid for mid-page viewability.
-      ─────────────────────────────────────────────────── */}
-      <AdsterraBanner
-        adKey="3f7aeb74bde61edc8e369b2303797899"
-        width={300}
-        height={250}
-        className="flex my-4"
-      />
+
 
       {/* Pagination Controls */}
       {totalPages > 1 && (

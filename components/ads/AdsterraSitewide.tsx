@@ -18,15 +18,17 @@ export function AdsterraSitewide() {
   return (
     <>
       {/* Adsterra Popunder — fires on first user interaction */}
-      {/* <Script
+      <Script
         src="https://glamournakedemployee.com/98/35/f2/9835f2cb11a4b0a607981a859816aa31.js"
         strategy="afterInteractive"
-      /> */}
+        data-cfasync="false"
+      />
 
       {/* Adsterra Social Bar — persistent floating unit */}
       <Script
         src="https://glamournakedemployee.com/b8/43/bb/b843bbc6e1e6cf26552406da09c429c7.js"
         strategy="afterInteractive"
+        data-cfasync="false"
       />
     </>
   );

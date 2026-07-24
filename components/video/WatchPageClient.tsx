@@ -7,7 +7,8 @@ import { VideoCardMini } from "./VideoCardMini";
 import { useUI } from "../layout/UIContext";
 import {
   ThumbsUp, 
-  ThumbsDown
+  ThumbsDown,
+  Download
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EpornerVideo } from "@/types/eporner";
@@ -114,10 +115,10 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
 
           {/* Action Bar */}
           <div className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-white/5 w-full">
-            <div className="flex items-center bg-[#272727] hover:bg-[#3F3F3F] transition-colors rounded-full overflow-hidden border border-white/5 shrink-0">
+            <div className="flex items-center bg-[#272727] hover:bg-[#3F3F3F] transition-colors rounded-full overflow-hidden border border-white/5 shrink-0 h-9 sm:h-10">
               <button 
                 onClick={handleLike}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-2 border-r border-white/10 cursor-pointer transition-colors ${isLikedGlobal ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-full border-r border-white/10 cursor-pointer transition-colors ${isLikedGlobal ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
               >
                 <ThumbsUp className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isLikedGlobal ? "fill-current text-green-500" : ""}`} />
                 <span className="text-xs sm:text-sm font-semibold font-mono">
@@ -126,7 +127,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
               </button>
               <button 
                 onClick={handleDislike}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-2 cursor-pointer transition-colors ${localVote === "dislike" ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-full cursor-pointer transition-colors ${localVote === "dislike" ? 'text-white bg-white/5' : 'text-[#AAAAAA] hover:text-white'}`}
               >
                 <ThumbsDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${localVote === "dislike" ? "fill-current text-red-500" : ""}`} />
                 <span className="text-xs sm:text-sm font-semibold font-mono">
@@ -135,9 +136,9 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
               </button>
             </div>
 
-            {/* Right side: approval % + share button */}
+            {/* Right side: approval % + share button + download */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] sm:text-xs text-muted-foreground font-mono bg-[#161616]/40 border border-white/5 px-2.5 sm:px-3 py-1.5 rounded-full backdrop-blur-md">
+              <span className="hidden sm:flex items-center justify-center text-[10px] sm:text-xs text-muted-foreground font-mono bg-[#161616]/40 border border-white/5 px-2.5 sm:px-3 h-9 sm:h-10 rounded-full backdrop-blur-md">
                 {currentPercent}% approval
               </span>
               {/* Share button — Web Share API on mobile, clipboard on desktop */}
@@ -145,6 +146,17 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
                 url={`${SITE_URL}${buildWatchUrl(video.id, video.title)}`}
                 title={video.title}
               />
+              {/* Download button - Can be linked to a Smartlink for Adsterra monetization */}
+              <a 
+                href="https://glamournakedemployee.com/tzea1rbg?key=217e85c96daa47caf53c19c87f6e7c6d"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-9 sm:h-10 bg-[#FF3366] hover:bg-[#E62E5C] text-white text-xs sm:text-sm font-bold rounded-full transition-colors cursor-pointer shadow-lg shadow-[#FF3366]/20"
+                onClick={() => trackEvent("download_click", { video: video.id })}
+              >
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                Download now!
+              </a>
             </div>
           </div>
 
@@ -242,16 +254,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
             <h3 className="font-bold text-lg">Recommended</h3>
           </div>
 
-          {/* ── Adsterra 300×250 Medium Rectangle ─────────────────────────────
-               Positioned at top of sidebar for maximum viewability.
-               One of the highest-CPM placements in display advertising.
-          ────────────────────────────────────────────────────────── */}
-          <AdsterraBanner
-            adKey="3f7aeb74bde61edc8e369b2303797899"
-            width={300}
-            height={250}
-            className="flex justify-center w-full"
-          />
+
           
           <div className="flex flex-col gap-3">
             {relatedVideos.map((relVideo) => (

@@ -58,6 +58,7 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
     const invokeScript = document.createElement("script");
     invokeScript.type = "text/javascript";
     invokeScript.async = true;
+    invokeScript.dataset.cfasync = "false";
     invokeScript.src = `//glamournakedemployee.com/${adKey}/invoke.js`;
 
     containerRef.current.appendChild(confScript);
