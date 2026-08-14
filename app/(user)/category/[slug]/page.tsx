@@ -31,6 +31,12 @@ export async function generateMetadata({
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
 
+  // Note: generateMetadata doesn't have access to searchParams for page number.
+  // The canonical for page 1 is the base URL; paginated pages use ?page=N.
+  // Since metadata runs per-route (not per-searchParam), we set the base canonical here.
+  // Paginated canonical is handled by the page component's alternates.
+  const canonicalUrl = `${baseUrl}/category/${cat.slug}`;
+
   return {
     title: cat.title,
     description: cat.description,
@@ -38,7 +44,7 @@ export async function generateMetadata({
       title: `${cat.title} — LustHub`,
       description: cat.description,
       type: "website",
-      url: `${baseUrl}/category/${cat.slug}`,
+      url: canonicalUrl,
       siteName: "LustHub",
       images: [
         {
@@ -59,7 +65,7 @@ export async function generateMetadata({
       ],
     },
     alternates: {
-      canonical: `${baseUrl}/category/${cat.slug}`,
+      canonical: canonicalUrl,
     },
   };
 }

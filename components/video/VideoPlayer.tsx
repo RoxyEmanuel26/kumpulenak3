@@ -113,13 +113,16 @@ export function VideoPlayer({
           </div>
         )}
 
-        {/* Iframe embed */}
+        {/* Iframe embed — Eporner player */}
+        {/* referrerpolicy="no-referrer-when-downgrade" allows Eporner to receive */}
+        {/* the referrer for analytics while protecting user privacy on downgrades. */}
         <iframe
           src={embedUrl}
           title={title}
           className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-500 ${loading ? "opacity-0" : "opacity-100"}`}
           allowFullScreen
-          allow="encrypted-media; picture-in-picture"
+          allow="encrypted-media; picture-in-picture; autoplay"
+          referrerPolicy="no-referrer-when-downgrade"
           onLoad={() => setLoading(false)}
         />
 

@@ -112,7 +112,11 @@ export default async function UserHome({
         "url": SITE_URL,
         "logo": {
           "@type": "ImageObject",
-          "url": `${SITE_URL}/og-image.png`,
+          // /logo.webp exists in public/ — use this as the brand logo.
+          // Google recommends a rectangular logo for Knowledge Panel eligibility.
+          "url": `${SITE_URL}/logo.webp`,
+          "width": 512,
+          "height": 512,
         },
       },
     ],

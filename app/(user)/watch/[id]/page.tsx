@@ -61,6 +61,8 @@ export async function generateMetadata({
 
   const canonicalUrl = `${SITE_URL}${buildWatchUrl(video.id, video.title)}`;
 
+  // Resolve best available thumbnail — matches the array logic in the page body.
+  // Prefer default_thumb, fall back to first entry in thumbs array.
   const thumbUrl =
     video.default_thumb?.src ||
     (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
@@ -138,31 +140,83 @@ export default async function WatchVideoPage({
   const relatedRes = await EpornerAPI.search({ query, per_page: 12 });
   const related = relatedRes?.videos?.filter((v) => v.id !== video.id) || [];
 
-  // ── VideoObject JSON-LD ────────────────────────────────────────────────
-  // Only include fields that match real visible content to avoid schema/content mismatch.
-  // uploadDate uses video.added as-is (Eporner returns ISO 8601 date strings).
-  const thumbUrl =
-    video.default_thumb?.src ||
-    (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
-    undefined;
+  // ── VideoObject JSON-LD ────────────────────────────────────────────────────────────────────────────
+  // Google Video Rich Results requirements:
+  //   Required:    name, description, thumbnailUrl (array), uploadDate
+  //   Recommended: duration, embedUrl, interactionStatistic, contentUrl
+  //
+  // contentUrl MUST be a direct MP4/WebM file URL, NOT an embed iframe URL.
+  // Since we use Eporner iframe embeds, we OMIT contentUrl entirely.
+  // Setting contentUrl = embedUrl (as previously done) causes:
+  //   - "Video tidak diproses" (GSC Video Indexing errors)
+  //   - Validation failures in Google Rich Results Test
+  //
+  // thumbnailUrl is now an ARRAY for maximum coverage:
+  //   Google prefers multiple thumbnails at different aspect ratios.
+  //   We provide up to 3 from Eporner's CDN (default + best from thumbs array).
+  //
+  // uploadDate: Eporner returns ISO 8601 strings (e.g. "2024-01-15T00:00:00+00:00").
+  // We pass it directly after validation to ensure it's always a valid date.
+  // 
+  // regionsAllowed is omitted to allow global indexing; if specific country 
+  // blocking is required, regionsAllowed: ["US", "CA"] would be used.
+
+  // Build thumbnail array — deduplicate and prefer highest resolution
+  const thumbUrls: string[] = [];
+  if (video.default_thumb?.src) thumbUrls.push(video.default_thumb.src);
+  if (Array.isArray(video.thumbs)) {
+    // Add up to 2 additional unique thumbs (different sizes for Google)
+    video.thumbs
+      .filter((t) => t.src && t.src !== video.default_thumb?.src)
+      .slice(0, 2)
+      .forEach((t) => thumbUrls.push(t.src));
+  }
+  const thumbUrl = thumbUrls[0]; // Primary thumbnail for OG/Twitter
 
   const duration = toISO8601Duration(video.length_sec);
   const description = buildVideoDescription(video.title, video.keywords);
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
-  // Conditionally build schema fields — never include undefined/null values
+  // Validate uploadDate — must be ISO 8601 for Google compliance
+  const uploadDate = video.added && !isNaN(Date.parse(video.added))
+    ? video.added
+    : undefined;
+
+  // Build VideoObject — conditionally include optional fields
   const videoSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
+    // @id links this node to BreadcrumbList and other graph entities
+    "@id": `${canonicalUrl}#video`,
     "name": video.title,
     "description": description,
+    // url: the watch page — where the user watches the video
     "url": canonicalUrl,
-    "embedUrl": video.embed || undefined,
-    "contentUrl": video.embed || undefined,
+    // embedUrl: Eporner iframe player (required for embedded video indexing)
+    // Google uses this to understand the video player for rich results.
+    // NOTE: contentUrl is intentionally OMITTED — it must be a direct MP4 URL,
+    // not an embed iframe. Setting it to embedUrl causes GSC validation errors.
+    ...(video.embed ? { "embedUrl": video.embed } : {}),
+    // isFamilyFriendly: false signals adult content to Google.
+    // This prevents the video from appearing in SafeSearch results.
+    "isFamilyFriendly": false,
+    // potentialAction: enables "Watch" sitelink in SERP
+    "potentialAction": {
+      "@type": "WatchAction",
+      "target": canonicalUrl,
+    },
   };
-  if (thumbUrl) videoSchema["thumbnailUrl"] = thumbUrl;
+
+  // thumbnailUrl: array of thumbnails — required by Google
+  // Google validates that thumbnail URLs are accessible (HTTP 200, non-empty image).
+  // If Eporner CDN is overloaded (hostload), Google logs "Thumbnail tidak dapat di-crawl".
+  // Providing multiple thumbnails increases the chance at least one is accessible.
+  if (thumbUrls.length > 0) {
+    videoSchema["thumbnailUrl"] = thumbUrls.length === 1 ? thumbUrls[0] : thumbUrls;
+  }
+
   if (duration) videoSchema["duration"] = duration;
-  if (video.added) videoSchema["uploadDate"] = video.added;
+  if (uploadDate) videoSchema["uploadDate"] = uploadDate;
   if (video.views) {
     videoSchema["interactionStatistic"] = {
       "@type": "InteractionCounter",
@@ -173,10 +227,11 @@ export default async function WatchVideoPage({
 
   // ── BreadcrumbList JSON-LD ─────────────────────────────────────────────
   // Provides Google with structured breadcrumb data for rich results in SERP.
-  // Simple 2-level: Home → Video Title
+  // Uses @id to reference VideoObject above — linked data graph for Google.
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
+    "@id": `${canonicalUrl}#breadcrumb`,
     "itemListElement": [
       {
         "@type": "ListItem",

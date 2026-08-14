@@ -114,6 +114,27 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // API routes — tell crawlers not to index these even if they slip past robots.txt
+        source: "/api/(.*)",
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow",
+          },
+        ],
+      },
+      {
+        // Library page — belt-and-suspenders: already has noindex metadata,
+        // this HTTP header reinforces it for bots that ignore meta robots.
+        source: "/library",
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow",
+          },
+        ],
+      },
     ];
   },
   // Intercept sitemap index requests to route them through our custom API endpoint
@@ -137,13 +158,26 @@ const nextConfig: NextConfig = {
     };
   },
 
-  // Permanent 301 redirect for legacy /video/{id} path format
-  // This runs at the routing layer before React, guaranteeing a real 301.
+  // Permanent redirects for URL normalization and legacy path support
   async redirects() {
     return [
+      // ── www → non-www canonical redirect ─────────────────────────────────
+      // Root cause of 259 "403 Blocked" pages in Google Search Console:
+      // Googlebot crawled https://www.lusthub.web.id/* and received 403 because
+      // the www subdomain was not configured to serve the site.
+      // This 301 redirect normalizes all www traffic to the canonical non-www domain.
+      // Also handled at Cloudflare level via public/_redirects for full coverage.
       {
-        // Legacy /video/{id} path format → single-hop 301 to new canonical /watch/{id}
-        // Bypasses the ?v= shim entirely for clean redirect chain.
+        source: "/:path*",
+        has: [{ type: "host", value: "www.lusthub.web.id" }],
+        destination: "https://lusthub.web.id/:path*",
+        permanent: true, // HTTP 301
+      },
+
+      // ── Legacy /video/{id} path format ────────────────────────────────────
+      // Legacy /video/{id} path format → single-hop 301 to new canonical /watch/{id}
+      // Bypasses the ?v= shim entirely for clean redirect chain.
+      {
         source: "/video/:id",
         destination: "/watch/:id",
         permanent: true, // HTTP 301
