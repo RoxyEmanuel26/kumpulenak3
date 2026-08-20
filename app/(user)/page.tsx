@@ -1,4 +1,4 @@
-export const runtime = "edge";
+
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { ContinueWatching } from "@/components/video/ContinueWatching";
 
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
 // ISR: regenerate homepage every 30 minutes in the background.
 // Shows freshly synced videos without requiring a full redeploy.
@@ -19,13 +19,13 @@ export const metadata: Metadata = {
   title: "LustHub — Free HD Porn Videos",
   description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
   alternates: {
-    canonical: "https://lusthub.web.id",
+    canonical: SITE_URL,
   },
   openGraph: {
     title: "LustHub — Free HD Porn Videos",
     description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
     type: "website",
-    url: "https://lusthub.web.id",
+    url: SITE_URL,
     siteName: "LustHub",
     images: [
       {

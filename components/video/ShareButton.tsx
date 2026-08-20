@@ -21,7 +21,7 @@
  *  - Renders a single <button> — negligible LCP impact
  *
  * Usage:
- *   <ShareButton url="https://lusthub.web.id/watch/abc123" title="Video Title" />
+ *   <ShareButton url="https://www.lusthub.web.id/watch/abc123" title="Video Title" />
  */
 
 import { useState } from "react";

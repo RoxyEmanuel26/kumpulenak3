@@ -1,18 +1,17 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
-export const runtime = "edge";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 
-// ISR: Regenerate watch pages every 1 hour.
-// Video metadata (title, thumbnail, views) almost never changes within hours.
-// Sync is now handled exclusively by the /api/cron/sync endpoint (cron-job.org)
-// rather than being triggered on every page render.
-export const revalidate = 3600;
+// ISR: Regenerate watch pages every 6 hours.
+// Video metadata (title, thumbnail, views) is very stable — rarely changes.
+// Aligned with VIDEO_TTL in lib/api/eporner.ts for cache consistency.
+// Sync is handled exclusively by /api/cron/sync (cron-job.org every 30 min).
+export const revalidate = 21600; // 6 hours
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
 /**
  * Converts total seconds to ISO 8601 duration string (PT format).

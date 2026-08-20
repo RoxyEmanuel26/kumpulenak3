@@ -9,7 +9,7 @@ import { neon } from "@neondatabase/serverless";
 import { TIER1_CATEGORIES } from "./category-config";
 import { buildWatchUrl } from "./video/slug";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 const CHUNK_SIZE = 5_000;
 
 export async function generateSitemaps() {

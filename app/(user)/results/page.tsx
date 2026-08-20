@@ -1,4 +1,4 @@
-export const runtime = "edge";
+
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
@@ -16,7 +16,7 @@ export async function generateMetadata({
   const resolved = await searchParams;
   const query = resolved.search_query;
   const order = resolved.order;
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
   if (query && query !== "all") {
     const title = `"${query}" Porn Videos \u2014 LustHub`;

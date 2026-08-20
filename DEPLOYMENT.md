@@ -19,7 +19,7 @@ cp .env.example .env
 ```
 
 Required variables:
-- `NEXT_PUBLIC_APP_URL` — full public URL (e.g., `https://lusthub.web.id`)
+- `NEXT_PUBLIC_APP_URL` — full public URL (e.g., `https://www.lusthub.web.id`)
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `WEBHOOK_SECRET` — strong random string for webhook authentication
@@ -106,15 +106,15 @@ Run these checks immediately after every deployment. All must return the expecte
 
 | Check | Command / URL | Expected |
 |---|---|---|
-| Health endpoint | `curl -sf https://lusthub.web.id/api/health` | `{"status":"ok",...}` |
-| Homepage | `curl -sf -o /dev/null -w "%{http_code}" https://lusthub.web.id/` | `200` |
-| Sitemap index | `curl -sf -o /dev/null -w "%{http_code}" https://lusthub.web.id/sitemap.xml` | `200` |
-| Sitemap segment 0 | `curl -sf -o /dev/null -w "%{http_code}" https://lusthub.web.id/sitemap/0` | `200` |
-| Robots.txt | `curl -sf https://lusthub.web.id/robots.txt` | Contains `Disallow: /api/` |
-| OG image | `curl -sf -o /dev/null -w "%{http_code}" https://lusthub.web.id/opengraph-image` | `200` |
-| Category page | `curl -sf -o /dev/null -w "%{http_code}" https://lusthub.web.id/category/japanese` | `200` |
-| Watch redirect | `curl -sI https://lusthub.web.id/watch?v=TESTID \| grep -i location` | `/watch/TESTID` |
-| Video redirect | `curl -sI https://lusthub.web.id/video/TESTID \| grep -i location` | `/watch/TESTID` (via 301) |
+| Health endpoint | `curl -sf https://www.lusthub.web.id/api/health` | `{"status":"ok",...}` |
+| Homepage | `curl -sf -o /dev/null -w "%{http_code}" https://www.lusthub.web.id/` | `200` |
+| Sitemap index | `curl -sf -o /dev/null -w "%{http_code}" https://www.lusthub.web.id/sitemap.xml` | `200` |
+| Sitemap segment 0 | `curl -sf -o /dev/null -w "%{http_code}" https://www.lusthub.web.id/sitemap/0` | `200` |
+| Robots.txt | `curl -sf https://www.lusthub.web.id/robots.txt` | Contains `Disallow: /api/` |
+| OG image | `curl -sf -o /dev/null -w "%{http_code}" https://www.lusthub.web.id/opengraph-image` | `200` |
+| Category page | `curl -sf -o /dev/null -w "%{http_code}" https://www.lusthub.web.id/category/japanese` | `200` |
+| Watch redirect | `curl -sI https://www.lusthub.web.id/watch?v=TESTID \| grep -i location` | `/watch/TESTID` |
+| Video redirect | `curl -sI https://www.lusthub.web.id/video/TESTID \| grep -i location` | `/watch/TESTID` (via 301) |
 
 ---
 
@@ -190,7 +190,7 @@ Since Next.js cannot 301-redirect query-param routes natively, add this Cloudfla
 ```
 IF: Request URI Query String contains "v="
 AND: URI Path equals "/watch"
-THEN: Redirect URL to: https://lusthub.web.id/watch/${http.request.uri.query.split("v=")[1]}
+THEN: Redirect URL to: https://www.lusthub.web.id/watch/${http.request.uri.query.split("v=")[1]}
 Type: 301 Permanent
 ```
 

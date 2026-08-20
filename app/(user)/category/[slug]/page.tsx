@@ -7,9 +7,8 @@ import { VideoGrid } from "@/components/video/VideoGrid";
 import { getCategoryBySlug, TIER1_CATEGORIES } from "@/lib/category-config";
 
 
-export const runtime = "edge";
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
 // ISR: regenerate category pages every hour in the background.
 // New videos synced by the worker will appear within 60 minutes — no redeploy needed.
@@ -29,7 +28,7 @@ export async function generateMetadata({
   const cat = getCategoryBySlug(slug);
   if (!cat) return { title: "Category Not Found" };
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
   // Note: generateMetadata doesn't have access to searchParams for page number.
   // The canonical for page 1 is the base URL; paginated pages use ?page=N.
@@ -70,7 +69,7 @@ export async function generateMetadata({
   };
 }
 
-// generateStaticParams removed because it conflicts with export const runtime = "edge" in Cloudflare Pages
+// generateStaticParams removed because it conflicts with  in Cloudflare Pages
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

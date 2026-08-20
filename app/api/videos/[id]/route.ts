@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import { cleanEpornerText, EpornerAPI } from "@/lib/api/eporner";
 
-export const runtime = "edge";
 
 export async function GET(
   request: NextRequest,

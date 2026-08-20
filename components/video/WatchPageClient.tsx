@@ -19,7 +19,7 @@ import { ShareButton } from "./ShareButton";
 import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 import { buildWatchUrl } from "@/lib/video/slug";
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
 
 interface WatchPageClientProps {

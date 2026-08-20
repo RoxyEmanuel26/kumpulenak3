@@ -1,5 +1,8 @@
 # Cloudflare Pages _redirects
-# Redirect www → non-www (permanent 301)
-# This fixes the 259 "403 Blocked" pages in Google Search Console caused by
-# Googlebot crawling www.lusthub.web.id which is not configured to serve the site.
-https://www.lusthub.web.id/* https://lusthub.web.id/:splat 301
+# Redirect non-www → www (permanent 301)
+# GSC is registered with https://www.lusthub.web.id as canonical domain.
+# All canonical URLs in code use https://www.lusthub.web.id.
+# This ensures any non-www traffic is normalized to www.
+# NOTE: Primary redirect is handled by Cloudflare Redirect Rule at edge.
+# This file is a fallback (only active on Cloudflare Pages deployments).
+https://lusthub.web.id/* https://www.lusthub.web.id/:splat 301

@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: "18 U.S.C. 2257 Compliance",
   description: "Read the LustHub 18 U.S.C. 2257 record-keeping compliance statement.",
   alternates: {
-    canonical: "https://lusthub.web.id/compliance",
+    canonical: `${process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"}/compliance`,
   },
 };
 

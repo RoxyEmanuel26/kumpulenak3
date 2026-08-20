@@ -9,7 +9,7 @@ A living reference for search-engine observability, crawl health, and indexing q
 ### Step 1 — Add Property
 - Go to: https://search.google.com/search-console
 - Click **+ Add Property** → choose **URL prefix**
-- Enter: `https://lusthub.web.id`
+- Enter: `https://www.lusthub.web.id`
 
 ### Step 2 — Verify Ownership
 **Recommended method: DNS TXT record** (survives Docker rebuilds and domain moves)
@@ -66,18 +66,18 @@ Run these checks every 7 days:
 
 ```bash
 # 1. Verify health endpoint
-curl -sf https://lusthub.web.id/api/health
+curl -sf https://www.lusthub.web.id/api/health
 
 # 2. Verify sitemap is serving
-curl -sf -o /dev/null -w "%{http_code}" https://lusthub.web.id/sitemap.xml
+curl -sf -o /dev/null -w "%{http_code}" https://www.lusthub.web.id/sitemap.xml
 # Expected: 200
 
 # 3. Check robots.txt
-curl -sf https://lusthub.web.id/robots.txt | grep -E "Disallow|Sitemap"
+curl -sf https://www.lusthub.web.id/robots.txt | grep -E "Disallow|Sitemap"
 
 # 4. Check a category page canonical
-curl -sf https://lusthub.web.id/category/japanese | grep -i "canonical"
-# Expected: <link rel="canonical" href="https://lusthub.web.id/category/japanese"/>
+curl -sf https://www.lusthub.web.id/category/japanese | grep -i "canonical"
+# Expected: <link rel="canonical" href="https://www.lusthub.web.id/category/japanese"/>
 
 # 5. Check worker sync health (no ERROR lines = healthy)
 docker compose logs --since 24h worker | grep -c ERROR
@@ -116,11 +116,11 @@ docker compose logs --since 24h worker | grep -c ERROR
 ### Sitemap Freshness Check
 ```bash
 # Check if sitemap was recently updated
-curl -sf https://lusthub.web.id/sitemap.xml | grep -o '<lastmod>[^<]*</lastmod>' | tail -5
+curl -sf https://www.lusthub.web.id/sitemap.xml | grep -o '<lastmod>[^<]*</lastmod>' | tail -5
 # Dates should be within last 24 hours for recently synced content
 
 # Check segment count
-curl -sf https://lusthub.web.id/sitemap.xml | grep -c '<sitemap>'
+curl -sf https://www.lusthub.web.id/sitemap.xml | grep -c '<sitemap>'
 # Should match expected segment count (1 static + N video segments)
 ```
 
@@ -129,9 +129,9 @@ Test 3 random pages with Google Rich Results Test:
 - https://search.google.com/test/rich-results
 
 Test pages:
-1. Any watch page: `https://lusthub.web.id/watch/{any-recent-id}`
-2. Any category page: `https://lusthub.web.id/category/japanese`
-3. Homepage: `https://lusthub.web.id/`
+1. Any watch page: `https://www.lusthub.web.id/watch/{any-recent-id}`
+2. Any category page: `https://www.lusthub.web.id/category/japanese`
+3. Homepage: `https://www.lusthub.web.id/`
 
 Expected schema detections:
 - Homepage → Website, Organization
@@ -144,7 +144,7 @@ Expected schema detections:
 
 ### Broken Link Audit
 Use [Screaming Frog](https://www.screamingfrog.co.uk/seo-spider/) (free, up to 500 URLs) or [ahrefs](https://ahrefs.com/broken-link-checker):
-1. Crawl `https://lusthub.web.id`
+1. Crawl `https://www.lusthub.web.id`
 2. Filter: **Response codes → 4xx**
 3. For any 404 internal links: update the source page or add a redirect in `next.config.ts`
 
@@ -164,12 +164,12 @@ Open `lib/category-config.ts` and review:
 ### Redirect Health Check
 ```bash
 # Verify legacy /video/ redirect still works (must be 301)
-curl -sI https://lusthub.web.id/video/TESTID | grep -i "http\|location"
-# Expected: HTTP/1.1 301 and Location: https://lusthub.web.id/watch/TESTID
+curl -sI https://www.lusthub.web.id/video/TESTID | grep -i "http\|location"
+# Expected: HTTP/1.1 301 and Location: https://www.lusthub.web.id/watch/TESTID
 
 # Verify legacy /watch?v= redirect (should be 308)
-curl -sI "https://lusthub.web.id/watch?v=TESTID" | grep -i "http\|location"
-# Expected: HTTP/1.1 308 and Location: https://lusthub.web.id/watch/TESTID
+curl -sI "https://www.lusthub.web.id/watch?v=TESTID" | grep -i "http\|location"
+# Expected: HTTP/1.1 308 and Location: https://www.lusthub.web.id/watch/TESTID
 
 # If using Cloudflare Page Rule for /watch?v= → should be 301 instead of 308
 ```
@@ -186,9 +186,9 @@ curl -sI "https://lusthub.web.id/watch?v=TESTID" | grep -i "http\|location"
 ### Scenario: Sudden drop in indexed pages (> 20% in 1 week)
 
 1. Check GSC → Coverage → "Valid" count trend
-2. Check if `robots.txt` was accidentally modified: `curl https://lusthub.web.id/robots.txt`
+2. Check if `robots.txt` was accidentally modified: `curl https://www.lusthub.web.id/robots.txt`
 3. Check if `noindex` was accidentally added site-wide in `app/layout.tsx`
-4. Check if Docker web container is responding: `curl -sf https://lusthub.web.id/api/health`
+4. Check if Docker web container is responding: `curl -sf https://www.lusthub.web.id/api/health`
 5. Check Cloudflare for any WAF rules accidentally blocking Googlebot
 6. Check if Eporner API is down (watch pages would return 500 → temporary issue)
 

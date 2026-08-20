@@ -1,6 +1,6 @@
 import { permanentRedirect, notFound } from "next/navigation";
 
-export const runtime = "edge";
+
 
 /**
  * Backward-compatibility handler for the legacy query-param URL format.

@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: "DMCA Copyright Policy",
   description: "Read the LustHub DMCA Copyright Policy — copyright respect, takedown request procedures, and counter-notification details.",
   alternates: {
-    canonical: "https://lusthub.web.id/dmca",
+    canonical: `${process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"}/dmca`,
   },
 };
 

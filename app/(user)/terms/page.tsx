@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: "Terms of Service",
   description: "Read the LustHub Terms of Service regarding platform utilization, content attribution, and limitations of liability.",
   alternates: {
-    canonical: "https://lusthub.web.id/terms",
+    canonical: `${process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"}/terms`,
   },
 };
 

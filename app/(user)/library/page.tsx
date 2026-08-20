@@ -4,7 +4,7 @@ import { Metadata } from "next";
 import { EpornerVideo } from "@/types/eporner";
 import { cleanEpornerText } from "@/lib/api/eporner";
 
-export const runtime = "edge";
+
 
 export const metadata: Metadata = {
   title: "Library",

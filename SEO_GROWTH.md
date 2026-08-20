@@ -204,7 +204,7 @@ ShareButton (on every watch page)
 OG metadata (on every watch page)
   ├── og:title   = video title (cleaned)
   ├── og:image   = dynamic Next.js OG image via /watch/[id]/opengraph-image
-  ├── og:url     = https://lusthub.web.id/watch/{id}
+  ├── og:url     = https://www.lusthub.web.id/watch/{id}
   └── og:type    = video.other
 ```
 
@@ -308,7 +308,7 @@ All events fire to Plausible via `lib/analytics.ts`. No cookies. No PII.
 - [ ] Any Tier-2 candidates ready for promotion? (see Section 2)
 
 ### Technical
-- [ ] Health endpoint responding: `curl https://lusthub.web.id/api/health`
+- [ ] Health endpoint responding: `curl https://www.lusthub.web.id/api/health`
 - [ ] OG images rendering correctly on 2 watch pages (test via opengraph.xyz)
 - [ ] Worker sync running: Docker logs show no sustained ERROR lines
 - [ ] DB: video count growing (ACTIVE status)?

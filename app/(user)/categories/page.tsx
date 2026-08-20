@@ -4,7 +4,7 @@ import { LayoutGrid } from "lucide-react";
 import { CategoriesClient } from "./CategoriesClient";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
 // ISR: regenerate the categories page once per day.
 // Category metadata and video counts change slowly — daily refresh is sufficient.

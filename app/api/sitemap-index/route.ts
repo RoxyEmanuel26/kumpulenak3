@@ -2,12 +2,11 @@ import { NextResponse } from 'next/server';
 import { generateSitemaps } from '@/lib/sitemap';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
 
 export async function GET() {
   try {
     const sitemaps = await generateSitemaps();
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lusthub.web.id';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.lusthub.web.id';
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

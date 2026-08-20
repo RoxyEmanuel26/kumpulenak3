@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: "About Us",
   description: "Learn more about LustHub — a fast, automated HD porn video platform with advanced streaming, caching, and custom player solutions.",
   alternates: {
-    canonical: "https://lusthub.web.id/about",
+    canonical: `${process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"}/about`,
   },
 };
 

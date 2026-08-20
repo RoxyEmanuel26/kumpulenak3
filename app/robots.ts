@@ -41,10 +41,10 @@
  */
 import { MetadataRoute } from "next";
 
-export const runtime = "edge";
+
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lusthub.web.id";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
   return {
     rules: [

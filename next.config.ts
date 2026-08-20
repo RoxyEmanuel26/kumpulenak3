@@ -51,21 +51,21 @@ const nextConfig: NextConfig = {
         ],
       },
 
-      // ── Cloudflare CDN Cache headers — ISR replacement for Edge Runtime ──
+      // ── Cache-Control Headers — ISR via Node.js Runtime ─────────────────
       //
-      // WHY: export const revalidate = N is silently IGNORED when a page runs
-      // under Edge Runtime (inherited from app/layout.tsx runtime="edge").
-      // Cloudflare Workers have no ISR cache store. The revalidate column in
-      // the build output is empty for all edge routes.
+      // Now that Edge Runtime is removed, Next.js ISR (export const revalidate)
+      // works correctly on the Node.js runtime. These Cache-Control headers serve
+      // as a secondary layer, instructing Cloudflare CDN to also cache the
+      // server-rendered HTML at the edge level for maximum performance.
       //
-      // SOLUTION: Explicit Cache-Control headers instruct Cloudflare's CDN
-      // to cache rendered HTML at the edge. This replicates ISR behaviour:
-      //   - s-maxage=N   → Cloudflare caches the response for N seconds
-      //   - stale-while-revalidate → Cloudflare serves stale while re-fetching
+      // This creates a 2-layer cache:
+      //   1. Cloudflare CDN (edge): s-maxage = N seconds
+      //   2. Next.js ISR (disk):   revalidate = N seconds
       //
-      // Values mirror the original revalidate= declarations exactly.
+      // Result: most visitors are served from Cloudflare without hitting the
+      // Node.js server at all — dramatically reducing CPU load.
       {
-        // Homepage — was: revalidate = 1800 (30 minutes)
+        // Homepage — revalidate = 1800 (30 minutes)
         source: "/",
         headers: [
           {
@@ -75,7 +75,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Individual watch pages — was: revalidate = 3600 (1 hour)
+        // Individual watch pages — revalidate = 3600 (1 hour)
         source: "/watch/:id",
         headers: [
           {
@@ -85,7 +85,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Category pages (Tier-1 SEO pages) — was: revalidate = 3600 (1 hour)
+        // Category pages (Tier-1 SEO pages) — revalidate = 3600 (1 hour)
         source: "/category/:slug",
         headers: [
           {
@@ -95,7 +95,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Categories listing page — was: revalidate = 86400 (24 hours)
+        // Categories listing page — revalidate = 86400 (24 hours)
         source: "/categories",
         headers: [
           {
@@ -111,6 +111,38 @@ const nextConfig: NextConfig = {
           {
             key: "Cache-Control",
             value: "public, s-maxage=300, stale-while-revalidate=3600",
+          },
+        ],
+      },
+      {
+        // Video detail API — used by ContinueWatching component.
+        // Cache at CDN for 5 minutes; serve stale for 1 hour while revalidating.
+        // Prevents N requests for the same video from all hitting the DB.
+        source: "/api/videos/:id",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=300, stale-while-revalidate=3600",
+          },
+        ],
+      },
+      {
+        // Related videos API — stable per video ID, cache aggressively.
+        source: "/api/videos/:id/related",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=600, stale-while-revalidate=3600",
+          },
+        ],
+      },
+      {
+        // Sitemap segments — regenerate daily, very safe to cache at CDN
+        source: "/api/sitemap/:id",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=86400, stale-while-revalidate=86400",
           },
         ],
       },
@@ -137,6 +169,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
   // Intercept sitemap index requests to route them through our custom API endpoint
   // This circumvents Next.js Cloudflare Edge bug where automatically generated sitemap indexes return 404
   async rewrites() {
@@ -161,26 +194,17 @@ const nextConfig: NextConfig = {
   // Permanent redirects for URL normalization and legacy path support
   async redirects() {
     return [
-      // ── www → non-www canonical redirect ─────────────────────────────────
-      // Root cause of 259 "403 Blocked" pages in Google Search Console:
-      // Googlebot crawled https://www.lusthub.web.id/* and received 403 because
-      // the www subdomain was not configured to serve the site.
-      // This 301 redirect normalizes all www traffic to the canonical non-www domain.
-      // Also handled at Cloudflare level via public/_redirects for full coverage.
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.lusthub.web.id" }],
-        destination: "https://lusthub.web.id/:path*",
-        permanent: true, // HTTP 301
-      },
+      // ── non-www → www redirect ────────────────────────────────────────────
+      // HANDLED BY CLOUDFLARE REDIRECT RULE — not duplicated here to avoid
+      // ERR_TOO_MANY_REDIRECTS when Cloudflare and Next.js both redirect.
+      // Cloudflare Redirect Rule: lusthub.web.id → https://www.lusthub.web.id
 
       // ── Legacy /video/{id} path format ────────────────────────────────────
-      // Legacy /video/{id} path format → single-hop 301 to new canonical /watch/{id}
-      // Bypasses the ?v= shim entirely for clean redirect chain.
+      // Legacy /video/{id} → single-hop 301 to new canonical /watch/{id}
       {
         source: "/video/:id",
         destination: "/watch/:id",
-        permanent: true, // HTTP 301
+        permanent: true,
       },
     ];
   },

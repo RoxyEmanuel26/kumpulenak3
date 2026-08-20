@@ -16,14 +16,14 @@
  * - Uses CRON_SECRET env var (or falls back to WEBHOOK_SECRET if not set)
  *
  * SETUP AT CRON-JOB.ORG:
- * 1. URL: https://lusthub.web.id/api/cron/sync
+ * 1. URL: https://www.lusthub.web.id/api/cron/sync
  * 2. Method: POST
  * 3. Header: Authorization: Bearer <your-CRON_SECRET-value>
  * 4. Schedule: Every 30 minutes
  * 5. Timeout: 30 seconds (cron-job.org side)
  *
  * For daily removed-video cleanup, use a separate cron job:
- * 1. URL: https://lusthub.web.id/api/cron/sync?cleanup=true
+ * 1. URL: https://www.lusthub.web.id/api/cron/sync?cleanup=true
  * 2. Schedule: Once daily (e.g. 02:00 UTC)
  */
 
@@ -34,7 +34,7 @@ import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
+
 
 // Hard stop at 25s to leave buffer for response (Cloudflare edge allows 30s CPU)
 const HARD_STOP_MS = 25_000;

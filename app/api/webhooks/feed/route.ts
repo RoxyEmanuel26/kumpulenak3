@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncVideoToDatabase } from "../../../../lib/video/sync";
 
-export const runtime = "edge";
+
 
 /**
  * Timing-safe comparison to prevent timing attacks on webhook secret.
