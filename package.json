@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_OPTIONS=--no-experimental-fetch next start",
     "lint": "eslint",
     "build:worker": "npx tsc -p tsconfig.worker.json",
     "qc": "npx ts-node --project scripts/qc/tsconfig.json scripts/qc/run-all.ts"

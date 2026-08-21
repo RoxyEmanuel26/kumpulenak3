@@ -1,7 +1,7 @@
 /**
  * app/api/cron/sync/route.ts
  *
- * Lightweight sync endpoint designed to be called by cron-job.org every 30 minutes.
+ * Lightweight sync endpoint designed to be called by cron-job.org every 15 minutes.
  * Replaces the need for a running BullMQ/Redis/Docker worker on a dedicated server.
  *
  * DESIGN CONSTRAINTS (Cloudflare Edge = 30s CPU time):
@@ -19,7 +19,7 @@
  * 1. URL: https://www.lusthub.web.id/api/cron/sync
  * 2. Method: POST
  * 3. Header: Authorization: Bearer <your-CRON_SECRET-value>
- * 4. Schedule: Every 30 minutes
+ * 4. Schedule: Every 15 minutes  ← changed from 30 min
  * 5. Timeout: 30 seconds (cron-job.org side)
  *
  * For daily removed-video cleanup, use a separate cron job:
@@ -114,50 +114,119 @@ async function cleanTrashFiles(): Promise<{ deleted: number; freedBytes: number 
   return { deleted, freedBytes };
 }
 
-/**
- * Removes fetch-cache entries older than `maxAgeHours`.
- *
- * Why this is needed:
- *   Every unique Eporner API URL (one per video ID, one per search query) creates
- *   a permanent entry in .next/cache/fetch-cache/. Next.js only UPDATES entries
- *   in-place when they're revalidated — it never evicts unused ones.
- *   A video viewed once 3 months ago still holds a file on disk.
- *
- *   Removing entries older than 24h is safe because:
- *   - VIDEO_TTL is 6h → 24h = 4× TTL (would have been refreshed 4 times if active)
- *   - SEARCH_TTL is 30m → 24h = 48× TTL
- *   - If Next.js needs the entry again, it simply re-fetches from Eporner API.
+/** 
+ * Fetch-cache size limits — tuned for a 3 GB Pterodactyl disk.
+ * Normal disk usage: build(~500MB) + node_modules(~700MB) ≈ 1.2GB used baseline.
+ * Leaving ~1.8GB free. We cap cache at 1GB → minimum ~800MB always free for OS + logs.
  */
-async function cleanStaleFetchCache(maxAgeHours: number): Promise<{ deleted: number; freedBytes: number }> {
+export const FETCH_CACHE_MAX_BYTES  = 1024 * 1024 * 1024;       // 1.0 GB  — trigger threshold
+export const FETCH_CACHE_TARGET_BYTES = 800 * 1024 * 1024;       // 0.8 GB  — trim down to this
+
+/**
+ * Enforces a strict size limit on the Next.js fetch cache (.next/cache/fetch-cache).
+ *
+ * Strategy: LRW (Least Recently Written) eviction, ordered by mtime ascending.
+ * We use mtime (write time) rather than atime (access time) because Pterodactyl / Docker
+ * Linux containers mount filesystems with `relatime` or `noatime` — atime is unreliable.
+ * mtime is updated when Next.js refreshes a cache entry (revalidation), so entries with
+ * an old mtime are either: (a) expired and stale, or (b) rarely accessed. Both are safe to evict.
+ *
+ * Guarantees:
+ *   - No-op if totalSize ≤ maxSizeBytes              (fast path: just scans, no deletes)
+ *   - Deletes oldest-mtime files first until size ≤ targetSizeBytes
+ *   - Skips trash files (handled by cleanTrashFiles)
+ *   - Never throws — all errors caught and logged
+ *   - Warns if even full eviction cannot reach target (disk in critical state)
+ *
+ * @param maxSizeBytes    Threshold above which eviction begins
+ * @param targetSizeBytes Target size to trim down to (must be < maxSizeBytes)
+ */
+async function enforceFetchCacheSizeLimit(
+  maxSizeBytes: number,
+  targetSizeBytes: number,
+): Promise<{ deleted: number; freedBytes: number; totalSizeBefore: number }> {
   let deleted = 0;
   let freedBytes = 0;
+  let totalSizeBefore = 0;
   const cwd = process.cwd();
   const fetchCacheDir = path.join(cwd, ".next", "cache", "fetch-cache");
-  const cutoffMs = Date.now() - maxAgeHours * 60 * 60 * 1000;
+
+  // ── Bug Fix #1: Guard against misconfigured limits ─────────────────────────
+  if (targetSizeBytes >= maxSizeBytes) {
+    console.warn(
+      `[CronSync] enforceFetchCacheSizeLimit: targetSizeBytes (${targetSizeBytes}) must be < maxSizeBytes (${maxSizeBytes}). Skipping.`
+    );
+    return { deleted, freedBytes, totalSizeBefore };
+  }
 
   try {
-    if (!fs.existsSync(fetchCacheDir)) return { deleted, freedBytes };
+    if (!fs.existsSync(fetchCacheDir)) return { deleted, freedBytes, totalSizeBefore };
+
+    // ── Scan: Collect all valid files with size + mtime ────────────────────
+    const files: { path: string; size: number; mtime: number }[] = [];
+    let totalSize = 0;
+
     for (const name of fs.readdirSync(fetchCacheDir)) {
       // Skip trash files — already handled by cleanTrashFiles()
       if (name.includes("_trash_") || name.includes("_trashpath_")) continue;
       const full = path.join(fetchCacheDir, name);
       try {
         const stat = fs.statSync(full);
-        if (stat.isFile() && stat.mtimeMs < cutoffMs) {
-          freedBytes += stat.size;
-          fs.rmSync(full, { force: true });
-          deleted++;
+        if (stat.isFile()) {
+          files.push({ path: full, size: stat.size, mtime: stat.mtimeMs });
+          totalSize += stat.size;
         }
-      } catch { /* skip locked/missing files */ }
+      } catch { /* skip missing/locked files */ }
     }
-  } catch { /* ignore if dir doesn't exist */ }
 
-  if (deleted > 0) {
+    totalSizeBefore = totalSize;
+
+    // ── Bug Fix #2: Always log current size (monitoring, even if no cleanup) ─
     console.log(
-      `[CronSync] Stale fetch-cache: removed ${deleted} entries, freed ${(freedBytes / 1024 / 1024).toFixed(2)} MB`
+      `[CronSync] fetch-cache scan: ${files.length} files, ${(totalSize / 1024 / 1024).toFixed(1)} MB total.`
     );
+
+    // ── Fast path: under the limit, nothing to do ─────────────────────────
+    if (totalSize <= maxSizeBytes) return { deleted, freedBytes, totalSizeBefore };
+
+    // ── Eviction: Sort oldest-mtime first, delete until we hit target ──────
+    files.sort((a, b) => a.mtime - b.mtime);
+
+    let currentSize = totalSize;
+    for (const file of files) {
+      if (currentSize <= targetSizeBytes) break;
+      try {
+        fs.rmSync(file.path, { force: true });
+        // Only count as freed if deletion actually succeeded (no exception)
+        freedBytes += file.size;
+        currentSize -= file.size;
+        deleted++;
+      } catch { /* skip locked/in-use files */ }
+    }
+
+    if (deleted > 0) {
+      console.log(
+        `[CronSync] Cache limit exceeded (${(totalSize / 1024 / 1024).toFixed(1)} MB > ` +
+        `${(maxSizeBytes / 1024 / 1024).toFixed(0)} MB max). ` +
+        `Pruned ${deleted} oldest files, freed ${(freedBytes / 1024 / 1024).toFixed(1)} MB. ` +
+        `Remaining: ~${((currentSize) / 1024 / 1024).toFixed(1)} MB.`
+      );
+    }
+
+    // ── Bug Fix #3: Warn if we couldn't reach the target size ─────────────
+    if (currentSize > targetSizeBytes) {
+      console.warn(
+        `[CronSync] WARNING: fetch-cache still ${(currentSize / 1024 / 1024).toFixed(1)} MB after full eviction. ` +
+        `Target was ${(targetSizeBytes / 1024 / 1024).toFixed(0)} MB. ` +
+        `Files may have been locked or recreated during cleanup.`
+      );
+    }
+
+  } catch (e) {
+    console.warn("[CronSync] Error enforcing cache limit:", (e as Error).message);
   }
-  return { deleted, freedBytes };
+
+  return { deleted, freedBytes, totalSizeBefore };
 }
 
 /**
@@ -243,6 +312,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── 0.5 Fetch Cache Size Limiter (Runs every 30 min) ─────────────────────
+    // LRW eviction: if fetch-cache > FETCH_CACHE_MAX_BYTES, trim oldest files to FETCH_CACHE_TARGET_BYTES.
+    // Constants defined at module level (see FETCH_CACHE_MAX_BYTES / FETCH_CACHE_TARGET_BYTES).
+    const cacheResult = await enforceFetchCacheSizeLimit(FETCH_CACHE_MAX_BYTES, FETCH_CACHE_TARGET_BYTES);
+    result.staleCacheDeleted = cacheResult.deleted;
+    result.staleCacheFreedBytes = cacheResult.freedBytes;
+    result.fetchCacheSizeBytes = cacheResult.totalSizeBefore; // Always report current size
+
     // ── 1. Daily Maintenance (only when ?cleanup=true) ───────────────────────
     if (doCleanup) {
       console.log("[CronSync] Running daily cleanup...");
@@ -290,14 +367,6 @@ export async function POST(request: NextRequest) {
         `;
       }
 
-      // ── Stale Fetch-Cache Cleanup ────────────────────────────────────────────
-      // Removes fetch-cache entries not accessed in 24h to prevent unbounded disk growth.
-      // Every unique video ID / search query ever requested creates a permanent cache file.
-      // Without this cleanup, the fetch-cache grows indefinitely as new videos are added.
-      const staleResult = await cleanStaleFetchCache(24);
-      result.staleCacheDeleted = staleResult.deleted;
-      result.staleCacheFreedBytes = staleResult.freedBytes;
-
       // ── Disk Usage Monitoring ────────────────────────────────────────────────
       const diskUsage = getCacheDiskUsage();
       result.fetchCacheSizeBytes = diskUsage.fetchCacheBytes;
@@ -307,7 +376,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 2. New Video Sync ────────────────────────────────────────────────────
-    if (Date.now() - startTime < HARD_STOP_MS - 2000) {
+    // SKIPPED when doCleanup=true: daily cleanup cron already takes 15-25s for
+    // removed-video sync. Adding video classification here would cause timeout.
+    // The regular 15-min cron (no ?cleanup) handles all video syncing.
+    if (!doCleanup && Date.now() - startTime < HARD_STOP_MS - 2000) {
       // Fetch latest 50 videos from Eporner (cached 5 min by Next.js fetch layer)
       const latestRes = await EpornerAPI.search({ order: "latest", per_page: 50 });
       const videos = latestRes?.videos ?? [];
