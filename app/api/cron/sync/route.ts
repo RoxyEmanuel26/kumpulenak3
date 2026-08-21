@@ -32,8 +32,148 @@ import { neon } from "@neondatabase/serverless";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
+import fs from "fs";
+import path from "path";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Cleans up leftover `.trash` directories created by Next.js ISR cache atomic
+ * file replacement. When Next.js replaces a fetch-cache entry it:
+ *   1. Renames the old file to a `*_trashpath_*_trash_*` path
+ *   2. Writes new data to the real path
+ *   3. Deletes the trash path
+ * If the process is killed between steps 2 and 3 (e.g. by Pterodactyl CPU kill),
+ * the trash files accumulate and fill up disk.
+ *
+ * This function removes:
+ *   - `<cwd>/.trash/`         — root-level trash folder
+ *   - `<cwd>/.next/.trash/`   — .next-level trash folder
+ *   - Any `*_trash_*` pattern files directly inside .next/cache/fetch-cache/
+ */
+/** Shared recursive directory size walker */
+function walkDirSize(dir: string): number {
+  let size = 0;
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) size += walkDirSize(full);
+      else { try { size += fs.statSync(full).size; } catch { /* skip */ } }
+    }
+  } catch { /* skip */ }
+  return size;
+}
+
+/**
+ * Removes leftover `.trash` directories and `*_trash_*` files created by
+ * Next.js ISR atomic cache swaps interrupted by Pterodactyl CPU kills.
+ */
+async function cleanTrashFiles(): Promise<{ deleted: number; freedBytes: number }> {
+  let deleted = 0;
+  let freedBytes = 0;
+  const cwd = process.cwd();
+
+  const trashDirs = [
+    path.join(cwd, ".trash"),
+    path.join(cwd, ".next", ".trash"),
+    path.join(cwd, ".next", "cache", ".trash"),
+  ];
+
+  for (const trashDir of trashDirs) {
+    try {
+      if (!fs.existsSync(trashDir)) continue;
+      const stat = fs.statSync(trashDir);
+      if (stat.isDirectory()) {
+        freedBytes += walkDirSize(trashDir);
+        fs.rmSync(trashDir, { recursive: true, force: true });
+        deleted++;
+        console.log(`[CronSync] Deleted trash dir: ${trashDir}`);
+      }
+    } catch (e) {
+      console.warn(`[CronSync] Could not clean ${trashDir}:`, (e as Error).message);
+    }
+  }
+
+  // Sweep fetch-cache for stray *_trash_* / *_trashpath_* files
+  const fetchCacheDir = path.join(cwd, ".next", "cache", "fetch-cache");
+  try {
+    if (fs.existsSync(fetchCacheDir)) {
+      for (const name of fs.readdirSync(fetchCacheDir)) {
+        if (name.includes("_trash_") || name.includes("_trashpath_")) {
+          const full = path.join(fetchCacheDir, name);
+          try {
+            freedBytes += fs.statSync(full).size;
+            fs.rmSync(full, { recursive: true, force: true });
+            deleted++;
+          } catch { /* ignore */ }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  return { deleted, freedBytes };
+}
+
+/**
+ * Removes fetch-cache entries older than `maxAgeHours`.
+ *
+ * Why this is needed:
+ *   Every unique Eporner API URL (one per video ID, one per search query) creates
+ *   a permanent entry in .next/cache/fetch-cache/. Next.js only UPDATES entries
+ *   in-place when they're revalidated — it never evicts unused ones.
+ *   A video viewed once 3 months ago still holds a file on disk.
+ *
+ *   Removing entries older than 24h is safe because:
+ *   - VIDEO_TTL is 6h → 24h = 4× TTL (would have been refreshed 4 times if active)
+ *   - SEARCH_TTL is 30m → 24h = 48× TTL
+ *   - If Next.js needs the entry again, it simply re-fetches from Eporner API.
+ */
+async function cleanStaleFetchCache(maxAgeHours: number): Promise<{ deleted: number; freedBytes: number }> {
+  let deleted = 0;
+  let freedBytes = 0;
+  const cwd = process.cwd();
+  const fetchCacheDir = path.join(cwd, ".next", "cache", "fetch-cache");
+  const cutoffMs = Date.now() - maxAgeHours * 60 * 60 * 1000;
+
+  try {
+    if (!fs.existsSync(fetchCacheDir)) return { deleted, freedBytes };
+    for (const name of fs.readdirSync(fetchCacheDir)) {
+      // Skip trash files — already handled by cleanTrashFiles()
+      if (name.includes("_trash_") || name.includes("_trashpath_")) continue;
+      const full = path.join(fetchCacheDir, name);
+      try {
+        const stat = fs.statSync(full);
+        if (stat.isFile() && stat.mtimeMs < cutoffMs) {
+          freedBytes += stat.size;
+          fs.rmSync(full, { force: true });
+          deleted++;
+        }
+      } catch { /* skip locked/missing files */ }
+    }
+  } catch { /* ignore if dir doesn't exist */ }
+
+  if (deleted > 0) {
+    console.log(
+      `[CronSync] Stale fetch-cache: removed ${deleted} entries, freed ${(freedBytes / 1024 / 1024).toFixed(2)} MB`
+    );
+  }
+  return { deleted, freedBytes };
+}
+
+/**
+ * Returns the byte size of key cache directories for disk monitoring.
+ * Runs only on directories likely to grow — avoids scanning entire .next/.
+ */
+function getCacheDiskUsage(): { fetchCacheBytes: number; trashBytes: number } {
+  const cwd = process.cwd();
+  const fetchCacheDir = path.join(cwd, ".next", "cache", "fetch-cache");
+  const trashDir = path.join(cwd, ".trash");
+  return {
+    fetchCacheBytes: fs.existsSync(fetchCacheDir) ? walkDirSize(fetchCacheDir) : 0,
+    trashBytes: fs.existsSync(trashDir) ? walkDirSize(trashDir) : 0,
+  };
+}
+
 
 
 // Hard stop at 25s to leave buffer for response (Cloudflare edge allows 30s CPU)
@@ -81,6 +221,11 @@ export async function POST(request: NextRequest) {
     videosSkipped: 0,
     pendingNewVideos: 0,
     removedVideosDeactivated: 0,
+    trashFilesDeleted: 0,
+    trashFreedBytes: 0,
+    staleCacheDeleted: 0,
+    staleCacheFreedBytes: 0,
+    fetchCacheSizeBytes: 0,
     durationMs: 0,
     message: "",
   };
@@ -88,7 +233,7 @@ export async function POST(request: NextRequest) {
   try {
     // ── 1. Removed Videos Cleanup (daily, only when ?cleanup=true) ───────────
     if (doCleanup) {
-      console.log("[CronSync] Running removed videos cleanup...");
+      console.log("[CronSync] Running daily cleanup...");
 
       const [lastSyncSetting] = await sql`
         SELECT value FROM "Settings" WHERE key = 'last_removed_sync_at'
@@ -132,6 +277,32 @@ export async function POST(request: NextRequest) {
           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = NOW()
         `;
       }
+
+      // ── Disk Trash Cleanup ───────────────────────────────────────────────────
+      // Removes .trash/ dirs + *_trash_* files from interrupted ISR atomic swaps.
+      const trashResult = await cleanTrashFiles();
+      result.trashFilesDeleted = trashResult.deleted;
+      result.trashFreedBytes = trashResult.freedBytes;
+      if (trashResult.deleted > 0) {
+        console.log(
+          `[CronSync] Trash cleanup: removed ${trashResult.deleted} item(s), freed ${(trashResult.freedBytes / 1024 / 1024).toFixed(2)} MB`
+        );
+      }
+
+      // ── Stale Fetch-Cache Cleanup ────────────────────────────────────────────
+      // Removes fetch-cache entries not accessed in 24h to prevent unbounded disk growth.
+      // Every unique video ID / search query ever requested creates a permanent cache file.
+      // Without this cleanup, the fetch-cache grows indefinitely as new videos are added.
+      const staleResult = await cleanStaleFetchCache(24);
+      result.staleCacheDeleted = staleResult.deleted;
+      result.staleCacheFreedBytes = staleResult.freedBytes;
+
+      // ── Disk Usage Monitoring ────────────────────────────────────────────────
+      const diskUsage = getCacheDiskUsage();
+      result.fetchCacheSizeBytes = diskUsage.fetchCacheBytes;
+      console.log(
+        `[CronSync] Disk usage — fetch-cache: ${(diskUsage.fetchCacheBytes / 1024 / 1024).toFixed(1)} MB, trash: ${(diskUsage.trashBytes / 1024 / 1024).toFixed(1)} MB`
+      );
     }
 
     // ── 2. New Video Sync ────────────────────────────────────────────────────

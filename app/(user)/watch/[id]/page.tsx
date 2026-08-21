@@ -45,6 +45,13 @@ const getCachedVideoById = cache(async (id: string) => {
   return EpornerAPI.getById(id);
 });
 
+/**
+ * Eporner video IDs are alphanumeric strings, 4–20 chars, no hyphens or special chars.
+ * Example: "2fPfA79DdjL", "AbCd1234"
+ * This regex rejects garbage IDs from bots before they hit the API or create ISR cache entries.
+ */
+const EPORNER_ID_REGEX = /^[a-zA-Z0-9]{4,20}$/;
+
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export async function generateMetadata({
@@ -55,6 +62,8 @@ export async function generateMetadata({
   // `id` here is the full slug param (e.g. "step-sis-2fPfA79DdjL")
   const { id: slugParam } = await params;
   const videoId = extractVideoId(slugParam);
+  // Reject garbage IDs from bots immediately — no API call, no ISR cache entry
+  if (!EPORNER_ID_REGEX.test(videoId)) return { title: "Video Not Found" };
   const video = await getCachedVideoById(videoId);
   if (!video) return { title: "Video Not Found" };
 
@@ -109,6 +118,9 @@ export default async function WatchVideoPage({
 
   // Extract the raw video ID from the end of the slug param
   const videoId = extractVideoId(slugParam);
+
+  // Reject garbage IDs from bots immediately — prevents API call + ISR cache entry
+  if (!EPORNER_ID_REGEX.test(videoId)) return notFound();
 
   const video = await getCachedVideoById(videoId);
   if (!video) return notFound();
