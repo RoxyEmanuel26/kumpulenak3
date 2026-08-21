@@ -231,7 +231,19 @@ export async function POST(request: NextRequest) {
   };
 
   try {
-    // ── 1. Removed Videos Cleanup (daily, only when ?cleanup=true) ───────────
+    // ── 0. Trash Cleanup (Runs every 30 min on every cron execution) ─────────
+    // Instantly removes any .trash/ dirs or *_trash_* files left behind by Next.js
+    // ISR atomic swaps if the process was killed or interrupted.
+    const trashResult = await cleanTrashFiles();
+    result.trashFilesDeleted = trashResult.deleted;
+    result.trashFreedBytes = trashResult.freedBytes;
+    if (trashResult.deleted > 0) {
+      console.log(
+        `[CronSync] Trash cleanup: removed ${trashResult.deleted} item(s), freed ${(trashResult.freedBytes / 1024 / 1024).toFixed(2)} MB`
+      );
+    }
+
+    // ── 1. Daily Maintenance (only when ?cleanup=true) ───────────────────────
     if (doCleanup) {
       console.log("[CronSync] Running daily cleanup...");
 
@@ -276,17 +288,6 @@ export async function POST(request: NextRequest) {
           VALUES ('last_removed_sync_at', ${JSON.stringify(now.toISOString())}, NOW())
           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = NOW()
         `;
-      }
-
-      // ── Disk Trash Cleanup ───────────────────────────────────────────────────
-      // Removes .trash/ dirs + *_trash_* files from interrupted ISR atomic swaps.
-      const trashResult = await cleanTrashFiles();
-      result.trashFilesDeleted = trashResult.deleted;
-      result.trashFreedBytes = trashResult.freedBytes;
-      if (trashResult.deleted > 0) {
-        console.log(
-          `[CronSync] Trash cleanup: removed ${trashResult.deleted} item(s), freed ${(trashResult.freedBytes / 1024 / 1024).toFixed(2)} MB`
-        );
       }
 
       // ── Stale Fetch-Cache Cleanup ────────────────────────────────────────────
