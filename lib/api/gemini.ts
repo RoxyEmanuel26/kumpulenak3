@@ -12,7 +12,10 @@ export interface GeminiClassificationResult {
 }
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL_NAME = "gemini-1.5-flash";
+
+
+// Use Gemini 3.5 Flash-Lite for blazing fast text processing, JSON extraction, and maximum cost-efficiency
+const MODEL_NAME = "gemini-3.5-flash-lite";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${GEMINI_API_KEY}`;
 
 export const GeminiAPI = {

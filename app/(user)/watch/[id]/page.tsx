@@ -41,7 +41,33 @@ function buildVideoDescription(title: string, keywords: string | undefined): str
   return `Watch "${title}" in HD quality for free on LustHub. No registration required.`;
 }
 
+import { sql } from "@/lib/db";
+
 const getCachedVideoById = cache(async (id: string) => {
+  try {
+    const rows = await sql`SELECT *, "aiDescription" FROM "Video" WHERE id = ${id} LIMIT 1`;
+    if (rows && rows.length > 0) {
+      const dbVideo = rows[0];
+      return {
+        id: dbVideo.id as string,
+        title: dbVideo.title as string,
+        keywords: dbVideo.keywords as string,
+        default_thumb: dbVideo.defaultThumb as { src: string; size: string; width: number; height: number },
+        thumbs: dbVideo.thumbs as { src: string; size: string; width: number; height: number }[],
+        length_sec: dbVideo.lengthSec as number,
+        length_min: dbVideo.lengthMin as string,
+        rate: dbVideo.rate as string,
+        views: dbVideo.views as number,
+        added: dbVideo.addedAt as string,
+        embed: dbVideo.embedUrl as string,
+        url: "", // Not used locally
+        seoDescription: dbVideo.aiDescription as string | null,
+      };
+    }
+  } catch (err) {
+    console.error("[WatchPage] Error fetching video from DB:", err);
+  }
+  // Fallback to Eporner if not in local DB
   return EpornerAPI.getById(id);
 });
 
@@ -83,7 +109,10 @@ export async function generateMetadata({
     (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
     undefined;
 
-  const description = buildVideoDescription(video.title, video.keywords);
+  // Use AI SEO Description if available, otherwise fallback to template
+  const description = ('seoDescription' in video && video.seoDescription)
+    ? (video.seoDescription as string) 
+    : buildVideoDescription(video.title, video.keywords);
 
   return {
     title: video.title,
@@ -192,7 +221,12 @@ export default async function WatchVideoPage({
   const thumbUrl = thumbUrls[0]; // Primary thumbnail for OG/Twitter
 
   const duration = toISO8601Duration(video.length_sec);
-  const description = buildVideoDescription(video.title, video.keywords);
+  
+  // Use AI SEO Description if available, otherwise fallback to template
+  const description = ('seoDescription' in video && video.seoDescription)
+    ? (video.seoDescription as string) 
+    : buildVideoDescription(video.title, video.keywords);
+    
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
   // Validate uploadDate — must be ISO 8601 for Google compliance
@@ -278,7 +312,7 @@ export default async function WatchVideoPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
       />
-      <WatchPageClient video={video} relatedVideos={related} />
+      <WatchPageClient video={video as any} relatedVideos={related} />
     </>
   );
 }
