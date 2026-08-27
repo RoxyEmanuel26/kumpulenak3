@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@/lib/db";
 import { cleanEpornerText, EpornerAPI } from "@/lib/api/eporner";
 
 
@@ -11,8 +11,7 @@ export async function GET(
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
-    const sql = neon(process.env.DATABASE_URL!);
-    const rows = await sql`
+        const rows = await sql`
       SELECT
         v.id, v.title, v.keywords, v.views, v.rate, v."addedAt", v."lengthSec",
         v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs, v.status,

@@ -28,7 +28,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@/lib/db";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
@@ -281,8 +281,7 @@ export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const doCleanup = searchParams.get("cleanup") === "true";
 
-  const sql = neon(process.env.DATABASE_URL!);
-
+  
   const result = {
     fetchedFromEporner: 0,
     newVideosFound: 0,

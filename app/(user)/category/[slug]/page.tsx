@@ -21,26 +21,29 @@ const PER_PAGE = 30;
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
   const cat = getCategoryBySlug(slug);
   if (!cat) return { title: "Category Not Found" };
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
-
-  // Note: generateMetadata doesn't have access to searchParams for page number.
-  // The canonical for page 1 is the base URL; paginated pages use ?page=N.
-  // Since metadata runs per-route (not per-searchParam), we set the base canonical here.
-  // Paginated canonical is handled by the page component's alternates.
-  const canonicalUrl = `${baseUrl}/category/${cat.slug}`;
+  const pageStr = resolvedSearchParams.page;
+  const pageNum = parseInt(pageStr || "1", 10);
+  
+  const canonicalUrl = pageNum > 1 
+    ? `${baseUrl}/category/${cat.slug}?page=${pageNum}` 
+    : `${baseUrl}/category/${cat.slug}`;
 
   return {
-    title: cat.title,
+    title: pageNum > 1 ? `${cat.title} - Page ${pageNum}` : cat.title,
     description: cat.description,
     openGraph: {
-      title: `${cat.title} — LustHub`,
+      title: pageNum > 1 ? `${cat.title} - Page ${pageNum} — LustHub` : `${cat.title} — LustHub`,
       description: cat.description,
       type: "website",
       url: canonicalUrl,
@@ -57,7 +60,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: "summary_large_image",
-      title: `${cat.title} — LustHub`,
+      title: pageNum > 1 ? `${cat.title} - Page ${pageNum} — LustHub` : `${cat.title} — LustHub`,
       description: cat.description,
       images: [
         `${baseUrl}/category/${cat.slug}/opengraph-image`,

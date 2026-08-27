@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@/lib/db";
 import { cleanEpornerText } from "@/lib/api/eporner";
 
 
@@ -11,8 +11,7 @@ export async function GET(
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
-    const sql = neon(process.env.DATABASE_URL!);
-
+    
     // Get the video's tag and category IDs
     const videoRows = await sql`
       SELECT

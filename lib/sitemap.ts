@@ -5,7 +5,7 @@
  * Migrated to a library file to bypass Next.js segmented sitemap Edge runtime bugs.
  */
 
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@/lib/db";
 import { TIER1_CATEGORIES } from "./category-config";
 import { buildWatchUrl } from "./video/slug";
 
@@ -15,8 +15,7 @@ const CHUNK_SIZE = 5_000;
 export async function generateSitemaps() {
   let videoCount = 0;
   try {
-    const sql = neon(process.env.DATABASE_URL!);
-    const [row] = await sql`
+        const [row] = await sql`
       SELECT COUNT(*) as count FROM "Video"
       WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
     `;
@@ -106,8 +105,7 @@ function buildStaticSegment(): SitemapItem[] {
 
 async function buildVideoSegment(chunkIndex: number): Promise<SitemapItem[]> {
   try {
-    const sql = neon(process.env.DATABASE_URL!);
-    const videos = await sql`
+        const videos = await sql`
       SELECT id, title, "updatedAt" FROM "Video"
       WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
       ORDER BY "addedAt" DESC

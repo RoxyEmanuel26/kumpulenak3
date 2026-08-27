@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@/lib/db";
 import { Metadata } from "next";
 import { LayoutGrid } from "lucide-react";
 import { CategoriesClient } from "./CategoriesClient";
@@ -131,8 +131,7 @@ export default async function CategoriesPage() {
   // Retrieve categories from the database directly using neon HTTP to avoid Prisma build edge-runtime bundling issues
   let dbCategories: { name: string; count: number }[] = [];
   try {
-    const sql = neon(process.env.DATABASE_URL!);
-    const rawCategories = await sql`
+        const rawCategories = await sql`
       SELECT c.name, COUNT(vc."videoId") as count
       FROM "Category" c
       LEFT JOIN "VideoCategory" vc ON c.id = vc."categoryId"

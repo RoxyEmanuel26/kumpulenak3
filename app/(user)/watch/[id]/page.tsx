@@ -1,4 +1,4 @@
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
 import { EpornerAPI } from "@/lib/api/eporner";
@@ -67,7 +67,14 @@ export async function generateMetadata({
   const video = await getCachedVideoById(videoId);
   if (!video) return { title: "Video Not Found" };
 
-  const canonicalUrl = `${SITE_URL}${buildWatchUrl(video.id, video.title)}`;
+  const canonicalPath = buildWatchUrl(video.id, video.title);
+  const canonicalParam = canonicalPath.replace(/^\/watch\//, "");
+  
+  if (slugParam !== canonicalParam) {
+    permanentRedirect(canonicalPath);
+  }
+
+  const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
   // Resolve best available thumbnail — matches the array logic in the page body.
   // Prefer default_thumb, fall back to first entry in thumbs array.
@@ -137,7 +144,7 @@ export default async function WatchVideoPage({
   //   - Wrong slug visits:  /watch/wrong-2fPfA79DdjL → 308 → /watch/step-sis-2fPfA79DdjL
   // Always a single redirect hop — no chains.
   if (slugParam !== canonicalParam) {
-    permanentRedirect(canonicalPath);
+    redirect(canonicalPath);
   }
 
   // REMOVED: syncVideoToDatabase() was previously triggered here on every
@@ -264,12 +271,12 @@ export default async function WatchVideoPage({
       {/* VideoObject JSON-LD — server-side, invisible to users */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(videoSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(videoSchema).replace(/</g, '\\u003c') }}
       />
       {/* BreadcrumbList JSON-LD — server-side, enables rich breadcrumbs in SERP */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
       />
       <WatchPageClient video={video} relatedVideos={related} />
     </>

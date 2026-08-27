@@ -1,12 +1,11 @@
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@/lib/db";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 
 export async function syncVideoToDatabase(videoId: string) {
   console.log(`[SyncVideo] Starting internal sync for video ID: ${videoId}`);
 
-  const sql = neon(process.env.DATABASE_URL!);
-
+  
   // Check if video already exists in database
   const existing = await sql`
     SELECT id FROM "Video" WHERE id = ${videoId} LIMIT 1

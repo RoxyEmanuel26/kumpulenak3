@@ -71,9 +71,30 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "LustHub",
+    "url": process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"}/results?search_query={search_term_string}`
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} min-h-screen bg-[#0F0F0F] text-[#F1F1F1] antialiased font-sans`}>
+        {/* WebSite JSON-LD for Sitelinks Search Box */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema).replace(/</g, '\\u003c') }}
+        />
+        
         <UIProvider>
           {children}
         </UIProvider>

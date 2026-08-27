@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { sql } from "@/lib/db";
 import { LibraryClient } from "@/components/video/LibraryClient";
 import { Metadata } from "next";
 import { EpornerVideo } from "@/types/eporner";
@@ -23,8 +23,7 @@ export default async function LibraryPage() {
   let mappedVideos: EpornerVideo[] = [];
 
   try {
-    const sql = neon(process.env.DATABASE_URL!);
-    const videos = await sql`
+        const videos = await sql`
       SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin",
              "embedUrl", "defaultThumb", thumbs
       FROM "Video"
