@@ -119,7 +119,7 @@ async function cleanTrashFiles(): Promise<{ deleted: number; freedBytes: number 
  * Normal disk usage: build(~500MB) + node_modules(~700MB) ≈ 1.2GB used baseline.
  * Leaving ~1.8GB free. We cap cache at 1GB → minimum ~800MB always free for OS + logs.
  */
-export const FETCH_CACHE_MAX_BYTES  = 1024 * 1024 * 1024;       // 1.0 GB  — trigger threshold
+export const FETCH_CACHE_MAX_BYTES = 1024 * 1024 * 1024;       // 1.0 GB  — trigger threshold
 export const FETCH_CACHE_TARGET_BYTES = 800 * 1024 * 1024;       // 0.8 GB  — trim down to this
 
 /**
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const doCleanup = searchParams.get("cleanup") === "true";
 
-  
+
   const result = {
     fetchedFromEporner: 0,
     newVideosFound: 0,
@@ -379,8 +379,8 @@ export async function POST(request: NextRequest) {
     // removed-video sync. Adding video classification here would cause timeout.
     // The regular 15-min cron (no ?cleanup) handles all video syncing.
     if (!doCleanup && Date.now() - startTime < HARD_STOP_MS - 2000) {
-      // Fetch latest 50 videos from Eporner (cached 5 min by Next.js fetch layer)
-      const latestRes = await EpornerAPI.search({ order: "latest", per_page: 50 });
+      // We set per_page: 5 to perfectly balance the 15 RPM and 500 RPD limits of Gemini Flash Lite
+      const latestRes = await EpornerAPI.search({ order: "latest", per_page: 5 });
       const videos = latestRes?.videos ?? [];
       result.fetchedFromEporner = videos.length;
 
@@ -410,7 +410,7 @@ export async function POST(request: NextRequest) {
             const lowerTitle = v.title.toLowerCase();
             const lowerKeywords = v.keywords.toLowerCase();
             const blacklistRegex = /\b(gay|shemale|tranny|ladyboy|trans|homo)\b/i;
-            
+
             if (blacklistRegex.test(lowerTitle) || blacklistRegex.test(lowerKeywords)) {
               console.log(`[CronSync] Skipped blacklisted video (gay/trans filter): ${v.id} - "${v.title}"`);
               continue; // Skip this video completely, do not insert into DB
@@ -497,8 +497,8 @@ export async function POST(request: NextRequest) {
       result.pendingNewVideos > 0
         ? `${result.pendingNewVideos} more new videos pending — will be processed on the next cron run.`
         : result.videosAdded > 0
-        ? `${result.videosAdded} new video(s) added successfully.`
-        : "DB is up to date. No new videos found.";
+          ? `${result.videosAdded} new video(s) added successfully.`
+          : "DB is up to date. No new videos found.";
 
     console.log("[CronSync] Completed:", result);
     return NextResponse.json({ success: true, ...result });
