@@ -105,21 +105,21 @@ export function VideoPlayer({
           />
         )}
 
-        {/* Loading Spinner */}
+        {/* Loading Spinner - Placed BEHIND the iframe (-z-10) so Googlebot never thinks the video is obscured */}
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 z-20">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black -z-10">
             <Loader2 className="h-10 w-10 animate-spin text-red-600 mb-3" />
             <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest animate-pulse">Connecting Stream...</span>
           </div>
         )}
 
         {/* Iframe embed — Eporner player */}
-        {/* referrerpolicy="no-referrer-when-downgrade" allows Eporner to receive */}
-        {/* the referrer for analytics while protecting user privacy on downgrades. */}
+        {/* opacity-0 is REMOVED to ensure Googlebot sees the video player immediately. */}
+        {/* Hiding the iframe or covering it with z-20 overlays causes "Video tidak ada di halaman tonton" GSC errors. */}
         <iframe
           src={embedUrl}
           title={title}
-          className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-500 ${loading ? "opacity-0" : "opacity-100"}`}
+          className="absolute inset-0 w-full h-full border-0"
           allowFullScreen
           allow="encrypted-media; picture-in-picture; autoplay"
           referrerPolicy="no-referrer-when-downgrade"

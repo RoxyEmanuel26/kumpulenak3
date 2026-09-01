@@ -45,9 +45,17 @@ import { sql } from "@/lib/db";
 
 const getCachedVideoById = cache(async (id: string) => {
   try {
+    // We select status to check if it's explicitly marked as REMOVED/DRAFT
     const rows = await sql`SELECT *, "aiDescription" FROM "Video" WHERE id = ${id} LIMIT 1`;
     if (rows && rows.length > 0) {
       const dbVideo = rows[0];
+      
+      // If the video exists in our DB but is not ACTIVE (e.g. DRAFT/Spam or REMOVED),
+      // we must hard block it. Do NOT fall back to Eporner API.
+      if (dbVideo.status !== 'ACTIVE') {
+        return null;
+      }
+
       return {
         id: dbVideo.id as string,
         title: dbVideo.title as string,
@@ -67,7 +75,7 @@ const getCachedVideoById = cache(async (id: string) => {
   } catch (err) {
     console.error("[WatchPage] Error fetching video from DB:", err);
   }
-  // Fallback to Eporner if not in local DB
+  // Fallback to Eporner if not in local DB at all
   return EpornerAPI.getById(id);
 });
 
@@ -103,11 +111,11 @@ export async function generateMetadata({
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
   // Resolve best available thumbnail — matches the array logic in the page body.
-  // Prefer default_thumb, fall back to first entry in thumbs array.
+  // Prefer default_thumb, fall back to first entry in thumbs array, finally fallback to Eporner CDN.
   const thumbUrl =
     video.default_thumb?.src ||
     (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
-    undefined;
+    `https://pi.eporner.com/po/${video.id}/1.jpg`;
 
   // Use AI SEO Description if available, otherwise fallback to template
   const description = ('seoDescription' in video && video.seoDescription)
@@ -218,6 +226,14 @@ export default async function WatchVideoPage({
       .slice(0, 2)
       .forEach((t) => thumbUrls.push(t.src));
   }
+  
+  // SEO Bulletproof Fallback: If DB failed to save thumbnails but video is active,
+  // predict the exact Eporner CDN path. Google requires at least one valid thumbnail.
+  if (thumbUrls.length === 0) {
+    thumbUrls.push(`https://pi.eporner.com/po/${video.id}/1.jpg`);
+    thumbUrls.push(`https://pi.eporner.com/po/${video.id}/2.jpg`);
+  }
+
   const thumbUrl = thumbUrls[0]; // Primary thumbnail for OG/Twitter
 
   const duration = toISO8601Duration(video.length_sec);
@@ -248,7 +264,7 @@ export default async function WatchVideoPage({
     // Google uses this to understand the video player for rich results.
     // NOTE: contentUrl is intentionally OMITTED — it must be a direct MP4 URL,
     // not an embed iframe. Setting it to embedUrl causes GSC validation errors.
-    ...(video.embed ? { "embedUrl": video.embed } : {}),
+    "embedUrl": (video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, ""),
     // isFamilyFriendly: false signals adult content to Google.
     // This prevents the video from appearing in SafeSearch results.
     "isFamilyFriendly": false,

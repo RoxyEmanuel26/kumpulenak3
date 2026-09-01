@@ -79,6 +79,17 @@ export function Sidebar() {
           <Globe className="h-5 w-5 mb-1.5 text-[#f6396c] transition-transform group-hover:scale-110" />
           <span className="text-[9px] tracking-wide select-none text-[#f6396c]">NiceVX</span>
         </a>
+
+        <a
+          href="https://www.missav-j.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-col items-center justify-center w-[64px] h-[72px] rounded-xl transition-all mb-1 cursor-pointer group text-[#AAAAAA] hover:bg-white/5 hover:text-white"
+          title="Free JAV"
+        >
+          <Globe className="h-5 w-5 mb-1.5 text-[#f6396c] transition-transform group-hover:scale-110" />
+          <span className="text-[9px] tracking-wide select-none text-[#f6396c]">Free JAV</span>
+        </a>
       </aside>
     );
   }
@@ -152,6 +163,19 @@ export function Sidebar() {
             <div className="flex items-center gap-6">
               <Globe className="h-5 w-5 text-[#f6396c] transition-transform group-hover:scale-105 shrink-0" />
               <span className="text-sm select-none truncate">nicevx.com</span>
+            </div>
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-white transition-colors shrink-0" />
+          </a>
+          
+          <a
+            href="https://www.missav-j.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between px-4 py-2.5 rounded-xl text-[#AAAAAA] hover:text-white hover:bg-white/5 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-6">
+              <Globe className="h-5 w-5 text-[#f6396c] transition-transform group-hover:scale-105 shrink-0" />
+              <span className="text-sm select-none truncate">Free JAV</span>
             </div>
             <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-white transition-colors shrink-0" />
           </a>
@@ -239,6 +263,20 @@ export function Sidebar() {
                 <div className="flex items-center gap-6">
                   <Globe className="h-5 w-5 text-[#f6396c] transition-transform group-hover:scale-105 shrink-0" />
                   <span className="text-sm select-none truncate">nicevx.com</span>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-white transition-colors shrink-0" />
+              </a>
+
+              <a
+                href="https://www.missav-j.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-2.5 rounded-xl text-[#AAAAAA] hover:text-white hover:bg-white/5 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-6">
+                  <Globe className="h-5 w-5 text-[#f6396c] transition-transform group-hover:scale-105 shrink-0" />
+                  <span className="text-sm select-none truncate">Free JAV</span>
                 </div>
                 <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-white transition-colors shrink-0" />
               </a>

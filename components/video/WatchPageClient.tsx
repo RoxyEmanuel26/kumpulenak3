@@ -94,7 +94,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
         isTheater ? "border-b border-white/5 py-0" : "py-0 md:py-6 px-0 md:px-4"
       }`}>
         <VideoPlayer
-          embedUrl={video.embed || `https://www.eporner.com/embed/${video.id}/`}
+          embedUrl={(video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "")}
           title={video.title}
           thumbnailUrl={video.default_thumb?.src || null}
           isTheater={isTheater}

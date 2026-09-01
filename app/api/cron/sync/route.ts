@@ -71,12 +71,11 @@ function walkDirSize(dir: string): number {
 async function cleanTrashFiles(): Promise<{ deleted: number; freedBytes: number }> {
   let deleted = 0;
   let freedBytes = 0;
-  const cwd = process.cwd();
 
   const trashDirs = [
-    path.join(cwd, ".trash"),
-    path.join(cwd, ".next", ".trash"),
-    path.join(cwd, ".next", "cache", ".trash"),
+    path.join(/*turbopackIgnore: true*/ process.cwd(), ".trash"),
+    path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", ".trash"),
+    path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", ".trash"),
   ];
 
   for (const trashDir of trashDirs) {
@@ -95,7 +94,7 @@ async function cleanTrashFiles(): Promise<{ deleted: number; freedBytes: number 
   }
 
   // Sweep fetch-cache for stray *_trash_* / *_trashpath_* files
-  const fetchCacheDir = path.join(cwd, ".next", "cache", "fetch-cache");
+  const fetchCacheDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", "fetch-cache");
   try {
     if (fs.existsSync(fetchCacheDir)) {
       for (const name of fs.readdirSync(fetchCacheDir)) {
@@ -148,8 +147,7 @@ async function enforceFetchCacheSizeLimit(
   let deleted = 0;
   let freedBytes = 0;
   let totalSizeBefore = 0;
-  const cwd = process.cwd();
-  const fetchCacheDir = path.join(cwd, ".next", "cache", "fetch-cache");
+  const fetchCacheDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", "fetch-cache");
 
   // ── Bug Fix #1: Guard against misconfigured limits ─────────────────────────
   if (targetSizeBytes >= maxSizeBytes) {
@@ -234,9 +232,8 @@ async function enforceFetchCacheSizeLimit(
  * Runs only on directories likely to grow — avoids scanning entire .next/.
  */
 function getCacheDiskUsage(): { fetchCacheBytes: number; trashBytes: number } {
-  const cwd = process.cwd();
-  const fetchCacheDir = path.join(cwd, ".next", "cache", "fetch-cache");
-  const trashDir = path.join(cwd, ".trash");
+  const fetchCacheDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", "fetch-cache");
+  const trashDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".trash");
   return {
     fetchCacheBytes: fs.existsSync(fetchCacheDir) ? walkDirSize(fetchCacheDir) : 0,
     trashBytes: fs.existsSync(trashDir) ? walkDirSize(trashDir) : 0,
