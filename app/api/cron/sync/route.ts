@@ -470,7 +470,7 @@ export async function POST(request: NextRequest) {
                 ${v.added ? new Date(v.added).toISOString() : null},
                 ${v.rate}, ${v.views},
                 ${JSON.stringify(v.default_thumb)}, ${JSON.stringify(v.thumbs)},
-                ${v.keywords}, ${v.embed},
+                ${v.keywords}, ${v.embed ? v.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${v.id}`},
                 ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
                 ${aiResult.scores.trending}, ${aiResult.scores.engagement},
                 ${aiResult.scores.spam}, ${aiResult.isSpam}, ${aiResult.seoDescription}, NOW()

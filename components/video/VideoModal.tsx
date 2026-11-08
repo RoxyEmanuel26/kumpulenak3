@@ -146,7 +146,7 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
             <div className="w-full md:w-[65%] bg-black flex items-center justify-center relative border-b md:border-b-0 md:border-r border-white/5 h-[40%] md:h-full">
               <div className="w-full p-4 md:p-8 flex justify-center">
                 <VideoPlayer 
-                  embedUrl={video.embedUrl || `https://www.eporner.com/embed/${video.id}/`} 
+                  embedUrl={(video.embedUrl || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "")} 
                   title={video.title} 
                   thumbnailUrl={video.thumbnail}
                 />
