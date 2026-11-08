@@ -76,8 +76,14 @@ const getCachedVideoById = cache(async (id: string) => {
         seoDescription: dbVideo.aiDescription as string | null,
       };
     }
-  } catch (err) {
-    console.error("[WatchPage] Error fetching video from DB:", err);
+  } catch (err: any) {
+    if (err?.code === "42P01") {
+      // 42P01 = undefined_table (Database table "Video" does not exist yet)
+      // Only warn concisely so terminal log stays clean; will automatically fallback to Eporner API
+      console.warn("[WatchPage] Database table 'Video' not yet created (run 'npm run db:push' on server to initialize). Falling back to Eporner API.");
+    } else {
+      console.error("[WatchPage] Error fetching video from DB:", err);
+    }
   }
   // Fallback to Eporner if not in local DB at all
   return EpornerAPI.getById(id);

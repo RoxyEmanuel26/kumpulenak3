@@ -4,26 +4,20 @@ import { Metadata } from "next";
 import { EpornerVideo } from "@/types/eporner";
 import { cleanEpornerText } from "@/lib/api/eporner";
 
-
-
 export const metadata: Metadata = {
   title: "Library",
   description: "Your personal video library on LustHub — browse your watch history and liked videos.",
-  // Belt-and-suspenders: robots.txt already disallows /library.
-  // noindex ensures this user-specific page is excluded from indexing
-  // even if a bot ignores robots.txt or if the disallow rule ever changes.
   robots: {
     index: false,
     follow: false,
   },
 };
 
-
 export default async function LibraryPage() {
   let mappedVideos: EpornerVideo[] = [];
 
   try {
-        const videos = await sql`
+    const videos = await sql`
       SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin",
              "embedUrl", "defaultThumb", thumbs
       FROM "Video"
@@ -45,8 +39,10 @@ export default async function LibraryPage() {
       default_thumb: v.defaultThumb as unknown as EpornerVideo["default_thumb"],
       thumbs: v.thumbs as unknown as EpornerVideo["thumbs"],
     }));
-  } catch (err) {
-    console.error("[LibraryPage] Failed to fetch videos:", err);
+  } catch (err: any) {
+    if (err?.code !== "42P01") {
+      console.error("[LibraryPage] Failed to fetch videos:", err);
+    }
   }
 
   return <LibraryClient allVideos={mappedVideos} />;

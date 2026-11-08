@@ -119,13 +119,15 @@ export default async function CategoriesPage() {
   let dbCategories: { name: string; count: number }[] = [];
   try {
     const rawCategories = await sql`
-      SELECT name, count 
-      FROM categories 
+      SELECT name, 0 as count 
+      FROM "Category" 
       ORDER BY name ASC
     `;
     dbCategories = (rawCategories as unknown) as { name: string; count: number }[];
-  } catch (err) {
-    console.warn("[CategoriesPage] Database query failed, falling back to static mapping:", err);
+  } catch (err: any) {
+    if (err?.code !== "42P01") {
+      console.warn("[CategoriesPage] Database query failed, falling back to static mapping:", err?.message || err);
+    }
   }
 
   // Clone mapping as base
