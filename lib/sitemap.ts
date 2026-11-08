@@ -18,11 +18,18 @@ const CHUNK_SIZE = 5_000;
 
 export async function generateSitemaps() {
   let videoCount = 0;
+  const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
   try {
-    const [row] = await sql`
-      SELECT COUNT(*) as count FROM "Video"
-      WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
-    `;
+    const [row] = isGateEnforced
+      ? await sql`
+          SELECT COUNT(*) as count FROM "Video"
+          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+          AND "aiDescription" IS NOT NULL
+        `
+      : await sql`
+          SELECT COUNT(*) as count FROM "Video"
+          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+        `;
     videoCount = parseInt(row.count as string, 10) || 0;
   } catch (err) {
     console.error("[Sitemap] Failed to count videos for segment generation:", err);
@@ -142,18 +149,34 @@ function buildStaticSegment(): SitemapItem[] {
       changeFrequency: "monthly",
       priority: 0.3,
     },
+    {
+      url: `${BASE_URL}/contact`,
+      lastModified: staticLastMod,
+      changeFrequency: "monthly",
+      priority: 0.4,
+    },
   ];
 }
 
 async function buildVideoSegment(chunkIndex: number): Promise<VideoSitemapItem[]> {
   try {
-    const videos = await sql`
-      SELECT id, title, "updatedAt", "addedAt", "lengthSec", "embedUrl", "defaultThumb", thumbs, "aiDescription", keywords
-      FROM "Video"
-      WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
-      ORDER BY "addedAt" DESC
-      LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
-    `;
+    const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
+    const videos = isGateEnforced
+      ? await sql`
+          SELECT id, title, "updatedAt", "addedAt", "lengthSec", "embedUrl", "defaultThumb", thumbs, "aiDescription", keywords
+          FROM "Video"
+          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+          AND "aiDescription" IS NOT NULL
+          ORDER BY "addedAt" DESC
+          LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
+        `
+      : await sql`
+          SELECT id, title, "updatedAt", "addedAt", "lengthSec", "embedUrl", "defaultThumb", thumbs, "aiDescription", keywords
+          FROM "Video"
+          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+          ORDER BY "addedAt" DESC
+          LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
+        `;
 
     return videos.map((v) => {
       const id = v.id as string;

@@ -29,7 +29,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
   const cat = getCategoryBySlug(slug);
-  if (!cat) return { title: "Category Not Found" };
+  if (!cat) return notFound();
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
   const pageStr = resolvedSearchParams.page;
@@ -103,11 +103,10 @@ export default async function CategoryPage({
   const videos = res?.videos || [];
   const totalPages = res?.total_pages || 1;
 
-  // Soft-404 guard: if a paginated request returns no videos and is beyond page 1,
-  // return a proper 404 instead of rendering an empty grid.
-  // An empty paginated page is a soft-404 risk — Google flags it as low-value content.
-  // Page 1 with zero results is intentionally allowed (category exists but may be sparse).
-  if (page > 1 && videos.length === 0) {
+  // Strict Soft-404 guard: if a category request returns no videos,
+  // return a proper HTTP 404 instead of rendering an empty grid with HTTP 200.
+  // Google Search Console explicitly flags empty 200 OK pages as "Soft 404".
+  if (videos.length === 0) {
     return notFound();
   }
 

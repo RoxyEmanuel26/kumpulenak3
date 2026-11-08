@@ -50,8 +50,10 @@ export default function robots(): MetadataRoute.Robots {
           // API routes — never public
           "/api/",
 
-          // User-specific pages — no SEO value
-          "/library",
+          // Note on /library: intentionally NOT disallowed here so crawlers can visit
+          // and read the <meta name="robots" content="noindex, nofollow"> and
+          // X-Robots-Tag header, permanently de-indexing it from search results
+          // instead of triggering "Indexed, though blocked by robots.txt".
 
           // Legacy watch URL format — causes redirect hop before canonical
           // Canonical URL is /watch/{id}, not /watch?v={id}

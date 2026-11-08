@@ -188,22 +188,33 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
 
           {/* ── Contextual Category Links ────────────────────────────────────
                Derives Tier-1 category links from the video's keywords.
-               Shows up to 3 matches — never spams, only renders if relevant.
-               These are always visible (not hidden behind "Show more").
+               Falls back to primaryCategory or top Tier-1 hubs so EVERY watch page
+               maintains unbroken internal linking and passes crawl equity.
                Authority flow: /watch/{id} → /category/{slug}
           */}
           {(() => {
-            const catLinks = keywordsList
+            let catLinks = keywordsList
               .map((tag) => ({ tag, slug: slugify(tag) }))
               .filter(({ slug }) => TIER1_SLUGS.has(slug))
-              .slice(0, 3);
+              .slice(0, 4);
 
-            if (catLinks.length === 0) return null;
+            if (catLinks.length === 0) {
+              if (primaryCategory) {
+                catLinks = [{ tag: primaryCategory.name, slug: primaryCategory.slug }];
+              } else {
+                catLinks = [
+                  { tag: "Japanese", slug: "japanese" },
+                  { tag: "Asian", slug: "asian" },
+                  { tag: "MILF", slug: "milf" },
+                  { tag: "Amateur", slug: "amateur" },
+                ];
+              }
+            }
 
             return (
               <div className="flex flex-wrap items-center gap-2 py-2">
                 <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest shrink-0">
-                  Browse:
+                  Explore Categories:
                 </span>
                 {catLinks.map(({ tag, slug }) => (
                   <Link

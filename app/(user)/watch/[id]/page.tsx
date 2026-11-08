@@ -101,9 +101,9 @@ export async function generateMetadata({
   const { id: slugParam } = await params;
   const videoId = extractVideoId(slugParam);
   // Reject garbage IDs from bots immediately — no API call, no ISR cache entry
-  if (!EPORNER_ID_REGEX.test(videoId)) return { title: "Video Not Found" };
+  if (!EPORNER_ID_REGEX.test(videoId)) return notFound();
   const video = await getCachedVideoById(videoId);
-  if (!video) return { title: "Video Not Found" };
+  if (!video) return notFound();
 
   const canonicalPath = buildWatchUrl(video.id, video.title);
   const canonicalParam = canonicalPath.replace(/^\/watch\//, "");
