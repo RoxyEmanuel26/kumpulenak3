@@ -21,8 +21,9 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            // plausible.io added to script-src (load script) and connect-src (send beacons)
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' plausible.io https://glamournakedemployee.com https://*.glamournakedemployee.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: plausible.io; frame-src 'self' https://www.eporner.com https://eporner.com https://glamournakedemployee.com https://*.glamournakedemployee.com https:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;",
+            // plausible.io added to script-src (load script) and connect-src (send beacons).
+            // Adsterra ad networks whitelisted: glamournakedemployee.com, biomanos.org, benchform.org, apiguinee.org.
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' plausible.io https://glamournakedemployee.com https://*.glamournakedemployee.com https://biomanos.org https://*.biomanos.org https://benchform.org https://*.benchform.org https://apiguinee.org https://*.apiguinee.org; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: plausible.io https://biomanos.org https://*.biomanos.org https://benchform.org https://*.benchform.org https://apiguinee.org https://*.apiguinee.org; frame-src 'self' https://www.eporner.com https://eporner.com https://glamournakedemployee.com https://*.glamournakedemployee.com https://biomanos.org https://*.biomanos.org https://benchform.org https://*.benchform.org https://apiguinee.org https://*.apiguinee.org https:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;",
           },
           {
             key: "X-Frame-Options",

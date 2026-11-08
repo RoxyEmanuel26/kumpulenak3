@@ -174,7 +174,7 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
               />
               {/* Download button - Can be linked to a Smartlink for Adsterra monetization */}
               <a 
-                href="https://glamournakedemployee.com/tzea1rbg?key=217e85c96daa47caf53c19c87f6e7c6d"
+                href="https://apiguinee.org/4/217e85c96daa47caf53c19c87f6e7c6d"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-9 sm:h-10 bg-[#FF3366] hover:bg-[#E62E5C] text-white text-xs sm:text-sm font-bold rounded-full transition-colors cursor-pointer shadow-lg shadow-[#FF3366]/20"
