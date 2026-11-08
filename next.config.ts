@@ -171,6 +171,16 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Static assets (images, fonts, favicons in /public)
+        source: "/:all*(svg|jpg|jpeg|png|webp|ico|woff|woff2)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
     ];
   },
 

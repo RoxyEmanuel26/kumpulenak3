@@ -48,6 +48,7 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
             src={currentImageSrc}
             alt={video.title}
             loading="lazy"
+            decoding="async"
             width={160}
             height={90}
             className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-103"

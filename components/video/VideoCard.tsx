@@ -7,13 +7,12 @@ import { EpornerVideo } from "../../types/eporner";
 import { formatVideoDate } from "@/lib/utils";
 import { buildWatchUrl } from "@/lib/video/slug";
 
-
 interface VideoCardProps {
   video: EpornerVideo;
+  priority?: boolean;
 }
 
 // 7 days in milliseconds — videos newer than this get a "NEW" badge.
-// This is a constant so it's evaluated once per module load, not per render.
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Returns true if the video was added within the last 7 days. */
@@ -27,8 +26,7 @@ function isNewVideo(addedDateStr?: string): boolean {
   }
 }
 
-export function VideoCard({ video }: VideoCardProps) {
-
+export function VideoCard({ video, priority = false }: VideoCardProps) {
   // Hover Thumbnail Slideshow Logic
   const [isHovered, setIsHovered] = useState(false);
   const [currentThumbIndex, setCurrentThumbIndex] = useState(0);
@@ -64,7 +62,9 @@ export function VideoCard({ video }: VideoCardProps) {
           <img
             src={currentImageSrc}
             alt={video.title}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
             width={320}
             height={180}
             className="object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-103"
@@ -74,8 +74,6 @@ export function VideoCard({ video }: VideoCardProps) {
             No Image
           </div>
         )}
-
-
 
         {/* Video tags / quality badge (left) */}
         {video.rate && parseFloat(video.rate) > 0 && (
@@ -99,7 +97,6 @@ export function VideoCard({ video }: VideoCardProps) {
 
       {/* Title and stats */}
       <div className="px-1 text-left">
-
         <div className="space-y-1">
           <h3 
             className="font-medium text-[13px] md:text-sm text-[#F1F1F1] leading-snug line-clamp-2 group-hover:text-red-500 transition-colors" 
