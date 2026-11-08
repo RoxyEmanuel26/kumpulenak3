@@ -361,6 +361,37 @@ export async function POST(request: NextRequest) {
           VALUES ('last_removed_sync_at', ${JSON.stringify(now.toISOString())}, NOW())
           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = NOW()
         `;
+
+        // ── Neon DB Storage Protection Policy (Auto-Prune) ─────────────────────
+        // Neon Free Tier provides 512 MB storage.
+        // 1. Permanently delete dead REMOVED videos older than 14 days
+        try {
+          await sql`
+            DELETE FROM "Video" 
+            WHERE status = 'REMOVED' AND "updatedAt" < NOW() - INTERVAL '14 days'
+          `;
+
+          // 2. Cap maximum stored videos to 15,000 (reserves ~60-80 MB, safely under 512 MB limit)
+          const [countRow] = await sql`SELECT COUNT(*) as count FROM "Video"`;
+          const totalVideos = parseInt((countRow?.count as string) || "0", 10) || 0;
+          if (totalVideos > 15_000) {
+            const excess = totalVideos - 15_000;
+            await sql`
+              DELETE FROM "Video"
+              WHERE id IN (
+                SELECT id FROM "Video"
+                ORDER BY "addedAt" ASC
+                LIMIT ${excess}
+              )
+            `;
+            console.log(`[CronSync] Pruned ${excess} oldest videos to enforce 15,000 ceiling for Neon Free Tier storage.`);
+          }
+
+          // 3. Purge orphaned tags to reclaim index space
+          await sql`DELETE FROM "Tag" WHERE id NOT IN (SELECT DISTINCT "tagId" FROM "VideoTag")`;
+        } catch (pruneErr) {
+          console.warn("[CronSync] Storage pruning skipped:", (pruneErr as Error).message);
+        }
       }
 
       // ── Disk Usage Monitoring ────────────────────────────────────────────────
