@@ -47,7 +47,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: ["/"],
         disallow: [
-          // API routes — never public
+          // API routes — internal backend endpoints, never public
           "/api/",
 
           // Note on /library: intentionally NOT disallowed here so crawlers can visit
@@ -55,20 +55,16 @@ export default function robots(): MetadataRoute.Robots {
           // X-Robots-Tag header, permanently de-indexing it from search results
           // instead of triggering "Indexed, though blocked by robots.txt".
 
-          // Legacy watch URL format — causes redirect hop before canonical
-          // Canonical URL is /watch/{id}, not /watch?v={id}
-          "/watch?v=",
+          // Note on /watch?v=: intentionally NOT disallowed here so crawlers can receive
+          // HTTP 308 Permanent Redirect to /watch/[id] and transfer full SEO link equity.
 
-          // Homepage query-string variants — same content, not unique pages
-          "/?page=",
-          "/?order=",
-          "/?gay=",
-          "/?lq=",
-          "/?q=",
+          // Note on /?page=, /?order=, etc.: intentionally NOT disallowed here so crawlers
+          // can crawl pagination variants, read the canonical tag pointing to
+          // https://www.lusthub.web.id, and consolidate indexing into the homepage
+          // rather than creating "Indexed, though blocked by robots.txt" warnings in GSC.
 
-          // Paginated search results deep pages — low SEO value beyond page 1.
-          // Page 1 of /results is allowed so crawlers process noindex, follow.
-          "/results?page=",
+          // Note on /results?page=: intentionally NOT disallowed here so crawlers can read
+          // the `<meta name="robots" content="noindex, follow">` tag on deep search pages.
         ],
       },
     ],

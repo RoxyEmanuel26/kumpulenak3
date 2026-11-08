@@ -258,24 +258,33 @@ function verifySecret(provided: string, expected: string): boolean {
   return result === 0;
 }
 
+export async function GET(request: NextRequest) {
+  return handleSync(request);
+}
+
 export async function POST(request: NextRequest) {
+  return handleSync(request);
+}
+
+async function handleSync(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET || process.env.WEBHOOK_SECRET;
   if (!cronSecret) {
     console.error("[CronSync] CRON_SECRET or WEBHOOK_SECRET is not configured.");
     return NextResponse.json({ error: "Server misconfiguration." }, { status: 500 });
   }
 
+  const { searchParams } = new URL(request.url);
   const authHeader = request.headers.get("Authorization");
+  const querySecret = searchParams.get("secret") || searchParams.get("key");
   const providedSecret = authHeader?.startsWith("Bearer ")
     ? authHeader.slice(7)
-    : (authHeader ?? "");
+    : (authHeader || querySecret || "");
 
   if (!verifySecret(providedSecret, cronSecret)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const startTime = Date.now();
-  const { searchParams } = new URL(request.url);
   const doCleanup = searchParams.get("cleanup") === "true";
 
 
@@ -531,11 +540,16 @@ export async function POST(request: NextRequest) {
     console.log("[CronSync] Completed:", result);
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
-    const error = err as Error;
+    const error = err as Error & { code?: string };
     result.durationMs = Date.now() - startTime;
-    console.error("[CronSync] Fatal error:", error.message);
+    const isMissingTable = error.code === "42P01" || /relation.*does not exist/i.test(error.message);
+    const friendlyError = isMissingTable
+      ? "Database tables not initialized (relation does not exist - 42P01). Run 'npm run db:push' on your server/local to push Prisma schema to Neon."
+      : error.message;
+
+    console.error("[CronSync] Fatal error:", friendlyError);
     return NextResponse.json(
-      { success: false, error: error.message, ...result },
+      { success: false, error: friendlyError, ...result },
       { status: 500 }
     );
   }
