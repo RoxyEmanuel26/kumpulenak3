@@ -65,6 +65,8 @@ export function VideoCard({ video }: VideoCardProps) {
             src={currentImageSrc}
             alt={video.title}
             loading="lazy"
+            width={320}
+            height={180}
             className="object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-103"
           />
         ) : (

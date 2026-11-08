@@ -25,9 +25,10 @@ const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"
 interface WatchPageClientProps {
   video: EpornerVideo;
   relatedVideos: EpornerVideo[];
+  primaryCategory?: { name: string; slug: string } | null;
 }
 
-export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) {
+export function WatchPageClient({ video, relatedVideos, primaryCategory }: WatchPageClientProps) {
   const { likedVideos, toggleLikeVideo, addToHistory } = useUI();
   const [isTheater, setIsTheater] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -109,9 +110,32 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
         
         {/* Left Column: Video Info */}
         <div className="flex-1 min-w-0 space-y-4">
+          {/* Breadcrumb Navigation — Visible on page, mirrors BreadcrumbList JSON-LD */}
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono mb-2 overflow-hidden truncate">
+            <Link href="/" className="hover:text-white transition-colors shrink-0">Home</Link>
+            <span className="shrink-0">/</span>
+            {primaryCategory ? (
+              <>
+                <Link href={`/category/${primaryCategory.slug}`} className="hover:text-white transition-colors shrink-0">
+                  {primaryCategory.name}
+                </Link>
+                <span className="shrink-0">/</span>
+              </>
+            ) : (
+              <>
+                <Link href="/categories" className="hover:text-white transition-colors shrink-0">
+                  Categories
+                </Link>
+                <span className="shrink-0">/</span>
+              </>
+            )}
+            <span className="text-white truncate">{video.title}</span>
+          </nav>
+
           <h1 className="text-lg md:text-2xl font-bold leading-tight break-words text-[#F1F1F1] text-left">
             {video.title}
           </h1>
+          <h2 className="sr-only">Video Details and Tags</h2>
 
           {/* Action Bar */}
           <div className="flex items-center justify-between gap-2 sm:gap-3 py-2.5 border-b border-white/5 w-full">
@@ -251,7 +275,7 @@ export function WatchPageClient({ video, relatedVideos }: WatchPageClientProps) 
         {/* Right Column: Related Videos */}
         <div className="w-full lg:w-[400px] shrink-0 space-y-4">
           <div className="flex items-center justify-between pb-2">
-            <h3 className="font-bold text-lg">Recommended</h3>
+            <h2 className="font-bold text-lg">Recommended Videos</h2>
           </div>
 
 

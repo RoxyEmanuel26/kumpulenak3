@@ -12,7 +12,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "Categories",
+  title: "Browse All Adult Video Categories",
   description: "Browse all porn video categories on LustHub. Find exactly what you're looking for — from amateur to HD, Asian to MILF and everything in between.",
   alternates: {
     canonical: `${SITE_URL}/categories`,

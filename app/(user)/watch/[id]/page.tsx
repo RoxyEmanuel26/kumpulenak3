@@ -4,6 +4,8 @@ import { Metadata } from "next";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
+import { TIER1_CATEGORIES } from "@/lib/category-config";
+import { slugify } from "@/lib/utils";
 
 // ISR: Regenerate watch pages every 6 hours.
 // Video metadata (title, thumbnail, views) is very stable — rarely changes.
@@ -195,6 +197,14 @@ export default async function WatchVideoPage({
   const relatedRes = await EpornerAPI.search({ query, per_page: 12 });
   const related = relatedRes?.videos?.filter((v) => v.id !== video.id) || [];
 
+  // Match keyword to a Tier-1 category for breadcrumbs & semantic hierarchy
+  const primaryCat = keywords
+    .map((k) => {
+      const slug = slugify(k.trim());
+      return TIER1_CATEGORIES.find((c) => c.slug === slug);
+    })
+    .find(Boolean);
+
   // ── VideoObject JSON-LD ────────────────────────────────────────────────────────────────────────────
   // Google Video Rich Results requirements:
   //   Required:    name, description, thumbnailUrl (array), uploadDate
@@ -296,24 +306,43 @@ export default async function WatchVideoPage({
   // ── BreadcrumbList JSON-LD ─────────────────────────────────────────────
   // Provides Google with structured breadcrumb data for rich results in SERP.
   // Uses @id to reference VideoObject above — linked data graph for Google.
+  const breadcrumbItems = [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": SITE_URL,
+    },
+    ...(primaryCat
+      ? [
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": primaryCat.name,
+            "item": `${SITE_URL}/category/${primaryCat.slug}`,
+          },
+        ]
+      : [
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Categories",
+            "item": `${SITE_URL}/categories`,
+          },
+        ]),
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": video.title,
+      "item": canonicalUrl,
+    },
+  ];
+
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "@id": `${canonicalUrl}#breadcrumb`,
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": SITE_URL,
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": video.title,
-        "item": canonicalUrl,
-      },
-    ],
+    "itemListElement": breadcrumbItems,
   };
 
   return (
@@ -328,7 +357,11 @@ export default async function WatchVideoPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
       />
-      <WatchPageClient video={video as any} relatedVideos={related} />
+      <WatchPageClient 
+        video={video as any} 
+        relatedVideos={related} 
+        primaryCategory={primaryCat ? { name: primaryCat.name, slug: primaryCat.slug } : null}
+      />
     </>
   );
 }

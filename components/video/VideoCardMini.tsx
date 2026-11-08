@@ -48,6 +48,8 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
             src={currentImageSrc}
             alt={video.title}
             loading="lazy"
+            width={160}
+            height={90}
             className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-103"
           />
         ) : (
@@ -64,12 +66,12 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
 
       {/* Info column */}
       <div className="flex-1 space-y-1 min-w-0">
-        <h4 
+        <h3 
           className="text-xs sm:text-sm font-semibold text-[#F1F1F1] leading-tight line-clamp-2 group-hover:text-red-500 transition-colors"
           title={video.title}
         >
           {video.title}
-        </h4>
+        </h3>
         
         <div className="space-y-0.5">
 

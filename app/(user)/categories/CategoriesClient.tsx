@@ -92,9 +92,9 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
 
               {/* Name and Count */}
               <div className="relative z-10 text-left">
-                <h3 className="font-extrabold text-xs sm:text-sm md:text-base text-white tracking-tight leading-tight group-hover:underline line-clamp-2">
+                <h2 className="font-extrabold text-xs sm:text-sm md:text-base text-white tracking-tight leading-tight group-hover:underline line-clamp-2">
                   {cat.name}
-                </h3>
+                </h2>
                 <p className="text-[8px] sm:text-[9px] md:text-[10px] text-white/60 font-mono font-semibold mt-1">
                   {cat.count > 0 ? `${cat.count} videos synced` : "Explore videos"}
                 </p>
