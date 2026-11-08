@@ -32,11 +32,19 @@ export async function generateSitemaps() {
         `;
     videoCount = parseInt(row.count as string, 10) || 0;
   } catch (err) {
+    // Never advertise a video segment we cannot fill: an empty <urlset> makes
+    // Google Search Console report "Tidak ada tag XML" (missing <url>).
     console.error("[Sitemap] Failed to count videos for segment generation:", err);
-    return [{ id: 0 }, { id: 1 }];
+    return [{ id: 0 }];
   }
 
-  const videoChunks = Math.max(1, Math.ceil(videoCount / CHUNK_SIZE));
+  // No eligible videos yet (e.g. fresh DB, or indexing gate with 0 enriched videos):
+  // only expose the static/category segment.
+  if (videoCount === 0) {
+    return [{ id: 0 }];
+  }
+
+  const videoChunks = Math.ceil(videoCount / CHUNK_SIZE);
   const ids = [
     { id: 0 }, // Static routes + categories
     ...Array.from({ length: videoChunks }, (_, i) => ({ id: i + 1 })),
@@ -215,7 +223,7 @@ async function buildVideoSegment(chunkIndex: number): Promise<VideoSitemapItem[]
  * If segmentId === 0: standard urlset for static & category routes.
  * If segmentId > 0: Google Video Sitemap with <video:video> schema tags.
  */
-export async function buildSitemapXml(segmentId: number): Promise<string> {
+export async function buildSitemapXml(segmentId: number): Promise<string | null> {
   if (segmentId === 0) {
     const items = buildStaticSegment();
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -230,6 +238,9 @@ ${items.map((item) => `  <url>
   }
 
   const items = await buildVideoSegment(segmentId - 1);
+  // An empty <urlset> is invalid for Google ("missing <url> tag"). Signal the
+  // caller to answer 404 instead of serving (and caching) broken XML.
+  if (items.length === 0) return null;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">

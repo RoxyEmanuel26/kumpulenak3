@@ -14,6 +14,15 @@ export async function GET(
 
     const xml = await buildSitemapXml(segmentId);
 
+    // Empty / unavailable video segment: 404 + no-store so CDN never caches it
+    // and Google re-checks as soon as videos exist.
+    if (xml === null) {
+      return new NextResponse("Sitemap segment not available", {
+        status: 404,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
     return new NextResponse(xml, {
       status: 200,
       headers: {
