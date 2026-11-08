@@ -1,4 +1,3 @@
-
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
@@ -6,7 +5,6 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { slugify } from "@/lib/utils";
-
 
 export async function generateMetadata({
   searchParams,
@@ -21,10 +19,17 @@ export async function generateMetadata({
   if (query && query !== "all") {
     const title = `"${query}" Porn Videos \u2014 LustHub`;
     const description = `Watch free HD porn videos for "${query}" on LustHub. Thousands of results updated daily. No registration required.`;
-    const canonicalUrl = `${baseUrl}/results?search_query=${encodeURIComponent(query)}`;
+    const canonicalUrl = `${baseUrl}/results`;
+
     return {
       title,
       description,
+      // Internal search pages MUST NOT be indexed to avoid thin/duplicate content penaties,
+      // but crawlers SHOULD follow links to discover videos and categories.
+      robots: {
+        index: false,
+        follow: true,
+      },
       alternates: { canonical: canonicalUrl },
       openGraph: {
         title,
@@ -54,13 +59,15 @@ export async function generateMetadata({
   const label = (order && orderLabels[order]) || "Latest Videos";
   const title = `${label} \u2014 LustHub`;
   const description = `${label} — Browse free HD porn videos on LustHub, updated daily. No registration required.`;
-  const canonicalUrl = order
-    ? `${baseUrl}/results?order=${encodeURIComponent(order)}`
-    : `${baseUrl}/results`;
+  const canonicalUrl = `${baseUrl}/results`;
 
   return {
     title,
     description,
+    robots: {
+      index: false,
+      follow: true,
+    },
     alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
@@ -78,8 +85,6 @@ export async function generateMetadata({
     },
   };
 }
-
-
 
 export default async function ResultsPage({
   searchParams,
@@ -167,11 +172,7 @@ export default async function ResultsPage({
         </nav>
       )}
 
-
-
       <VideoGrid videos={videos} />
-
-
 
       {/* Pagination Controls */}
       {totalPages > 1 && (

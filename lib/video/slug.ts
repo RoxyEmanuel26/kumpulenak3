@@ -18,7 +18,7 @@
  *   - Eporner video IDs do not contain hyphens, so last-segment extraction is reliable
  */
 
-import { slugify } from "@/lib/utils";
+import { slugify } from "../utils";
 
 /** Maximum character length for the title-derived slug portion of the URL. */
 const MAX_SLUG_CHARS = 60;

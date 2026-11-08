@@ -3,7 +3,7 @@
  *
  * Robots.txt configuration for LustHub.
  *
- * CRAWL BUDGET STRATEGY:
+ * CRAWL BUDGET & INDEXING STRATEGY:
  * We explicitly disallow routes that waste Google's crawl budget —
  * pages that are non-indexable, user-specific, or are parameterized
  * variants of indexable pages that don't add unique SEO value.
@@ -18,30 +18,25 @@
  *   /?order=*          → Homepage sort-order variants. Same content.
  *   /?gay=*            → Homepage filter variants — not unique pages.
  *   /?lq=*             → Homepage quality filter variants.
- *   /results?page=*    → Results pagination deep pages — canonical handles
- *                        duplicate prevention, disallow saves crawl budget.
+ *   /results?page=*    → Results deep pagination (?page=2+) wastes crawl budget.
  *
- * NOT disallowed (intentionally crawlable):
- *   /results?search_query=* → Search pages have legitimate SEO value.
- *                             They capture long-tail queries with proper
- *                             canonical URLs. Disallowing reduces organic reach.
- *   /category/*             → Tier-1 category pages are primary SEO targets.
- *                             Each has a unique canonical, h1, description, and
- *                             JSON-LD. They MUST be crawlable.
- *   /watch/*                → Individual video pages are primary content.
+ * Crawlable with noindex:
+ *   /results?search_query=* → Page 1 is intentionally allowed in robots.txt so
+ *                             crawlers can read the `<meta name="robots" content="noindex, follow">`
+ *                             tag, de-indexing the thin search page while discovering
+ *                             video/category links.
  *
- * WWW → NON-WWW:
- *   Handled at 3 layers:
- *   1. Cloudflare Redirect Rule (edge — fires before origin, zero server cost)
- *      www.lusthub.web.id/* → lusthub.web.id/* (301)
- *   2. next.config.ts redirects() with has: [{ type: "host", value: "www..." }]
- *      Catches any www request that bypasses the edge rule
- *   3. public/_redirects (Cloudflare Pages fallback — harmless on Pterodactyl)
- *   This 3-layer defense fixes the 259 "403 Blocked" pages in Google Search Console.
+ * Primary SEO targets (fully crawlable & indexed):
+ *   /                       → Homepage (ISR 30 min)
+ *   /category/*             → Tier-1 category landing pages (ISR 1 hr)
+ *   /categories             → All categories hub (ISR 24 hr)
+ *   /watch/*                → Canonical video player pages with VideoObject schema
+ *
+ * DOMAIN NORMALIZATION:
+ *   Canonical domain: https://www.lusthub.web.id
+ *   Apex to WWW redirect: lusthub.web.id/* → https://www.lusthub.web.id/* (301)
  */
 import { MetadataRoute } from "next";
-
-
 
 export default function robots(): MetadataRoute.Robots {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
@@ -70,8 +65,7 @@ export default function robots(): MetadataRoute.Robots {
           "/?q=",
 
           // Paginated search results deep pages — low SEO value beyond page 1.
-          // Page 1 of /results?search_query=X is allowed and indexed.
-          // Deep pagination (?page=2+) wastes crawl budget.
+          // Page 1 of /results is allowed so crawlers process noindex, follow.
           "/results?page=",
         ],
       },

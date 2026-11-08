@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildSitemapSegment } from "@/lib/sitemap";
-
+import { buildSitemapXml } from "@/lib/sitemap";
 
 export async function GET(
   request: NextRequest,
@@ -9,26 +8,16 @@ export async function GET(
   try {
     const resolvedParams = await params;
     const segmentId = parseInt(resolvedParams.id, 10);
-    if (isNaN(segmentId)) {
+    if (isNaN(segmentId) || segmentId < 0) {
       return new NextResponse("Invalid segment ID", { status: 400 });
     }
 
-    const sitemapItems = await buildSitemapSegment(segmentId);
-    
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${sitemapItems.map((item) => `  <url>
-    <loc>${item.url}</loc>
-    ${item.lastModified ? `<lastmod>${new Date(item.lastModified).toISOString()}</lastmod>` : ""}
-    ${item.changeFrequency ? `<changefreq>${item.changeFrequency}</changefreq>` : ""}
-    ${item.priority !== undefined ? `<priority>${item.priority.toFixed(2)}</priority>` : ""}
-  </url>`).join("\n")}
-</urlset>`;
+    const xml = await buildSitemapXml(segmentId);
 
-    return new NextResponse(xml.trim(), {
+    return new NextResponse(xml, {
       status: 200,
       headers: {
-        "Content-Type": "application/xml",
+        "Content-Type": "application/xml; charset=utf-8",
         "Cache-Control": "public, max-age=43200, s-maxage=43200, stale-while-revalidate=86400",
       },
     });

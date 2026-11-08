@@ -105,12 +105,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Search results — fresh results expected, short cache
+        // Search results — fresh results expected, short cache, noindex header reinforcement
         source: "/results",
         headers: [
           {
             key: "Cache-Control",
             value: "public, s-maxage=300, stale-while-revalidate=3600",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, follow",
           },
         ],
       },

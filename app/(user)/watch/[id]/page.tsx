@@ -181,7 +181,7 @@ export default async function WatchVideoPage({
   //   - Wrong slug visits:  /watch/wrong-2fPfA79DdjL → 308 → /watch/step-sis-2fPfA79DdjL
   // Always a single redirect hop — no chains.
   if (slugParam !== canonicalParam) {
-    redirect(canonicalPath);
+    permanentRedirect(canonicalPath);
   }
 
   // REMOVED: syncVideoToDatabase() was previously triggered here on every
