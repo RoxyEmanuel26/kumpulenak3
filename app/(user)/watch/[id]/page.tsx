@@ -7,6 +7,7 @@ import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { slugify } from "@/lib/utils";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { getEnrichedVideo } from "@/lib/seo/enrichment-store";
 
 // ISR: Regenerate watch pages every 6 hours.
 // Video metadata (title, thumbnail, views) is very stable — rarely changes.
@@ -114,35 +115,49 @@ export async function generateMetadata({
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
   // Resolve best available thumbnail — matches the array logic in the page body.
-  // Prefer default_thumb, fall back to first entry in thumbs array, finally fallback to Eporner CDN.
   const thumbUrl =
     video.default_thumb?.src ||
     (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
     `https://pi.eporner.com/po/${video.id}/1.jpg`;
 
+  // Fetch enriched AI metadata if available (Fase 5C)
+  const enriched = await getEnrichedVideo(video.id);
+
+  const displayTitle = enriched?.seo_title || video.title;
+
   // Use AI SEO Description if available, otherwise fallback to template
-  const description = ('seoDescription' in video && video.seoDescription)
-    ? (video.seoDescription as string) 
-    : buildVideoDescription(video.title, video.keywords);
+  const description = enriched?.meta_description || 
+    (('seoDescription' in video && video.seoDescription)
+      ? (video.seoDescription as string) 
+      : buildVideoDescription(video.title, video.keywords));
+
+  // Indexing Gate (Fase 5D): If gate is active, only indexed if enriched
+  const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
+  const robots = isGateEnforced
+    ? enriched && enriched.status === "enriched"
+      ? { index: true, follow: true }
+      : { index: false, follow: true }
+    : { index: true, follow: true };
 
   return {
-    title: video.title,
+    title: displayTitle,
     description,
     // Canonical always points to the slug-based URL — never the bare ID URL
     alternates: {
       canonical: canonicalUrl,
     },
+    robots,
     openGraph: {
-      title: `${video.title} — LustHub`,
+      title: `${displayTitle} — LustHub`,
       description,
       type: "video.other",
       url: canonicalUrl,
       siteName: "LustHub",
-      ...(thumbUrl ? { images: [{ url: thumbUrl, width: 1280, height: 720, alt: video.title }] } : {}),
+      ...(thumbUrl ? { images: [{ url: thumbUrl, width: 1280, height: 720, alt: displayTitle }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
-      title: `${video.title} — LustHub`,
+      title: `${displayTitle} — LustHub`,
       description,
       ...(thumbUrl ? { images: [thumbUrl] } : {}),
     },
@@ -156,10 +171,6 @@ export default async function WatchVideoPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  // `slugParam` is the full Next.js [id] segment — could be:
-  //   "2fPfA79DdjL"                     (bare ID — legacy, redirect)
-  //   "random-text-2fPfA79DdjL"         (wrong slug — redirect)
-  //   "step-sis-caught-me-2fPfA79DdjL"  (canonical — render)
   const { id: slugParam } = await params;
   if (!slugParam) return notFound();
 
@@ -174,18 +185,15 @@ export default async function WatchVideoPage({
 
   // Build the canonical slug URL for this video
   const canonicalPath = buildWatchUrl(video.id, video.title);
-  // Derive the slug param portion from canonical path (strip leading "/watch/")
   const canonicalParam = canonicalPath.replace(/^\/watch\//, "");
 
   // ── Canonical Redirect ────────────────────────────────────────────────────
-  // If the current URL param doesn't exactly match the canonical slug param,
-  // issue a 308 Permanent Redirect. This handles:
-  //   - Bare ID visits:     /watch/2fPfA79DdjL  → 308 → /watch/step-sis-2fPfA79DdjL
-  //   - Wrong slug visits:  /watch/wrong-2fPfA79DdjL → 308 → /watch/step-sis-2fPfA79DdjL
-  // Always a single redirect hop — no chains.
   if (slugParam !== canonicalParam) {
     permanentRedirect(canonicalPath);
   }
+
+  // Fetch enriched AI metadata if available (Fase 5C)
+  const enriched = await getEnrichedVideo(video.id);
 
   // Fetch related videos using the first keyword for contextual relevance
   const keywords = video.keywords ? video.keywords.split(",") : [];
@@ -202,36 +210,15 @@ export default async function WatchVideoPage({
     .find(Boolean);
 
   // ── VideoObject JSON-LD ────────────────────────────────────────────────────────────────────────────
-  // Google Video Rich Results requirements:
-  //   Required:    name, description, thumbnailUrl (array), uploadDate
-  //   Recommended: duration, embedUrl, interactionStatistic, contentUrl
-  //
-  // contentUrl MUST be a direct MP4/WebM file URL, NOT an embed iframe URL.
-  // Since we use Eporner iframe embeds, we OMIT contentUrl entirely.
-  // Setting contentUrl = embedUrl (as previously done) causes:
-  //   - "Video tidak diproses" (GSC Video Indexing errors)
-  //   - Validation failures in Google Rich Results Test
-  //
-  // thumbnailUrl is now an ARRAY for maximum coverage:
-  //   Google prefers multiple thumbnails at different aspect ratios.
-  //   We provide up to 3 from Eporner's CDN (default + best from thumbs array).
-  //
-  // uploadDate: Eporner returns date strings (e.g. "2024-01-15 12:00:00").
-  // We parse and convert to strict ISO 8601 via .toISOString().
-
-  // Build thumbnail array — deduplicate and prefer highest resolution
   const thumbUrls: string[] = [];
   if (video.default_thumb?.src) thumbUrls.push(video.default_thumb.src);
   if (Array.isArray(video.thumbs)) {
-    // Add up to 2 additional unique thumbs (different sizes for Google)
     video.thumbs
       .filter((t) => t.src && t.src !== video.default_thumb?.src)
       .slice(0, 2)
       .forEach((t) => thumbUrls.push(t.src));
   }
   
-  // SEO Bulletproof Fallback: If DB failed to save thumbnails but video is active,
-  // predict the exact Eporner CDN path. Google requires at least one valid thumbnail.
   if (thumbUrls.length === 0) {
     thumbUrls.push(`https://pi.eporner.com/po/${video.id}/1.jpg`);
     thumbUrls.push(`https://pi.eporner.com/po/${video.id}/2.jpg`);
@@ -239,10 +226,11 @@ export default async function WatchVideoPage({
 
   const duration = toISO8601Duration(video.length_sec);
 
-  // Use AI SEO Description if available, otherwise fallback to template
-  const description = ('seoDescription' in video && video.seoDescription)
-    ? (video.seoDescription as string) 
-    : buildVideoDescription(video.title, video.keywords);
+  // Use Enriched AI Description if available, otherwise fallback to template
+  const description = enriched?.meta_description ||
+    (('seoDescription' in video && video.seoDescription)
+      ? (video.seoDescription as string) 
+      : buildVideoDescription(video.title, video.keywords));
     
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
@@ -255,28 +243,18 @@ export default async function WatchVideoPage({
   const videoSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
-    // @id links this node to BreadcrumbList and other graph entities
     "@id": `${canonicalUrl}#video`,
-    "name": video.title,
+    "name": enriched?.seo_title || video.title,
     "description": description,
-    // url: the watch page — where the user watches the video
     "url": canonicalUrl,
-    // embedUrl: Eporner iframe player (required for embedded video indexing)
-    // Google uses this to understand the video player for rich results.
-    // NOTE: contentUrl is intentionally OMITTED — it must be a direct MP4 URL,
-    // not an embed iframe. Setting it to embedUrl causes GSC validation errors.
     "embedUrl": (video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, ""),
-    // isFamilyFriendly: false signals adult content to Google.
-    // This prevents the video from appearing in SafeSearch results.
     "isFamilyFriendly": false,
-    // potentialAction: enables "Watch" sitelink in SERP
     "potentialAction": {
       "@type": "WatchAction",
       "target": canonicalUrl,
     },
   };
 
-  // thumbnailUrl: array of thumbnails — required by Google
   if (thumbUrls.length > 0) {
     videoSchema["thumbnailUrl"] = thumbUrls.length === 1 ? thumbUrls[0] : thumbUrls;
   }
@@ -292,8 +270,6 @@ export default async function WatchVideoPage({
   }
 
   // ── BreadcrumbList JSON-LD ─────────────────────────────────────────────
-  // Provides Google with structured breadcrumb data for rich results in SERP.
-  // Uses @id to reference VideoObject above — linked data graph for Google.
   const breadcrumbItems = [
     {
       "@type": "ListItem",
@@ -333,14 +309,35 @@ export default async function WatchVideoPage({
     "itemListElement": breadcrumbItems,
   };
 
+  // Bundle schemas into graph
+  const schemaList: Array<Record<string, unknown>> = [videoSchema, breadcrumbSchema];
+
+  // If FAQ was generated by Gemini, inject FAQPage schema
+  if (enriched?.faq && enriched.faq.length > 0) {
+    schemaList.push({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "@id": `${canonicalUrl}#faq`,
+      "mainEntity": enriched.faq.map((item) => ({
+        "@type": "Question",
+        "name": item.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": item.answer,
+        },
+      })),
+    });
+  }
+
   return (
     <>
-      {/* VideoObject & BreadcrumbList JSON-LD — server-side graph */}
-      <JsonLd data={[videoSchema, breadcrumbSchema]} />
+      {/* VideoObject, BreadcrumbList & optional FAQPage JSON-LD */}
+      <JsonLd data={schemaList} />
       <WatchPageClient 
         video={video as any} 
         relatedVideos={related} 
         primaryCategory={primaryCat ? { name: primaryCat.name, slug: primaryCat.slug } : null}
+        enriched={enriched}
       />
     </>
   );

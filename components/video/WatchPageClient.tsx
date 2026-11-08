@@ -18,6 +18,7 @@ import { TIER1_SLUGS } from "@/lib/category-config";
 import { ShareButton } from "./ShareButton";
 import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 import { buildWatchUrl } from "@/lib/video/slug";
+import type { EnrichedVideoData } from "@/lib/seo/enrichment-store";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
@@ -26,9 +27,10 @@ interface WatchPageClientProps {
   video: EpornerVideo;
   relatedVideos: EpornerVideo[];
   primaryCategory?: { name: string; slug: string } | null;
+  enriched?: EnrichedVideoData | null;
 }
 
-export function WatchPageClient({ video, relatedVideos, primaryCategory }: WatchPageClientProps) {
+export function WatchPageClient({ video, relatedVideos, primaryCategory, enriched }: WatchPageClientProps) {
   const { likedVideos, toggleLikeVideo, addToHistory } = useUI();
   const [isTheater, setIsTheater] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -224,6 +226,33 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory }: Watch
               <span>•</span>
               <span className="text-white">{formatVideoDate(video.added)}</span>
             </div>
+            
+            {/* Unique Enriched Content (Fase 5: AI Enrichment & Value Addition) */}
+            {enriched?.summary && (
+              <div className="mb-3 space-y-2 text-xs sm:text-sm text-[#F1F1F1] leading-relaxed">
+                <p className="font-normal">{enriched.summary}</p>
+                {enriched.highlights && enriched.highlights.length > 0 && (
+                  <ul className="mt-2 space-y-1 text-xs text-[#CCCCCC] list-disc list-inside">
+                    {enriched.highlights.map((h, i) => (
+                      <li key={i}>{h}</li>
+                    ))}
+                  </ul>
+                )}
+                {enriched.faq && enriched.faq.length > 0 && descExpanded && (
+                  <div className="mt-4 pt-3 border-t border-white/10 space-y-2 text-xs">
+                    <span className="font-bold text-muted-foreground uppercase font-mono tracking-wider">
+                      Frequently Asked Questions
+                    </span>
+                    {enriched.faq.map((item, idx) => (
+                      <div key={idx} className="bg-black/30 border border-white/5 p-2.5 rounded-lg space-y-1">
+                        <p className="font-semibold text-white">Q: {item.question}</p>
+                        <p className="text-muted-foreground">A: {item.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className={`text-xs sm:text-sm text-[#F1F1F1] leading-relaxed whitespace-pre-wrap ${!descExpanded ? "line-clamp-3" : ""}`}>
               {(descExpanded ? keywordsList : keywordsList.slice(0, 10)).map((tag, idx) => {

@@ -185,6 +185,8 @@ export function Sidebar() {
         <div className="p-6 text-[10px] text-muted-foreground/60 leading-relaxed mt-auto space-y-2">
           <div className="flex flex-wrap gap-x-2 gap-y-1">
             <Link href="/about" className="hover:underline">About</Link>
+                <span>•</span>
+                <Link href="/contact" className="hover:underline">Contact</Link>
             <span>•</span>
             <Link href="/privacy" className="hover:underline">Privacy</Link>
             <span>•</span>
@@ -285,6 +287,8 @@ export function Sidebar() {
             <div className="p-6 text-[10px] text-muted-foreground/50 mt-auto space-y-2">
               <div className="flex flex-wrap gap-x-2 gap-y-1">
                 <Link href="/about" className="hover:underline">About</Link>
+                <span>•</span>
+                <Link href="/contact" className="hover:underline">Contact</Link>
                 <span>•</span>
                 <Link href="/privacy" className="hover:underline">Privacy</Link>
                 <span>•</span>

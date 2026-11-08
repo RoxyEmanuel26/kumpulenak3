@@ -1,4 +1,4 @@
-﻿import { EpornerSearchResponse, EpornerVideo } from "../../types/eporner";
+import { EpornerSearchResponse, EpornerVideo } from "../../types/eporner";
 
 const BASE_URL = "https://www.eporner.com/api/v2/video";
 
@@ -92,7 +92,7 @@ export const EpornerAPI = {
     if (memHit) return memHit as EpornerSearchResponse;
 
     // next.revalidate = Next.js disk cache, persists across Pterodactyl restarts
-    const res = await fetch(url, { next: { revalidate: SEARCH_TTL } });
+    const res = await fetch(url, { next: { revalidate: SEARCH_TTL } } as any);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data: EpornerSearchResponse = await res.json();
     if (data && Array.isArray(data.videos)) {
@@ -110,7 +110,7 @@ export const EpornerAPI = {
       const memHit = getCache(url);
       if (memHit) return memHit as EpornerVideo;
 
-      const res = await fetch(url, { next: { revalidate: VIDEO_TTL } });
+      const res = await fetch(url, { next: { revalidate: VIDEO_TTL } } as any);
       if (!res.ok) return null;
       const data = await res.json();
       const video = (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;

@@ -166,6 +166,36 @@ export default async function UserHome({
           </nav>
         )}
 
+        {/* ── Curated Feed Tabs (5A: Hub Curations) ───────────────────────────
+             Provides one-click navigation between the core curated feeds:
+             Latest (Terbaru), Trending (Sedang Tren), and Most Popular (Paling Banyak Ditonton).
+        */}
+        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+            {[
+              { label: "Latest", value: "latest", href: "/" },
+              { label: "Trending", value: "top-weekly", href: "/?order=top-weekly" },
+              { label: "Most Popular", value: "most-popular", href: "/?order=most-popular" },
+              { label: "Top Rated", value: "top-monthly", href: "/?order=top-monthly" },
+            ].map((tab) => {
+              const isActive = order === tab.value;
+              return (
+                <Link
+                  key={tab.value}
+                  href={tab.href}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    isActive
+                      ? "bg-white text-black font-semibold shadow-xs"
+                      : "bg-[#1F1F1F] text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] border border-white/5"
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Grid Video Container */}
         <VideoGrid
           videos={videos}
