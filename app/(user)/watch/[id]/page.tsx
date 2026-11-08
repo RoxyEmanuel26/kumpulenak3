@@ -6,6 +6,7 @@ import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { slugify } from "@/lib/utils";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 // ISR: Regenerate watch pages every 6 hours.
 // Video metadata (title, thumbnail, views) is very stable — rarely changes.
@@ -186,11 +187,6 @@ export default async function WatchVideoPage({
     permanentRedirect(canonicalPath);
   }
 
-  // REMOVED: syncVideoToDatabase() was previously triggered here on every
-  // watch page render, causing excess function invocations.
-  // Video syncing is now handled exclusively by the /api/cron/sync endpoint
-  // which is called every 30 minutes via cron-job.org.
-
   // Fetch related videos using the first keyword for contextual relevance
   const keywords = video.keywords ? video.keywords.split(",") : [];
   const query = keywords.length > 0 ? keywords[0].trim() : "hd";
@@ -220,11 +216,8 @@ export default async function WatchVideoPage({
   //   Google prefers multiple thumbnails at different aspect ratios.
   //   We provide up to 3 from Eporner's CDN (default + best from thumbs array).
   //
-  // uploadDate: Eporner returns ISO 8601 strings (e.g. "2024-01-15T00:00:00+00:00").
-  // We pass it directly after validation to ensure it's always a valid date.
-  // 
-  // regionsAllowed is omitted to allow global indexing; if specific country 
-  // blocking is required, regionsAllowed: ["US", "CA"] would be used.
+  // uploadDate: Eporner returns date strings (e.g. "2024-01-15 12:00:00").
+  // We parse and convert to strict ISO 8601 via .toISOString().
 
   // Build thumbnail array — deduplicate and prefer highest resolution
   const thumbUrls: string[] = [];
@@ -244,10 +237,8 @@ export default async function WatchVideoPage({
     thumbUrls.push(`https://pi.eporner.com/po/${video.id}/2.jpg`);
   }
 
-  const thumbUrl = thumbUrls[0]; // Primary thumbnail for OG/Twitter
-
   const duration = toISO8601Duration(video.length_sec);
-  
+
   // Use AI SEO Description if available, otherwise fallback to template
   const description = ('seoDescription' in video && video.seoDescription)
     ? (video.seoDescription as string) 
@@ -257,7 +248,7 @@ export default async function WatchVideoPage({
 
   // Validate uploadDate — must be ISO 8601 for Google compliance
   const uploadDate = video.added && !isNaN(Date.parse(video.added))
-    ? video.added
+    ? new Date(video.added).toISOString()
     : undefined;
 
   // Build VideoObject — conditionally include optional fields
@@ -286,9 +277,6 @@ export default async function WatchVideoPage({
   };
 
   // thumbnailUrl: array of thumbnails — required by Google
-  // Google validates that thumbnail URLs are accessible (HTTP 200, non-empty image).
-  // If Eporner CDN is overloaded (hostload), Google logs "Thumbnail tidak dapat di-crawl".
-  // Providing multiple thumbnails increases the chance at least one is accessible.
   if (thumbUrls.length > 0) {
     videoSchema["thumbnailUrl"] = thumbUrls.length === 1 ? thumbUrls[0] : thumbUrls;
   }
@@ -338,7 +326,7 @@ export default async function WatchVideoPage({
     },
   ];
 
-  const breadcrumbSchema = {
+  const breadcrumbSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "@id": `${canonicalUrl}#breadcrumb`,
@@ -347,16 +335,8 @@ export default async function WatchVideoPage({
 
   return (
     <>
-      {/* VideoObject JSON-LD — server-side, invisible to users */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(videoSchema).replace(/</g, '\\u003c') }}
-      />
-      {/* BreadcrumbList JSON-LD — server-side, enables rich breadcrumbs in SERP */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
-      />
+      {/* VideoObject & BreadcrumbList JSON-LD — server-side graph */}
+      <JsonLd data={[videoSchema, breadcrumbSchema]} />
       <WatchPageClient 
         video={video as any} 
         relatedVideos={related} 

@@ -1,4 +1,3 @@
-
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
@@ -6,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { ContinueWatching } from "@/components/video/ContinueWatching";
-
+import { JsonLd } from "@/components/seo/JsonLd";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
@@ -43,8 +42,6 @@ export const metadata: Metadata = {
     images: ["/opengraph-image"],
   },
 };
-
-
 
 export default async function UserHome({
   searchParams,
@@ -125,10 +122,7 @@ export default async function UserHome({
   return (
     <>
       {/* JSON-LD — injected server-side, invisible to users */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
 
       <div className="px-4 py-3 space-y-6">
         {/* H1 — required for SEO; styled small and unobtrusive */}

@@ -5,8 +5,8 @@ import { ChevronLeft, ChevronRight, LayoutGrid } from "lucide-react";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import { getCategoryBySlug, TIER1_CATEGORIES } from "@/lib/category-config";
-
-
+import { buildWatchUrl } from "@/lib/video/slug";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
@@ -129,56 +129,66 @@ export default async function CategoryPage({
     return `/category/${slug}${qs ? `?${qs}` : ""}`;
   };
 
-  // ── JSON-LD ───────────────────────────────────────────────────────────────
+  // ── JSON-LD Structured Data Graph ─────────────────────────────────────────
   // BreadcrumbList mirrors the visible breadcrumb nav exactly — no content mismatch.
   // CollectionPage accurately describes this as a curated video collection.
+  // ItemList enumerates the video resources currently presented on this category view.
   const categoryUrl = `${SITE_URL}/category/${cat.slug}`;
-  const categoryJsonLd = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "CollectionPage",
-        "@id": `${categoryUrl}/#collectionpage`,
-        "name": cat.title,
-        "description": cat.description,
-        "url": categoryUrl,
-        "breadcrumb": { "@id": `${categoryUrl}/#breadcrumb` },
-        "isPartOf": { "@id": `${SITE_URL}/#website` },
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": `${categoryUrl}/#breadcrumb`,
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": SITE_URL,
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Categories",
-            "item": `${SITE_URL}/categories`,
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
-            "name": cat.name,
-            "item": categoryUrl,
-          },
-        ],
-      },
-    ],
-  };
+  const categoryJsonLd = [
+    {
+      "@type": "CollectionPage",
+      "@id": `${categoryUrl}/#collectionpage`,
+      "name": cat.title,
+      "description": cat.description,
+      "url": categoryUrl,
+      "breadcrumb": { "@id": `${categoryUrl}/#breadcrumb` },
+      "isPartOf": { "@id": `${SITE_URL}/#website` },
+      "mainEntity": { "@id": `${categoryUrl}/#itemlist` },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${categoryUrl}/#breadcrumb`,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": SITE_URL,
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Categories",
+          "item": `${SITE_URL}/categories`,
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": cat.name,
+          "item": categoryUrl,
+        },
+      ],
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${categoryUrl}/#itemlist`,
+      "name": cat.title,
+      "description": cat.description,
+      "url": categoryUrl,
+      "numberOfItems": videos.length,
+      "itemListElement": videos.map((v, idx) => ({
+        "@type": "ListItem",
+        "position": idx + 1,
+        "name": v.title,
+        "url": `${SITE_URL}${buildWatchUrl(v.id, v.title)}`,
+      })),
+    },
+  ];
 
   return (
     <>
-      {/* Category JSON-LD — server-side, injected before page content */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryJsonLd) }}
-      />
+      {/* Category JSON-LD graph — server-side */}
+      <JsonLd data={categoryJsonLd} />
 
       <div className="container mx-auto max-w-7xl px-4 py-6 space-y-8">
 
@@ -238,12 +248,8 @@ export default async function CategoryPage({
         </div>
       )}
 
-
-
       {/* ── Video Grid — Server Component renders initial HTML ──── */}
       <VideoGrid videos={videos} />
-
-
 
       {/* ── Pagination — clean path-based links ─────────────────── */}
       {totalPages > 1 && (

@@ -1,44 +1,68 @@
 import { Metadata } from "next";
+import { JsonLd } from "@/components/seo/JsonLd";
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Read the LustHub Privacy Policy regarding local storage, data handling, cookies, and third-party integrations.",
   alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"}/privacy`,
+    canonical: `${SITE_URL}/privacy`,
   },
 };
 
-
 export default function PrivacyPage() {
+  const breadcrumbLd = {
+    "@type": "BreadcrumbList",
+    "@id": `${SITE_URL}/privacy#breadcrumb`,
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Privacy Policy",
+        "item": `${SITE_URL}/privacy`,
+      },
+    ],
+  };
+
   return (
-    <div className="container mx-auto px-4 md:px-8 py-10 max-w-3xl text-left text-white space-y-6">
-      <h1 className="text-3xl font-extrabold bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent font-heading mb-4">
-        Privacy Policy
-      </h1>
-      
-      <p className="text-sm text-foreground/80 leading-relaxed">
-        Your privacy is important to us. We operate LustHub under privacy-by-design standards:
-      </p>
+    <>
+      <JsonLd data={breadcrumbLd} />
+      <div className="container mx-auto px-4 md:px-8 py-10 max-w-3xl text-left text-white space-y-6">
+        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-red-600 to-purple-500 bg-clip-text text-transparent font-heading mb-4">
+          Privacy Policy
+        </h1>
+        
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Your privacy is important to us. We operate LustHub under privacy-by-design standards:
+        </p>
 
-      <h2 className="text-xl font-bold mt-6 text-white/90">1. Local Configuration &amp; Storage</h2>
-      <p className="text-sm text-foreground/80 leading-relaxed">
-        Your video likes and watch history are stored entirely locally on your own device using 
-        browser-based <code className="bg-white/10 px-1 py-0.5 rounded text-xs">localStorage</code>. 
-        We do not collect, send, or sell this personalized data to external servers. You can clear this history anytime 
-        from the Library tab.
-      </p>
+        <h2 className="text-xl font-bold mt-6 text-white/90">1. Local Configuration &amp; Storage</h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          Your video likes and watch history are stored entirely locally on your own device using 
+          browser-based <code className="bg-white/10 px-1 py-0.5 rounded text-xs">localStorage</code>. 
+          We do not collect, send, or sell this personalized data to external servers. You can clear this history anytime 
+          from the Library tab.
+        </p>
 
-      <h2 className="text-xl font-bold mt-6 text-white/90">2. Cookies</h2>
-      <p className="text-sm text-foreground/80 leading-relaxed">
-        This platform does not set any tracking, advertising, or persistent session cookies. No third-party 
-        tracking scripts are embedded.
-      </p>
+        <h2 className="text-xl font-bold mt-6 text-white/90">2. Cookies</h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          This platform does not set any tracking, advertising, or persistent session cookies. No third-party 
+          tracking scripts are embedded.
+        </p>
 
-      <h2 className="text-xl font-bold mt-6 text-white/90">3. Third-Party Integrations</h2>
-      <p className="text-sm text-foreground/80 leading-relaxed">
-        All video streams utilize standard iframe embeds directly from original suppliers. Please refer to 
-        each platform&apos;s privacy policy for details on external player tracking.
-      </p>
-    </div>
+        <h2 className="text-xl font-bold mt-6 text-white/90">3. Third-Party Integrations</h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          All video streams utilize standard iframe embeds directly from original suppliers. Please refer to 
+          each platform&apos;s privacy policy for details on external player tracking.
+        </p>
+      </div>
+    </>
   );
 }

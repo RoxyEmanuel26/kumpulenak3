@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import { LayoutGrid } from "lucide-react";
 import { CategoriesClient } from "./CategoriesClient";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
@@ -98,55 +99,36 @@ const CATEGORY_MAPPING = [
   { name: "Small Tits", imageId: "50" },
   { name: "Sleep", imageId: "22" },
   { name: "Swinger", imageId: "32" },
-  { name: "Bukkake", imageId: "55" },
-  { name: "Uniform", imageId: "27" },
-  { name: "Striptease", imageId: "61" },
-  { name: "Handjob", imageId: "21" },
-  { name: "Bondage", imageId: "45" },
-  { name: "For Women", imageId: "64" },
-  { name: "Nurses", imageId: "41" },
-  { name: "Fisting", imageId: "56" },
-  { name: "HQ Porn", imageId: "69" },
-  { name: "Footjob", imageId: "40" },
-  { name: "HD Sex", imageId: "70" },
-  { name: "Bisexual", imageId: "46" },
-  { name: "ASMR", imageId: "31" },
-  { name: "Doctor", imageId: "34" },
-  { name: "Indonesia", imageId: "80" },
-  { name: "Stepmom", imageId: "84" },
-  { name: "Compilation", imageId: "75" },
-  { name: "Cuckold", imageId: "77" },
-  { name: "Stepsister", imageId: "85" },
-  { name: "AI", imageId: "73" },
-  { name: "Casting", imageId: "74" },
-  { name: "Cosplay", imageId: "76" },
-  { name: "Hotwife", imageId: "79" },
-  { name: "PAWG", imageId: "81" },
-  { name: "Pregnant", imageId: "83" },
-  { name: "Pinay", imageId: "82" },
-  { name: "Gloryhole", imageId: "78" }
+  { name: "Tattoo", imageId: "46" },
+  { name: "Fisting", imageId: "34" },
+  { name: "Romantic", imageId: "55" },
+  { name: "Casting", imageId: "21" },
+  { name: "Pissing", imageId: "14" },
+  { name: "Striptease", imageId: "41" },
+  { name: "Squirting", imageId: "61" },
+  { name: "Smoking", imageId: "40" },
+  { name: "Behind The Scenes", imageId: "64" },
+  { name: "Compilation", imageId: "27" },
+  { name: "Interviews", imageId: "45" },
+  { name: "Solo Male", imageId: "56" }
 ];
 
 export default async function CategoriesPage() {
-  // Retrieve categories from the database directly using neon HTTP to avoid Prisma build edge-runtime bundling issues
+  // Gracefully attempt DB lookup for video counts; fall back to static list on error.
+  // Categories page MUST render even if the external PostgreSQL database is unreachable.
   let dbCategories: { name: string; count: number }[] = [];
   try {
-        const rawCategories = await sql`
-      SELECT c.name, COUNT(vc."videoId") as count
-      FROM "Category" c
-      LEFT JOIN "VideoCategory" vc ON c.id = vc."categoryId"
-      GROUP BY c.id
-      ORDER BY c.name ASC
+    const rawCategories = await sql`
+      SELECT name, count 
+      FROM categories 
+      ORDER BY name ASC
     `;
-    
-    dbCategories = rawCategories.map(row => ({
-      name: row.name as string,
-      count: parseInt(row.count as string, 10) || 0
-    }));
+    dbCategories = (rawCategories as unknown) as { name: string; count: number }[];
   } catch (err) {
-    console.error("Categories SQL fetch failed:", err);
+    console.warn("[CategoriesPage] Database query failed, falling back to static mapping:", err);
   }
 
+  // Clone mapping as base
   const categoryList = [...CATEGORY_MAPPING];
 
   // Add DB categories if they are not in the mapping list
@@ -184,46 +166,71 @@ export default async function CategoriesPage() {
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
-  // ── ItemList JSON-LD ──────────────────────────────────────────────────────
+  // ── JSON-LD Structured Data Graph ─────────────────────────────────────────
+  // Combines CollectionPage, BreadcrumbList, and ItemList into a linked schema graph.
   // Enumerates all Tier-1 category pages that have dedicated SEO-optimized routes.
   // Helps Google understand /categories as a navigational hub.
-  // Only includes categories with real canonical /category/{slug} pages (Tier-1).
-  const categoriesJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    "name": "Adult Video Categories — LustHub",
-    "description": "Browse all adult video categories on LustHub — free HD porn organized by type.",
-    "url": `${SITE_URL}/categories`,
-    "numberOfItems": TIER1_CATEGORIES.length,
-    "itemListElement": TIER1_CATEGORIES.map((cat, index) => ({
-      "@type": "ListItem",
-      "position": index + 1,
-      "name": cat.name,
-      "url": `${SITE_URL}/category/${cat.slug}`,
-    })),
-  };
+  const categoriesJsonLd = [
+    {
+      "@type": "CollectionPage",
+      "@id": `${SITE_URL}/categories#collection`,
+      "name": "Browse All Adult Video Categories",
+      "description": "Browse all porn video categories on LustHub. Find exactly what you're looking for — free HD porn organized by category.",
+      "url": `${SITE_URL}/categories`,
+      "breadcrumb": { "@id": `${SITE_URL}/categories#breadcrumb` },
+      "isPartOf": { "@id": `${SITE_URL}/#website` },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${SITE_URL}/categories#breadcrumb`,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": SITE_URL,
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Categories",
+          "item": `${SITE_URL}/categories`,
+        },
+      ],
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${SITE_URL}/categories#itemlist`,
+      "name": "Adult Video Categories — LustHub",
+      "description": "Browse all adult video categories on LustHub — free HD porn organized by type.",
+      "url": `${SITE_URL}/categories`,
+      "numberOfItems": TIER1_CATEGORIES.length,
+      "itemListElement": TIER1_CATEGORIES.map((cat, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "name": cat.name,
+        "url": `${SITE_URL}/category/${cat.slug}`,
+      })),
+    },
+  ];
 
   return (
     <>
-      {/* ItemList JSON-LD — server-side, invisible to users */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoriesJsonLd) }}
-      />
-    <div className="container mx-auto max-w-7xl px-4 py-6 space-y-6">
-      <div className="border-b border-white/5 pb-4 text-left">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <LayoutGrid className="h-5 w-5 text-red-500" />
-          Browse Categories
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1 font-mono">
-          Explore all {finalCategories.length} media classification channels
-        </p>
+      {/* Categories JSON-LD graph — server-side */}
+      <JsonLd data={categoriesJsonLd} />
+      <div className="container mx-auto max-w-7xl px-4 py-6 space-y-6">
+        <div className="border-b border-white/5 pb-4 text-left">
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <LayoutGrid className="h-5 w-5 text-red-500" />
+            Browse Categories
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1 font-mono">
+            Explore all {finalCategories.length} media classification channels
+          </p>
+        </div>
+
+        <CategoriesClient categories={finalCategories} />
       </div>
-
-      <CategoriesClient categories={finalCategories} />
-
-    </div>
     </>
   );
 }
