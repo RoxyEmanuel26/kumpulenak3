@@ -77,9 +77,17 @@ async function runEnrichment() {
     queue.push(candidate);
   }
 
-  console.log(`📋 Queued for enrichment: ${queue.length} videos`);
+  // Support --limit=N CLI flag
+  const limitArg = process.argv.find((arg) => arg.startsWith("--limit="));
+  const maxVideosToProcess = limitArg
+    ? parseInt(limitArg.split("=")[1], 10)
+    : parseInt(process.env.SEO_ENRICH_LIMIT || "0", 10);
 
-  if (queue.length === 0) {
+  const targetQueue = maxVideosToProcess > 0 ? queue.slice(0, maxVideosToProcess) : queue;
+
+  console.log(`📋 Queued for enrichment: ${queue.length} videos (processing up to: ${targetQueue.length})`);
+
+  if (targetQueue.length === 0) {
     console.log("✨ All candidate videos are already enriched and up-to-date. Done!");
     process.exit(0);
   }
@@ -89,13 +97,13 @@ async function runEnrichment() {
   let totalFailed = 0;
   let requestCount = 0;
 
-  for (let i = 0; i < queue.length; i += batchSize) {
+  for (let i = 0; i < targetQueue.length; i += batchSize) {
     if (requestCount >= dailyLimit) {
       console.warn(`\n🛑 Daily request limit reached (${dailyLimit} requests). Pausing until next cycle.`);
       break;
     }
 
-    const batch = queue.slice(i, i + batchSize);
+    const batch = targetQueue.slice(i, i + batchSize);
     requestCount++;
     console.log(`\n⚡ Processing Batch ${requestCount} (${batch.length} videos: ${batch.map((b) => b.id).join(", ")})...`);
 
