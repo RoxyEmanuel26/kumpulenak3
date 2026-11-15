@@ -51,49 +51,181 @@ function ensureStoreExists(): Record<string, EnrichedVideoData> {
   }
 }
 
-/** Retrieves enriched data for a given video ID from local store or database */
+/** Parses a JSONB array column that may arrive as an array or JSON string */
+function parseJsonArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+/** Maps a PostgreSQL SeoEnrichment row into EnrichedVideoData */
+function mapDbRowToEnriched(row: Record<string, unknown>): EnrichedVideoData {
+  const generatedAt =
+    row.generatedAt instanceof Date
+      ? row.generatedAt.toISOString()
+      : typeof row.generatedAt === "string"
+        ? row.generatedAt
+        : new Date().toISOString();
+
+  return {
+    video_id: row.videoId as string,
+    source_hash: (row.sourceHash as string) || "",
+    seo_title: (row.seoTitle as string) || "",
+    meta_description: (row.metaDescription as string) || "",
+    summary: (row.summary as string) || "",
+    highlights: parseJsonArray<string>(row.highlights),
+    tags: parseJsonArray<string>(row.tags),
+    faq: parseJsonArray<EnrichedFaqItem>(row.faq),
+    status: (row.status as EnrichedVideoData["status"]) || "pending",
+    model: (row.model as string) || "unknown",
+    generated_at: generatedAt,
+    attempts: Number(row.attempts) || 1,
+    ...(row.rejectionReason ? { rejection_reason: row.rejectionReason as string } : {}),
+  };
+}
+
+/**
+ * Retrieves enriched data for a given video ID.
+ * Priority: Neon PostgreSQL (SeoEnrichment) -> local JSON store -> legacy Video.aiDescription.
+ */
 export async function getEnrichedVideo(videoId: string): Promise<EnrichedVideoData | null> {
-  // 1. Try in-memory / local JSON store first (zero latency)
+  const hasDb = Boolean(process.env.DATABASE_URL);
+
+  // 1. Try Neon PostgreSQL SeoEnrichment table first (live cloud state, zero-restart sync)
+  if (hasDb) {
+    try {
+      const rows = await sql`
+        SELECT "videoId", "sourceHash", "seoTitle", "metaDescription", summary,
+               highlights, tags, faq, status, model, "generatedAt", attempts, "rejectionReason"
+        FROM "SeoEnrichment"
+        WHERE "videoId" = ${videoId} AND status = 'enriched'
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0) {
+        return mapDbRowToEnriched(rows[0] as Record<string, unknown>);
+      }
+    } catch {
+      // Table may not exist yet (42P01) or DB temporarily unreachable — fallback to JSON store
+    }
+  }
+
+  // 2. Fallback to local JSON store (bundled baseline / offline fallback)
   const store = ensureStoreExists();
   if (store[videoId] && store[videoId].status === "enriched") {
     return store[videoId];
   }
 
-  // 2. Try PostgreSQL database if available
-  try {
-    const rows = await sql`
-      SELECT id, "aiDescription"
-      FROM "Video"
-      WHERE id = ${videoId} AND "aiDescription" IS NOT NULL
-      LIMIT 1
-    `;
-    if (rows && rows.length > 0 && rows[0].aiDescription) {
-      // Return synthetic enriched object if DB has legacy aiDescription
-      const aiDesc = rows[0].aiDescription as string;
-      return {
-        video_id: videoId,
-        source_hash: "db_legacy",
-        seo_title: "",
-        meta_description: aiDesc.slice(0, 155),
-        summary: aiDesc,
-        highlights: [],
-        tags: [],
-        faq: [],
-        status: "enriched",
-        model: "db-persisted",
-        generated_at: new Date().toISOString(),
-        attempts: 1,
-      };
+  // 3. Legacy fallback to Video.aiDescription if available
+  if (hasDb) {
+    try {
+      const rows = await sql`
+        SELECT id, "aiDescription"
+        FROM "Video"
+        WHERE id = ${videoId} AND "aiDescription" IS NOT NULL
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0 && rows[0].aiDescription) {
+        const aiDesc = rows[0].aiDescription as string;
+        return {
+          video_id: videoId,
+          source_hash: "db_legacy",
+          seo_title: "",
+          meta_description: aiDesc.slice(0, 155),
+          summary: aiDesc,
+          highlights: [],
+          tags: [],
+          faq: [],
+          status: "enriched",
+          model: "db-persisted",
+          generated_at: new Date().toISOString(),
+          attempts: 1,
+        };
+      }
+    } catch {
+      // Database unreachable
     }
-  } catch {
-    // Database unreachable; fallback smoothly to JSON store
   }
 
-  return store[videoId] || null;
+  return null;
 }
 
-/** Saves an enriched video record to local JSON store and attempts DB sync */
+/** Upserts a single EnrichedVideoData record into Neon PostgreSQL */
+async function upsertEnrichedRecordToDb(record: EnrichedVideoData): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return false;
+
+  try {
+    const generatedAtIso =
+      record.generated_at && !isNaN(Date.parse(record.generated_at))
+        ? new Date(record.generated_at).toISOString()
+        : new Date().toISOString();
+
+    await sql`
+      INSERT INTO "SeoEnrichment" (
+        "videoId", "sourceHash", "seoTitle", "metaDescription", summary,
+        highlights, tags, faq, status, model, "generatedAt", attempts,
+        "rejectionReason", "updatedAt"
+      ) VALUES (
+        ${record.video_id},
+        ${record.source_hash},
+        ${record.seo_title},
+        ${record.meta_description},
+        ${record.summary},
+        ${JSON.stringify(record.highlights)}::jsonb,
+        ${JSON.stringify(record.tags)}::jsonb,
+        ${JSON.stringify(record.faq)}::jsonb,
+        ${record.status},
+        ${record.model},
+        ${generatedAtIso}::timestamp,
+        ${record.attempts},
+        ${record.rejection_reason ?? null},
+        NOW()
+      )
+      ON CONFLICT ("videoId") DO UPDATE SET
+        "sourceHash" = EXCLUDED."sourceHash",
+        "seoTitle" = EXCLUDED."seoTitle",
+        "metaDescription" = EXCLUDED."metaDescription",
+        summary = EXCLUDED.summary,
+        highlights = EXCLUDED.highlights,
+        tags = EXCLUDED.tags,
+        faq = EXCLUDED.faq,
+        status = EXCLUDED.status,
+        model = EXCLUDED.model,
+        "generatedAt" = EXCLUDED."generatedAt",
+        attempts = EXCLUDED.attempts,
+        "rejectionReason" = EXCLUDED."rejectionReason",
+        "updatedAt" = NOW()
+    `;
+  } catch (err) {
+    console.warn("[enrichment-store] Failed to sync SeoEnrichment to DB:", (err as Error).message);
+    return false;
+  }
+
+  // Keep legacy Video.aiDescription synced if video already exists in Video table
+  if (record.status === "enriched") {
+    try {
+      await sql`
+        UPDATE "Video"
+        SET "aiDescription" = ${record.summary}
+        WHERE id = ${record.video_id}
+      `;
+    } catch {
+      // Non-fatal if Video table does not have this ID yet
+    }
+  }
+
+  return true;
+}
+
+/** Saves an enriched video record to Neon PostgreSQL (primary) and local JSON store */
 export async function saveEnrichedVideo(record: EnrichedVideoData): Promise<void> {
+  // 1. Persist to local JSON store (non-fatal if running in read-only environment)
   const store = ensureStoreExists();
   store[record.video_id] = record;
 
@@ -103,21 +235,42 @@ export async function saveEnrichedVideo(record: EnrichedVideoData): Promise<void
     }
     fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
   } catch (err) {
-    console.error("[enrichment-store] Failed to write to JSON store:", err);
+    console.warn("[enrichment-store] Could not write to local JSON store:", err);
   }
 
-  // Attempt database sync if connected and status is enriched
-  if (record.status === "enriched") {
-    try {
-      await sql`
-        UPDATE "Video"
-        SET "aiDescription" = ${record.summary}
-        WHERE id = ${record.video_id}
-      `;
-    } catch {
-      // Non-fatal if database is currently unreachable
+  // 2. Persist full structured enrichment to Neon PostgreSQL
+  await upsertEnrichedRecordToDb(record);
+}
+
+/**
+ * Backfills any records present in local data/seo-enrichment.json that do not yet
+ * exist in Neon PostgreSQL SeoEnrichment table. No-ops cleanly once in sync.
+ */
+export async function syncLocalStoreToDb(): Promise<{ synced: number; skipped: number }> {
+  if (!process.env.DATABASE_URL) return { synced: 0, skipped: 0 };
+
+  const store = ensureStoreExists();
+  const records = Object.values(store);
+  if (records.length === 0) return { synced: 0, skipped: 0 };
+
+  let existingIds = new Set<string>();
+  try {
+    const rows = await sql`SELECT "videoId" FROM "SeoEnrichment"`;
+    existingIds = new Set(rows.map((r) => r.videoId as string));
+  } catch (err) {
+    console.warn("[enrichment-store] Skipping backfill, DB query failed:", (err as Error).message);
+    return { synced: 0, skipped: records.length };
+  }
+
+  const missing = records.filter((r) => !existingIds.has(r.video_id));
+  let synced = 0;
+  for (const record of missing) {
+    if (await upsertEnrichedRecordToDb(record)) {
+      synced++;
     }
   }
+
+  return { synced, skipped: records.length - synced };
 }
 
 /** Retrieves all records from the local store */
@@ -125,9 +278,31 @@ export function getAllEnrichedVideos(): Record<string, EnrichedVideoData> {
   return ensureStoreExists();
 }
 
-/** Summarizes statistics for indexing gates and progress reporting */
-export function getEnrichmentStats() {
-  const store = ensureStoreExists();
+/** Retrieves all records merged from local JSON store and Neon PostgreSQL (DB wins) */
+export async function getAllEnrichedVideosAsync(): Promise<Record<string, EnrichedVideoData>> {
+  const merged: Record<string, EnrichedVideoData> = { ...ensureStoreExists() };
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const rows = await sql`
+        SELECT "videoId", "sourceHash", "seoTitle", "metaDescription", summary,
+               highlights, tags, faq, status, model, "generatedAt", attempts, "rejectionReason"
+        FROM "SeoEnrichment"
+      `;
+      for (const row of rows) {
+        const mapped = mapDbRowToEnriched(row as Record<string, unknown>);
+        merged[mapped.video_id] = mapped;
+      }
+    } catch {
+      // Fallback safely to local store if table not created or DB unavailable
+    }
+  }
+
+  return merged;
+}
+
+/** Computes summary statistics from an enrichment map */
+export function computeEnrichmentStats(store: Record<string, EnrichedVideoData>) {
   const values = Object.values(store);
 
   return {
@@ -137,4 +312,24 @@ export function getEnrichmentStats() {
     rejected: values.filter((v) => v.status === "rejected").length,
     failed: values.filter((v) => v.status === "failed").length,
   };
+}
+
+/** Summarizes statistics for indexing gates and progress reporting (local store) */
+export function getEnrichmentStats() {
+  return computeEnrichmentStats(ensureStoreExists());
+}
+
+/** Summarizes statistics across local store + Neon PostgreSQL */
+export async function getEnrichmentStatsAsync() {
+  return computeEnrichmentStats(await getAllEnrichedVideosAsync());
+}
+
+/** Gracefully closes DB pool for standalone CLI scripts so Node exits immediately */
+export async function closeEnrichmentDb(): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    await sql.end({ timeout: 5 });
+  } catch {
+    // Ignore close errors
+  }
 }

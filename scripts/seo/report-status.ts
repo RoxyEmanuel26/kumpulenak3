@@ -1,16 +1,18 @@
+import "dotenv/config";
 import { 
-  getEnrichmentStats, 
-  getAllEnrichedVideos,
+  computeEnrichmentStats,
+  getAllEnrichedVideosAsync,
+  closeEnrichmentDb,
   EnrichedVideoData 
 } from "../../lib/seo/enrichment-store";
 
-function runReport() {
+async function runReport() {
   console.log("==================================================");
   console.log("📊 LustHub SEO Indexing & Quality Status Report 📊");
   console.log("==================================================\n");
 
-  const stats = getEnrichmentStats();
-  const store: Record<string, EnrichedVideoData> = getAllEnrichedVideos();
+  const store: Record<string, EnrichedVideoData> = await getAllEnrichedVideosAsync();
+  const stats = computeEnrichmentStats(store);
   const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
 
   console.log("🛡️  Indexing Policy (Quality Gate):");
@@ -51,4 +53,11 @@ function runReport() {
   console.log("==================================================\n");
 }
 
-runReport();
+runReport()
+  .catch((err) => {
+    console.error("Fatal error during SEO report:", err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await closeEnrichmentDb();
+  });

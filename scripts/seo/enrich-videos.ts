@@ -1,8 +1,10 @@
+import "dotenv/config";
 import { EpornerAPI } from "../../lib/api/eporner";
 import { 
-  getAllEnrichedVideos, 
+  getAllEnrichedVideosAsync,
+  syncLocalStoreToDb,
+  closeEnrichmentDb,
   computeSourceHash,
-  EnrichedVideoData 
 } from "../../lib/seo/enrichment-store";
 import { 
   processBatchWithGemini, 
@@ -20,7 +22,7 @@ async function runEnrichment() {
     console.log("   To run AI enrichment against live Gemini API, provide GEMINI_API_KEY.");
     console.log("   Example: GEMINI_API_KEY=AIzaSy... npm run seo:enrich\n");
     console.log("   Existing videos will continue serving default metadata safely.\n");
-    process.exit(0);
+    return;
   }
 
   const batchSize = parseInt(process.env.GEMINI_BATCH_SIZE || "5", 10);
@@ -30,10 +32,18 @@ async function runEnrichment() {
   console.log(`   - Model: ${process.env.GEMINI_MODEL || "gemini-3.5-flash"}`);
   console.log(`   - Batch Size: ${batchSize} videos / request`);
   console.log(`   - Daily Request Quota Limit: ${dailyLimit}`);
+  console.log(`   - Storage: ${process.env.DATABASE_URL ? "Neon PostgreSQL + Local JSON fallback" : "Local JSON store only"}`);
+
+  if (process.env.DATABASE_URL) {
+    const syncRes = await syncLocalStoreToDb();
+    if (syncRes.synced > 0) {
+      console.log(`\n🔄 Backfilled ${syncRes.synced} existing JSON record(s) into Neon DB.`);
+    }
+  }
 
   // Fetch top viewed & popular videos to prioritize high-traffic pages first
   console.log("\n📡 Fetching candidate videos from catalog...");
-  const existingStore = getAllEnrichedVideos();
+  const existingStore = await getAllEnrichedVideosAsync();
 
   const [popularRes, weeklyRes, latestRes] = await Promise.all([
     EpornerAPI.search({ order: "most-popular", per_page: 50 }),
@@ -89,7 +99,7 @@ async function runEnrichment() {
 
   if (targetQueue.length === 0) {
     console.log("✨ All candidate videos are already enriched and up-to-date. Done!");
-    process.exit(0);
+    return;
   }
 
   let totalEnriched = 0;
@@ -127,7 +137,11 @@ async function runEnrichment() {
   console.log("==================================================\n");
 }
 
-runEnrichment().catch((err) => {
-  console.error("Fatal error during enrichment run:", err);
-  process.exit(1);
-});
+runEnrichment()
+  .catch((err) => {
+    console.error("Fatal error during enrichment run:", err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await closeEnrichmentDb();
+  });

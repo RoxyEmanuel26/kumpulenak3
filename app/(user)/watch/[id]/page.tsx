@@ -47,6 +47,8 @@ function buildVideoDescription(title: string, keywords: string | undefined): str
 
 import { sql } from "@/lib/db";
 
+const getCachedEnrichedVideo = cache(getEnrichedVideo);
+
 const getCachedVideoById = cache(async (id: string) => {
   try {
     // We select status to check if it's explicitly marked as REMOVED/DRAFT
@@ -127,7 +129,7 @@ export async function generateMetadata({
     `https://pi.eporner.com/po/${video.id}/1.jpg`;
 
   // Fetch enriched AI metadata if available (Fase 5C)
-  const enriched = await getEnrichedVideo(video.id);
+  const enriched = await getCachedEnrichedVideo(video.id);
 
   const displayTitle = enriched?.seo_title || video.title;
 
@@ -199,7 +201,7 @@ export default async function WatchVideoPage({
   }
 
   // Fetch enriched AI metadata if available (Fase 5C)
-  const enriched = await getEnrichedVideo(video.id);
+  const enriched = await getCachedEnrichedVideo(video.id);
 
   // Fetch related videos using the first keyword for contextual relevance
   const keywords = video.keywords ? video.keywords.split(",") : [];

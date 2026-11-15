@@ -94,3 +94,22 @@ model Settings {
   value     String   // JSON stringified value
   updatedAt DateTime @updatedAt
 }
+
+model SeoEnrichment {
+  videoId         String   @id
+  sourceHash      String
+  seoTitle        String
+  metaDescription String
+  summary         String
+  highlights      Json
+  tags            Json
+  faq             Json
+  status          String
+  model           String
+  generatedAt     DateTime
+  attempts        Int      @default(1)
+  rejectionReason String?
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+}

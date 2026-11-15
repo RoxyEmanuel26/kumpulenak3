@@ -153,9 +153,9 @@ Strict Editorial Guidelines:
         }),
       });
 
-      if (res.status === 429) {
+      if (res.status === 429 || res.status === 503) {
         const delay = Math.pow(2, attempts) * 1000;
-        console.warn(`[GeminiEnricher] Rate limit (429) encountered. Retrying in ${delay / 1000}s...`);
+        console.warn(`[GeminiEnricher] Transient HTTP ${res.status} encountered. Retrying in ${delay / 1000}s...`);
         await new Promise((r) => setTimeout(r, delay));
         continue;
       }
