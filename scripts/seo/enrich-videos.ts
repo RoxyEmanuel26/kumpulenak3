@@ -1,5 +1,7 @@
 import "dotenv/config";
 import { EpornerAPI } from "../../lib/api/eporner";
+import { TIER1_CATEGORIES } from "../../lib/category-config";
+import type { EpornerVideo } from "../../types/eporner";
 import { 
   getAllEnrichedVideosAsync,
   syncLocalStoreToDb,
@@ -41,21 +43,17 @@ async function runEnrichment() {
     }
   }
 
-  // Fetch top viewed & popular videos to prioritize high-traffic pages first
-  console.log("\n📡 Fetching candidate videos from catalog...");
+  // Fetch live homepage & Tier-1 category page-1 videos FIRST (highest crawl frequency
+  // in GSC), followed by broad popular/weekly/latest feeds for depth.
+  console.log("\n📡 Fetching candidate videos (Homepage + 16 Tier-1 categories first)...");
   const existingStore = await getAllEnrichedVideosAsync();
-
-  const [popularRes, weeklyRes, latestRes] = await Promise.all([
-    EpornerAPI.search({ order: "most-popular", per_page: 50 }),
-    EpornerAPI.search({ order: "top-weekly", per_page: 50 }),
-    EpornerAPI.search({ order: "latest", per_page: 50 }),
-  ]);
 
   const candidateMap = new Map<string, VideoInputItem>();
 
-  const ingest = (videos: any[]) => {
+  const ingest = (videos: EpornerVideo[] | undefined) => {
+    if (!Array.isArray(videos)) return;
     for (const v of videos) {
-      if (!candidateMap.has(v.id)) {
+      if (v?.id && !candidateMap.has(v.id)) {
         candidateMap.set(v.id, {
           id: v.id,
           title: v.title,
@@ -67,9 +65,48 @@ async function runEnrichment() {
     }
   };
 
-  ingest(popularRes?.videos || []);
-  ingest(weeklyRes?.videos || []);
-  ingest(latestRes?.videos || []);
+  // 1. Homepage page 1 (exact params used by app/(user)/page.tsx)
+  const homeRes = await EpornerAPI.search({
+    query: "all",
+    page: 1,
+    per_page: 30,
+    order: "latest",
+    lq: 1,
+  }).catch(() => null);
+  ingest(homeRes?.videos);
+
+  // 2. All Tier-1 category page 1s (exact params used by app/(user)/category/[slug]/page.tsx)
+  const CAT_CONCURRENCY = 4;
+  for (let i = 0; i < TIER1_CATEGORIES.length; i += CAT_CONCURRENCY) {
+    const chunk = TIER1_CATEGORIES.slice(i, i + CAT_CONCURRENCY);
+    const catResults = await Promise.all(
+      chunk.map((cat) =>
+        EpornerAPI.search({
+          query: cat.name,
+          page: 1,
+          per_page: 30,
+          order: "latest",
+        }).catch(() => null)
+      )
+    );
+    for (const res of catResults) {
+      ingest(res?.videos);
+    }
+    if (i + CAT_CONCURRENCY < TIER1_CATEGORIES.length) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+
+  // 3. Broad popular, weekly & latest feeds
+  const [popularRes, weeklyRes, latestRes] = await Promise.all([
+    EpornerAPI.search({ order: "most-popular", per_page: 50 }).catch(() => null),
+    EpornerAPI.search({ order: "top-weekly", per_page: 50 }).catch(() => null),
+    EpornerAPI.search({ order: "latest", per_page: 50 }).catch(() => null),
+  ]);
+
+  ingest(popularRes?.videos);
+  ingest(weeklyRes?.videos);
+  ingest(latestRes?.videos);
 
   const allCandidates = Array.from(candidateMap.values());
   console.log(`🔍 Total unique candidate videos gathered: ${allCandidates.length}`);

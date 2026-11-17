@@ -1,13 +1,10 @@
 /**
- * app/(user)/loading.tsx
+ * app/(user)/results/loading.tsx
  *
- * Next.js Suspense streaming skeleton for all (user) routes.
- * Shown immediately during SSR while the page data is being fetched,
- * eliminating blank-screen flash and reducing Cumulative Layout Shift (CLS).
- *
- * This is a Server Component — no "use client" needed.
- * Next.js automatically wraps the page in a Suspense boundary and shows
- * this loading UI until the page's async data resolves.
+ * Next.js Suspense streaming skeleton scoped specifically to /results search pages.
+ * Keeping loading.tsx out of app/(user)/ ensures routes that call notFound() or
+ * permanentRedirect() (/watch/[id], /watch, /category/[slug]) emit real HTTP 404
+ * and 308 status headers instead of streaming HTTP 200 with injected `noindex` tags.
  */
 
 export default function Loading() {

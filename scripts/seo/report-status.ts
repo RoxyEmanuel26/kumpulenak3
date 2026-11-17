@@ -15,14 +15,13 @@ async function runReport() {
   const stats = computeEnrichmentStats(store);
   const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
 
-  console.log("🛡️  Indexing Policy (Quality Gate):");
-  console.log(`   - ENFORCE_INDEXING_GATE: ${isGateEnforced ? "ENABLED (Strict Quality Gate)" : "DISABLED (Permissive Growth Mode)"}`);
+  console.log("🛡️  Sitemap Indexing Policy (ENFORCE_INDEXING_GATE):");
+  console.log(`   - ENFORCE_INDEXING_GATE: ${isGateEnforced ? "ENABLED (Curated Sitemap Mode)" : "DISABLED (Full Active Sitemap Mode)"}`);
+  console.log("   -> Watch pages always emit 'index, follow' (never self-noindex).");
   if (isGateEnforced) {
-    console.log("   -> Only videos with status 'enriched' emit 'index, follow'.");
-    console.log("   -> Un-enriched/thin videos emit 'noindex, follow' to prevent soft-404 penalties.");
+    console.log("   -> Video sitemap (/sitemap/1.xml) only submits videos enriched in SeoEnrichment.");
   } else {
-    console.log("   -> All catalog videos emit 'index, follow' to protect initial organic reach");
-    console.log("      until the first major enrichment batch completes.");
+    console.log("   -> Video sitemap submits all active, non-spam videos in the DB.");
   }
 
   console.log("\n📈 Video Quality Breakdown:");
@@ -44,11 +43,11 @@ async function runReport() {
 
   console.log("\n💡 Next Recommended Actions:");
   if (stats.enriched < 200) {
-    console.log(`   • Run 'npm run seo:enrich' with GEMINI_API_KEY to enrich the top 200 videos.`);
-    console.log(`   • Keep ENFORCE_INDEXING_GATE=false until at least 200 high-traffic videos are enriched.`);
+    console.log(`   • Run 'npm run seo:enrich' with GEMINI_API_KEY to enrich homepage & Tier-1 categories.`);
+    console.log(`   • Set ENFORCE_INDEXING_GATE=false so sitemaps submit all active videos during growth.`);
   } else {
     console.log(`   • High quality threshold met (${stats.enriched} videos).`);
-    console.log(`   • You can safely set ENFORCE_INDEXING_GATE=true to lock out thin pages.`);
+    console.log(`   • You can optionally set ENFORCE_INDEXING_GATE=true to curate video sitemaps.`);
   }
   console.log("==================================================\n");
 }

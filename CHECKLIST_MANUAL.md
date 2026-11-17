@@ -110,12 +110,12 @@ Google menolak mengindeks 731 halaman video karena halaman tersebut dinilai seba
    ```cron
    0 */2 * * * cd /path/to/kumpulenak3 && npm run seo:enrich -- --limit=20 >> /var/log/lusthub-seo-enrich.log 2>&1
    ```
-4. **Mengaktifkan Gating Indeksasi (`ENFORCE_INDEXING_GATE`):**
+4. **Mengaktifkan Gating Sitemap (`ENFORCE_INDEXING_GATE`):**
    Di file `.env` produksi di VPS, tambahkan:
    ```env
    ENFORCE_INDEXING_GATE=true
    ```
-   *Efek:* Video yang belum diperkaya AI akan otomatis diberi tag `noindex, follow` dan dikecualikan dari sitemap. Hanya video yang sudah memiliki sinopsis orisinal dan FAQ yang diserahkan ke Google, menjamin rasio indeksasi 100% dan mengangkat reputasi domain.
+   *Efek:* Hanya video yang sudah diperkaya AI di tabel `SeoEnrichment` (`status='enriched'`) yang dimasukkan ke sitemap video (`/sitemap/1.xml`). Halaman `/watch/...` sendiri **selalu** tetap `index, follow` agar Googlebot tidak memicu laporan *"Dikecualikan oleh tag 'noindex'"* di GSC. Atur ke `false` jika ingin seluruh video aktif masuk sitemap.
 
 ---
 

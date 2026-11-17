@@ -93,7 +93,8 @@ function mapDbRowToEnriched(row: Record<string, unknown>): EnrichedVideoData {
 
 /**
  * Retrieves enriched data for a given video ID.
- * Priority: Neon PostgreSQL (SeoEnrichment) -> local JSON store -> legacy Video.aiDescription.
+ * Priority: Neon PostgreSQL (SeoEnrichment) -> local JSON store.
+ * Basic DB descriptions (Video.aiDescription) are handled directly as fallback by the watch page.
  */
 export async function getEnrichedVideo(videoId: string): Promise<EnrichedVideoData | null> {
   const hasDb = Boolean(process.env.DATABASE_URL);
@@ -120,37 +121,6 @@ export async function getEnrichedVideo(videoId: string): Promise<EnrichedVideoDa
   const store = ensureStoreExists();
   if (store[videoId] && store[videoId].status === "enriched") {
     return store[videoId];
-  }
-
-  // 3. Legacy fallback to Video.aiDescription if available
-  if (hasDb) {
-    try {
-      const rows = await sql`
-        SELECT id, "aiDescription"
-        FROM "Video"
-        WHERE id = ${videoId} AND "aiDescription" IS NOT NULL
-        LIMIT 1
-      `;
-      if (rows && rows.length > 0 && rows[0].aiDescription) {
-        const aiDesc = rows[0].aiDescription as string;
-        return {
-          video_id: videoId,
-          source_hash: "db_legacy",
-          seo_title: "",
-          meta_description: aiDesc.slice(0, 155),
-          summary: aiDesc,
-          highlights: [],
-          tags: [],
-          faq: [],
-          status: "enriched",
-          model: "db-persisted",
-          generated_at: new Date().toISOString(),
-          attempts: 1,
-        };
-      }
-    } catch {
-      // Database unreachable
-    }
   }
 
   return null;

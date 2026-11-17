@@ -139,13 +139,11 @@ export async function generateMetadata({
       ? (video.seoDescription as string) 
       : buildVideoDescription(video.title, video.keywords));
 
-  // Indexing Gate (Fase 5D): If gate is active, only indexed if enriched
-  const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
-  const robots = isGateEnforced
-    ? enriched && enriched.status === "enriched"
-      ? { index: true, follow: true }
-      : { index: false, follow: true }
-    : { index: true, follow: true };
+  // Watch pages are always indexable. The catalog is open-ended (links come from
+  // the live Eporner feed), so gating robots on enrichment status produced
+  // hundreds of self-inflicted "Excluded by noindex" pages in GSC.
+  // ENFORCE_INDEXING_GATE now only controls sitemap selection (lib/sitemap.ts).
+  const robots = { index: true, follow: true };
 
   return {
     title: displayTitle,
