@@ -32,213 +32,9 @@ import { sql } from "@/lib/db";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
-import fs from "fs";
-import path from "path";
+import { runDiskCacheMaintenance } from "@/lib/cache-cleanup";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Cleans up leftover `.trash` directories created by Next.js ISR cache atomic
- * file replacement. When Next.js replaces a fetch-cache entry it:
- *   1. Renames the old file to a `*_trashpath_*_trash_*` path
- *   2. Writes new data to the real path
- *   3. Deletes the trash path
- * If the process is killed between steps 2 and 3 (e.g. by Pterodactyl CPU kill),
- * the trash files accumulate and fill up disk.
- *
- * This function removes:
- *   - `<cwd>/.trash/`         — root-level trash folder
- *   - `<cwd>/.next/.trash/`   — .next-level trash folder
- *   - Any `*_trash_*` pattern files directly inside .next/cache/fetch-cache/
- */
-/** Shared recursive directory size walker */
-function walkDirSize(dir: string): number {
-  let size = 0;
-  try {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) size += walkDirSize(full);
-      else { try { size += fs.statSync(full).size; } catch { /* skip */ } }
-    }
-  } catch { /* skip */ }
-  return size;
-}
-
-/**
- * Removes leftover `.trash` directories and `*_trash_*` files created by
- * Next.js ISR atomic cache swaps interrupted by Pterodactyl CPU kills.
- */
-async function cleanTrashFiles(): Promise<{ deleted: number; freedBytes: number }> {
-  let deleted = 0;
-  let freedBytes = 0;
-
-  const trashDirs = [
-    path.join(/*turbopackIgnore: true*/ process.cwd(), ".trash"),
-    path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", ".trash"),
-    path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", ".trash"),
-  ];
-
-  for (const trashDir of trashDirs) {
-    try {
-      if (!fs.existsSync(trashDir)) continue;
-      const stat = fs.statSync(trashDir);
-      if (stat.isDirectory()) {
-        freedBytes += walkDirSize(trashDir);
-        fs.rmSync(trashDir, { recursive: true, force: true });
-        deleted++;
-        console.log(`[CronSync] Deleted trash dir: ${trashDir}`);
-      }
-    } catch (e) {
-      console.warn(`[CronSync] Could not clean ${trashDir}:`, (e as Error).message);
-    }
-  }
-
-  // Sweep fetch-cache for stray *_trash_* / *_trashpath_* files
-  const fetchCacheDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", "fetch-cache");
-  try {
-    if (fs.existsSync(fetchCacheDir)) {
-      for (const name of fs.readdirSync(fetchCacheDir)) {
-        if (name.includes("_trash_") || name.includes("_trashpath_")) {
-          const full = path.join(fetchCacheDir, name);
-          try {
-            freedBytes += fs.statSync(full).size;
-            fs.rmSync(full, { recursive: true, force: true });
-            deleted++;
-          } catch { /* ignore */ }
-        }
-      }
-    }
-  } catch { /* ignore */ }
-
-  return { deleted, freedBytes };
-}
-
-/** 
- * Fetch-cache size limits — tuned for a 3 GB Pterodactyl disk.
- * Normal disk usage: build(~500MB) + node_modules(~700MB) ≈ 1.2GB used baseline.
- * Leaving ~1.8GB free. We cap cache at 1GB → minimum ~800MB always free for OS + logs.
- */
-export const FETCH_CACHE_MAX_BYTES = 1024 * 1024 * 1024;       // 1.0 GB  — trigger threshold
-export const FETCH_CACHE_TARGET_BYTES = 800 * 1024 * 1024;       // 0.8 GB  — trim down to this
-
-/**
- * Enforces a strict size limit on the Next.js fetch cache (.next/cache/fetch-cache).
- *
- * Strategy: LRW (Least Recently Written) eviction, ordered by mtime ascending.
- * We use mtime (write time) rather than atime (access time) because Pterodactyl / Docker
- * Linux containers mount filesystems with `relatime` or `noatime` — atime is unreliable.
- * mtime is updated when Next.js refreshes a cache entry (revalidation), so entries with
- * an old mtime are either: (a) expired and stale, or (b) rarely accessed. Both are safe to evict.
- *
- * Guarantees:
- *   - No-op if totalSize ≤ maxSizeBytes              (fast path: just scans, no deletes)
- *   - Deletes oldest-mtime files first until size ≤ targetSizeBytes
- *   - Skips trash files (handled by cleanTrashFiles)
- *   - Never throws — all errors caught and logged
- *   - Warns if even full eviction cannot reach target (disk in critical state)
- *
- * @param maxSizeBytes    Threshold above which eviction begins
- * @param targetSizeBytes Target size to trim down to (must be < maxSizeBytes)
- */
-async function enforceFetchCacheSizeLimit(
-  maxSizeBytes: number,
-  targetSizeBytes: number,
-): Promise<{ deleted: number; freedBytes: number; totalSizeBefore: number }> {
-  let deleted = 0;
-  let freedBytes = 0;
-  let totalSizeBefore = 0;
-  const fetchCacheDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", "fetch-cache");
-
-  // ── Bug Fix #1: Guard against misconfigured limits ─────────────────────────
-  if (targetSizeBytes >= maxSizeBytes) {
-    console.warn(
-      `[CronSync] enforceFetchCacheSizeLimit: targetSizeBytes (${targetSizeBytes}) must be < maxSizeBytes (${maxSizeBytes}). Skipping.`
-    );
-    return { deleted, freedBytes, totalSizeBefore };
-  }
-
-  try {
-    if (!fs.existsSync(fetchCacheDir)) return { deleted, freedBytes, totalSizeBefore };
-
-    // ── Scan: Collect all valid files with size + mtime ────────────────────
-    const files: { path: string; size: number; mtime: number }[] = [];
-    let totalSize = 0;
-
-    for (const name of fs.readdirSync(fetchCacheDir)) {
-      // Skip trash files — already handled by cleanTrashFiles()
-      if (name.includes("_trash_") || name.includes("_trashpath_")) continue;
-      const full = path.join(fetchCacheDir, name);
-      try {
-        const stat = fs.statSync(full);
-        if (stat.isFile()) {
-          files.push({ path: full, size: stat.size, mtime: stat.mtimeMs });
-          totalSize += stat.size;
-        }
-      } catch { /* skip missing/locked files */ }
-    }
-
-    totalSizeBefore = totalSize;
-
-    // ── Bug Fix #2: Always log current size (monitoring, even if no cleanup) ─
-    console.log(
-      `[CronSync] fetch-cache scan: ${files.length} files, ${(totalSize / 1024 / 1024).toFixed(1)} MB total.`
-    );
-
-    // ── Fast path: under the limit, nothing to do ─────────────────────────
-    if (totalSize <= maxSizeBytes) return { deleted, freedBytes, totalSizeBefore };
-
-    // ── Eviction: Sort oldest-mtime first, delete until we hit target ──────
-    files.sort((a, b) => a.mtime - b.mtime);
-
-    let currentSize = totalSize;
-    for (const file of files) {
-      if (currentSize <= targetSizeBytes) break;
-      try {
-        fs.rmSync(file.path, { force: true });
-        // Only count as freed if deletion actually succeeded (no exception)
-        freedBytes += file.size;
-        currentSize -= file.size;
-        deleted++;
-      } catch { /* skip locked/in-use files */ }
-    }
-
-    if (deleted > 0) {
-      console.log(
-        `[CronSync] Cache limit exceeded (${(totalSize / 1024 / 1024).toFixed(1)} MB > ` +
-        `${(maxSizeBytes / 1024 / 1024).toFixed(0)} MB max). ` +
-        `Pruned ${deleted} oldest files, freed ${(freedBytes / 1024 / 1024).toFixed(1)} MB. ` +
-        `Remaining: ~${((currentSize) / 1024 / 1024).toFixed(1)} MB.`
-      );
-    }
-
-    // ── Bug Fix #3: Warn if we couldn't reach the target size ─────────────
-    if (currentSize > targetSizeBytes) {
-      console.warn(
-        `[CronSync] WARNING: fetch-cache still ${(currentSize / 1024 / 1024).toFixed(1)} MB after full eviction. ` +
-        `Target was ${(targetSizeBytes / 1024 / 1024).toFixed(0)} MB. ` +
-        `Files may have been locked or recreated during cleanup.`
-      );
-    }
-
-  } catch (e) {
-    console.warn("[CronSync] Error enforcing cache limit:", (e as Error).message);
-  }
-
-  return { deleted, freedBytes, totalSizeBefore };
-}
-
-/**
- * Returns the byte size of key cache directories for disk monitoring.
- * Runs only on directories likely to grow — avoids scanning entire .next/.
- */
-function getCacheDiskUsage(): { fetchCacheBytes: number; trashBytes: number } {
-  const fetchCacheDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".next", "cache", "fetch-cache");
-  const trashDir = path.join(/*turbopackIgnore: true*/ process.cwd(), ".trash");
-  return {
-    fetchCacheBytes: fs.existsSync(fetchCacheDir) ? walkDirSize(fetchCacheDir) : 0,
-    trashBytes: fs.existsSync(trashDir) ? walkDirSize(trashDir) : 0,
-  };
-}
 
 
 
@@ -305,25 +101,16 @@ async function handleSync(request: NextRequest) {
   };
 
   try {
-    // ── 0. Trash Cleanup (Runs every 30 min on every cron execution) ─────────
-    // Instantly removes any .trash/ dirs or *_trash_* files left behind by Next.js
-    // ISR atomic swaps if the process was killed or interrupted.
-    const trashResult = await cleanTrashFiles();
-    result.trashFilesDeleted = trashResult.deleted;
-    result.trashFreedBytes = trashResult.freedBytes;
-    if (trashResult.deleted > 0) {
-      console.log(
-        `[CronSync] Trash cleanup: removed ${trashResult.deleted} item(s), freed ${(trashResult.freedBytes / 1024 / 1024).toFixed(2)} MB`
-      );
-    }
-
-    // ── 0.5 Fetch Cache Size Limiter (Runs every 30 min) ─────────────────────
-    // LRW eviction: if fetch-cache > FETCH_CACHE_MAX_BYTES, trim oldest files to FETCH_CACHE_TARGET_BYTES.
-    // Constants defined at module level (see FETCH_CACHE_MAX_BYTES / FETCH_CACHE_TARGET_BYTES).
-    const cacheResult = await enforceFetchCacheSizeLimit(FETCH_CACHE_MAX_BYTES, FETCH_CACHE_TARGET_BYTES);
-    result.staleCacheDeleted = cacheResult.deleted;
-    result.staleCacheFreedBytes = cacheResult.freedBytes;
-    result.fetchCacheSizeBytes = cacheResult.totalSizeBefore; // Always report current size
+    // ── 0. Disk Cache Maintenance (Always runs first, even if DB is paused) ─
+    const maintenance = await runDiskCacheMaintenance({ force: true });
+    result.trashFilesDeleted = maintenance.trashFilesDeleted;
+    result.trashFreedBytes = maintenance.trashFreedBytes;
+    result.staleCacheDeleted = maintenance.staleCacheDeleted;
+    result.staleCacheFreedBytes = maintenance.staleCacheFreedBytes;
+    result.fetchCacheSizeBytes = Math.max(
+      0,
+      maintenance.fetchCacheSizeBytes - maintenance.staleCacheFreedBytes
+    );
 
     // ── 1. Daily Maintenance (only when ?cleanup=true) ───────────────────────
     if (doCleanup) {
@@ -404,10 +191,8 @@ async function handleSync(request: NextRequest) {
       }
 
       // ── Disk Usage Monitoring ────────────────────────────────────────────────
-      const diskUsage = getCacheDiskUsage();
-      result.fetchCacheSizeBytes = diskUsage.fetchCacheBytes;
       console.log(
-        `[CronSync] Disk usage — fetch-cache: ${(diskUsage.fetchCacheBytes / 1024 / 1024).toFixed(1)} MB, trash: ${(diskUsage.trashBytes / 1024 / 1024).toFixed(1)} MB`
+        `[CronSync] Disk usage — fetch-cache remaining: ${(result.fetchCacheSizeBytes / 1024 / 1024).toFixed(1)} MB`
       );
     }
 
@@ -542,6 +327,26 @@ async function handleSync(request: NextRequest) {
   } catch (err) {
     const error = err as Error & { code?: string };
     result.durationMs = Date.now() - startTime;
+
+    const isQuotaOrPaused =
+      error.code === "53000" ||
+      /exceeded.*quota|endpoint is disabled|project is paused|upgrade your plan/i.test(error.message);
+
+    if (isQuotaOrPaused) {
+      // Return HTTP 200 so cron-job.org does NOT auto-disable this cronjob while
+      // Neon Free Tier compute hours are exhausted — disk cache cleanup already succeeded.
+      console.warn("[CronSync] Neon DB paused/over-quota; disk cache cleanup succeeded:", error.message);
+      return NextResponse.json(
+        {
+          success: false,
+          dbPaused: true,
+          error: error.message,
+          ...result,
+        },
+        { status: 200 }
+      );
+    }
+
     const isMissingTable = error.code === "42P01" || /relation.*does not exist/i.test(error.message);
     const friendlyError = isMissingTable
       ? "Database tables not initialized (relation does not exist - 42P01). Run 'npm run db:push' on your server/local to push Prisma schema to Neon."

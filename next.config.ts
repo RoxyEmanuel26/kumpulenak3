@@ -3,7 +3,15 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Fix #11: Remove X-Powered-By header to avoid leaking framework info
   poweredByHeader: false,
-  
+
+  // Keep ISR & fetch cache in bounded RAM (128 MB LRU out of 3 GiB VPS RAM)
+  // and disable flushing runtime fetch-cache/ISR files to the 5 GiB container disk.
+  // Prevents .next/cache/fetch-cache from growing to 3.8+ GiB and crashing the server.
+  cacheMaxMemorySize: 128 * 1024 * 1024,
+  experimental: {
+    isrFlushToDisk: false,
+  },
+
   // Optimize large libraries to fix Cloudflare 3MiB bundle limit
   modularizeImports: {
     "lucide-react": {

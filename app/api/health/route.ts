@@ -19,10 +19,16 @@
  * will not be crawled or indexed by search engines.
  */
 
+import { runDiskCacheMaintenance } from "@/lib/cache-cleanup";
+
 export const dynamic = "force-dynamic"; // Never cache — health checks must be live
 
 
 export async function GET() {
+  // Throttled background maintenance (max 1x per 10 min) so disk cache cleanup
+  // continues automatically even if external cron sync jobs pause or fail.
+  void runDiskCacheMaintenance().catch(() => {});
+
   return Response.json(
     {
       status: "ok",
