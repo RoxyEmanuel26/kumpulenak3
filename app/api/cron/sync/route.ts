@@ -33,6 +33,7 @@ import { EpornerAPI } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { runDiskCacheMaintenance } from "@/lib/cache-cleanup";
+import { runRemovedVideosCleanup } from "@/lib/video/cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -114,81 +115,9 @@ async function handleSync(request: NextRequest) {
 
     // ── 1. Daily Maintenance (only when ?cleanup=true) ───────────────────────
     if (doCleanup) {
-      console.log("[CronSync] Running daily cleanup...");
-
-      const [lastSyncSetting] = await sql`
-        SELECT value FROM "Settings" WHERE key = 'last_removed_sync_at'
-      `;
-      const lastSync = lastSyncSetting
-        ? new Date(JSON.parse(lastSyncSetting.value as string))
-        : null;
-      const now = new Date();
-      const isDue =
-        !lastSync ||
-        now.getTime() - lastSync.getTime() > 20 * 60 * 60 * 1000; // 20h guard
-
-      if (isDue) {
-        const removedText = await EpornerAPI.getRemoved();
-        const activeVideos = await sql`
-          SELECT id FROM "Video" WHERE status = 'ACTIVE'
-        `;
-
-        if (activeVideos.length > 0) {
-          // Parse the massive text file ONCE into an O(1) Set lookup to prevent event loop freeze
-          const removedIdsSet = new Set(
-            removedText.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean)
-          );
-
-          const removedIds = activeVideos
-            .map((v) => v.id as string)
-            .filter((id) => removedIdsSet.has(id));
-
-          if (removedIds.length > 0) {
-            const updated = await sql`
-              UPDATE "Video" SET status = 'REMOVED', "updatedAt" = NOW()
-              WHERE id = ANY(${removedIds})
-            `;
-            result.removedVideosDeactivated = (updated as unknown as { rowCount?: number }).rowCount ?? removedIds.length;
-          }
-        }
-
-        await sql`
-          INSERT INTO "Settings" (key, value, "updatedAt")
-          VALUES ('last_removed_sync_at', ${JSON.stringify(now.toISOString())}, NOW())
-          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = NOW()
-        `;
-
-        // ── Neon DB Storage Protection Policy (Auto-Prune) ─────────────────────
-        // Neon Free Tier provides 512 MB storage.
-        // 1. Permanently delete dead REMOVED videos older than 14 days
-        try {
-          await sql`
-            DELETE FROM "Video" 
-            WHERE status = 'REMOVED' AND "updatedAt" < NOW() - INTERVAL '14 days'
-          `;
-
-          // 2. Cap maximum stored videos to 15,000 (reserves ~60-80 MB, safely under 512 MB limit)
-          const [countRow] = await sql`SELECT COUNT(*) as count FROM "Video"`;
-          const totalVideos = parseInt((countRow?.count as string) || "0", 10) || 0;
-          if (totalVideos > 15_000) {
-            const excess = totalVideos - 15_000;
-            await sql`
-              DELETE FROM "Video"
-              WHERE id IN (
-                SELECT id FROM "Video"
-                ORDER BY "addedAt" ASC
-                LIMIT ${excess}
-              )
-            `;
-            console.log(`[CronSync] Pruned ${excess} oldest videos to enforce 15,000 ceiling for Neon Free Tier storage.`);
-          }
-
-          // 3. Purge orphaned tags to reclaim index space
-          await sql`DELETE FROM "Tag" WHERE id NOT IN (SELECT DISTINCT "tagId" FROM "VideoTag")`;
-        } catch (pruneErr) {
-          console.warn("[CronSync] Storage pruning skipped:", (pruneErr as Error).message);
-        }
-      }
+      console.log("[CronSync] Running streaming daily cleanup...");
+      const cleanupRes = await runRemovedVideosCleanup();
+      result.removedVideosDeactivated = cleanupRes.removedVideosDeactivated;
 
       // ── Disk Usage Monitoring ────────────────────────────────────────────────
       console.log(
@@ -197,12 +126,14 @@ async function handleSync(request: NextRequest) {
     }
 
     // ── 2. New Video Sync ────────────────────────────────────────────────────
-    // SKIPPED when doCleanup=true: daily cleanup cron already takes 15-25s for
-    // removed-video sync. Adding video classification here would cause timeout.
-    // The regular 15-min cron (no ?cleanup) handles all video syncing.
+    // SKIPPED when doCleanup=true: daily cleanup streams the removed feed.
+    // The regular cron (no ?cleanup) handles all video syncing.
     if (!doCleanup && Date.now() - startTime < HARD_STOP_MS - 2000) {
       // We set per_page: 5 to perfectly balance the 15 RPM and 500 RPD limits of Gemini Flash Lite
-      const latestRes = await EpornerAPI.search({ order: "latest", per_page: 5 });
+      const latestRes = await EpornerAPI.search(
+        { order: "latest", per_page: 5 },
+        { allowDbFallback: false }
+      );
       const videos = latestRes?.videos ?? [];
       result.fetchedFromEporner = videos.length;
 

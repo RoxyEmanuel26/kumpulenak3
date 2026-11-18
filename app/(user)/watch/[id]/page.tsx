@@ -204,7 +204,7 @@ export default async function WatchVideoPage({
   // Fetch related videos using the first keyword for contextual relevance
   const keywords = video.keywords ? video.keywords.split(",") : [];
   const query = keywords.length > 0 ? keywords[0].trim() : "hd";
-  const relatedRes = await EpornerAPI.search({ query, per_page: 12 });
+  const relatedRes = await EpornerAPI.search({ query, per_page: 12 }).catch(() => null);
   const related = relatedRes?.videos?.filter((v) => v.id !== video.id) || [];
 
   // Match keyword to a Tier-1 category for breadcrumbs & semantic hierarchy

@@ -1,4 +1,14 @@
+import dns from "node:dns";
 import { EpornerSearchResponse, EpornerVideo } from "../../types/eporner";
+import { sql } from "../db";
+
+// Docker/Pterodactyl containers frequently lack working IPv6 egress while
+// www.eporner.com publishes an AAAA record; prefer IPv4 to avoid 10s connect timeouts.
+try {
+  dns.setDefaultResultOrder?.("ipv4first");
+} catch {
+  // Ignore in runtimes without node:dns
+}
 
 const BASE_URL = "https://www.eporner.com/api/v2/video";
 
@@ -61,23 +71,176 @@ function setCache(key: string, data: unknown, ttlSeconds: number) {
 function getCache(key: string): unknown | null {
   const cached = memCache.get(key);
   if (cached && cached.expires > Date.now()) return cached.data;
-  if (cached) memCache.delete(key); // Eagerly evict stale entries
   return null;
+}
+
+function getStaleCache(key: string): unknown | null {
+  return memCache.get(key)?.data ?? null;
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit & { next?: { revalidate?: number | false } },
+  retries = 1
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.ok || (res.status < 500 && res.status !== 429)) {
+        return res;
+      }
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < retries) {
+      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
+function emptySearchResponse(page: number, perPage: number): EpornerSearchResponse {
+  return {
+    time_ms: 0,
+    total_count: 0,
+    total_pages: 1,
+    per_page: perPage,
+    current_page: page,
+    videos: [],
+  };
+}
+
+function parseJsonObject<T>(val: unknown, fallback: T): T {
+  if (val && typeof val === "object") return val as T;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val) as T;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+function mapDbVideoToEporner(row: Record<string, unknown>): EpornerVideo {
+  const id = row.id as string;
+  const defaultThumb = parseJsonObject(row.defaultThumb, {
+    size: "big",
+    width: 640,
+    height: 360,
+    src: `https://pi.eporner.com/po/${id}/1.jpg`,
+  });
+  const thumbs = parseJsonObject<EpornerVideo["thumbs"]>(row.thumbs, [defaultThumb]);
+  const addedRaw = row.addedAt;
+  const added =
+    addedRaw instanceof Date
+      ? addedRaw.toISOString()
+      : typeof addedRaw === "string"
+        ? addedRaw
+        : "";
+
+  return cleanVideoData({
+    id,
+    title: (row.title as string) || "HD Video",
+    keywords: (row.keywords as string) || "",
+    views: Number(row.views) || 0,
+    rate: (row.rate as string) || "0",
+    url: "",
+    added,
+    length_sec: Number(row.lengthSec) || 0,
+    length_min: (row.lengthMin as string) || "0:00",
+    embed: ((row.embedUrl as string) || `https://www.eporner.com/embed/${id}`).replace(/\/+$/, ""),
+    default_thumb: defaultThumb,
+    thumbs,
+  });
+}
+
+async function fallbackSearchFromDb(params: {
+  query?: string;
+  per_page?: number;
+  page?: number;
+  order?: string;
+}): Promise<EpornerSearchResponse> {
+  const page = Math.max(1, params.page ?? 1);
+  const perPage = Math.max(1, Math.min(100, params.per_page ?? 30));
+  if (!process.env.DATABASE_URL) return emptySearchResponse(page, perPage);
+
+  const offset = (page - 1) * perPage;
+  const q = params.query?.trim();
+  const hasFilter = Boolean(q && q.toLowerCase() !== "all");
+  const pattern = hasFilter ? `%${q}%` : "";
+
+  try {
+    let rows = hasFilter
+      ? await sql`
+          SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
+          FROM "Video"
+          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+            AND (title ILIKE ${pattern} OR keywords ILIKE ${pattern})
+          ORDER BY "addedAt" DESC NULLS LAST, views DESC
+          LIMIT ${perPage} OFFSET ${offset}
+        `
+      : params.order === "most-popular"
+        ? await sql`
+            SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
+            FROM "Video"
+            WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+            ORDER BY views DESC, "addedAt" DESC NULLS LAST
+            LIMIT ${perPage} OFFSET ${offset}
+          `
+        : await sql`
+            SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
+            FROM "Video"
+            WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+            ORDER BY "addedAt" DESC NULLS LAST
+            LIMIT ${perPage} OFFSET ${offset}
+          `;
+
+    // If a specific search/category had 0 exact keyword matches on page 1, fall back to
+    // top active DB videos so category/watch fallback never triggers a false Soft 404.
+    if (rows.length === 0 && page === 1 && hasFilter) {
+      rows = await sql`
+        SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
+        FROM "Video"
+        WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+        ORDER BY views DESC, "addedAt" DESC NULLS LAST
+        LIMIT ${perPage}
+      `;
+    }
+
+    const videos = rows.map((r) => mapDbVideoToEporner(r as Record<string, unknown>));
+    return {
+      time_ms: 0,
+      total_count: videos.length,
+      total_pages: videos.length >= perPage ? page + 1 : page,
+      per_page: perPage,
+      current_page: page,
+      videos,
+    };
+  } catch (dbErr) {
+    console.warn("[EpornerAPI] DB fallback failed:", (dbErr as Error).message);
+    return emptySearchResponse(page, perPage);
+  }
 }
 
 const SEARCH_TTL = 30 * 60;     // 30 minutes
 const VIDEO_TTL  = 6 * 60 * 60; // 6 hours
 
 export const EpornerAPI = {
-  async search(params: {
-    query?: string;
-    per_page?: number;
-    page?: number;
-    thumbsize?: string;
-    order?: "latest" | "top-weekly" | "top-monthly" | "most-popular" | "longest" | "shortest";
-    lq?: 0 | 1 | 2;
-    format?: "json" | "xml";
-  } = {}): Promise<EpornerSearchResponse> {
+  async search(
+    params: {
+      query?: string;
+      per_page?: number;
+      page?: number;
+      thumbsize?: string;
+      order?: "latest" | "top-weekly" | "top-monthly" | "most-popular" | "longest" | "shortest";
+      lq?: 0 | 1 | 2;
+      format?: "json" | "xml";
+    } = {},
+    options: { allowDbFallback?: boolean } = {}
+  ): Promise<EpornerSearchResponse> {
     const queryParams = new URLSearchParams({
       format: "json",
       per_page: "100",
@@ -91,15 +254,26 @@ export const EpornerAPI = {
     const memHit = getCache(url);
     if (memHit) return memHit as EpornerSearchResponse;
 
-    // next.revalidate = Next.js disk cache, persists across Pterodactyl restarts
-    const res = await fetch(url, { next: { revalidate: SEARCH_TTL } } as any);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data: EpornerSearchResponse = await res.json();
-    if (data && Array.isArray(data.videos)) {
-      data.videos = data.videos.map(cleanVideoData);
+    try {
+      // next.revalidate = Next.js disk/memory cache
+      const res = await fetchWithRetry(url, { next: { revalidate: SEARCH_TTL } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: EpornerSearchResponse = await res.json();
+      if (data && Array.isArray(data.videos)) {
+        data.videos = data.videos.map(cleanVideoData);
+      }
+      setCache(url, data, SEARCH_TTL);
+      return data;
+    } catch (err) {
+      console.warn(`[EpornerAPI] search fallback triggered for "${params.query || "all"}":`, (err as Error).message);
+      const stale = getStaleCache(url);
+      if (stale) return stale as EpornerSearchResponse;
+
+      if (options.allowDbFallback !== false) {
+        return fallbackSearchFromDb(params);
+      }
+      return emptySearchResponse(params.page ?? 1, params.per_page ?? 30);
     }
-    setCache(url, data, SEARCH_TTL);
-    return data;
   },
 
   async getById(id: string): Promise<EpornerVideo | null> {
@@ -110,13 +284,57 @@ export const EpornerAPI = {
       const memHit = getCache(url);
       if (memHit) return memHit as EpornerVideo;
 
-      const res = await fetch(url, { next: { revalidate: VIDEO_TTL } } as any);
-      if (!res.ok) return null;
+      const res = await fetchWithRetry(url, { next: { revalidate: VIDEO_TTL } });
+      if (!res.ok) return (getStaleCache(url) as EpornerVideo | null) ?? null;
       const data = await res.json();
       const video = (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;
       if (video) setCache(url, video, VIDEO_TTL);
       return video;
-    } catch { return null; }
+    } catch {
+      const url = `${BASE_URL}/id/?${new URLSearchParams({ id, format: "json" }).toString()}`;
+      return (getStaleCache(url) as EpornerVideo | null) ?? null;
+    }
+  },
+
+  /**
+   * Streams the 150MB+ removed-videos feed line by line and returns only IDs
+   * present in `activeIds`, avoiding buffering the entire response in Node RAM.
+   */
+  async findRemovedVideoIds(activeIds: Set<string>): Promise<string[]> {
+    if (activeIds.size === 0) return [];
+    const res = await fetch(`${BASE_URL}/removed/?format=json`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.body) return [];
+
+    const matched: string[] = [];
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let carry = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      carry += decoder.decode(value, { stream: true });
+
+      const parts = carry.split(/[\r\n,]+/);
+      carry = parts.pop() ?? "";
+      for (const raw of parts) {
+        const id = raw.trim().replace(/^["'\[]+|["'\]]+$/g, "");
+        if (id && activeIds.has(id)) {
+          matched.push(id);
+        }
+      }
+    }
+
+    carry += decoder.decode();
+    for (const raw of carry.split(/[\r\n,]+/)) {
+      const id = raw.trim().replace(/^["'\[]+|["'\]]+$/g, "");
+      if (id && activeIds.has(id)) {
+        matched.push(id);
+      }
+    }
+
+    return matched;
   },
 
   async getRemoved(): Promise<string> {

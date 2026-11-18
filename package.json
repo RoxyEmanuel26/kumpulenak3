@@ -11,7 +11,8 @@
     "build:worker": "npx tsc -p tsconfig.worker.json",
     "qc": "npx ts-node --project scripts/qc/tsconfig.json scripts/qc/run-all.ts",
     "seo:enrich": "npx ts-node --project scripts/qc/tsconfig.json scripts/seo/enrich-videos.ts",
-    "seo:report": "npx ts-node --project scripts/qc/tsconfig.json scripts/seo/report-status.ts"
+    "seo:report": "npx ts-node --project scripts/qc/tsconfig.json scripts/seo/report-status.ts",
+    "seo:cleanup": "npx ts-node --project scripts/qc/tsconfig.json scripts/seo/cleanup-removed.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
