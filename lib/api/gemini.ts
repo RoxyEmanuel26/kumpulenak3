@@ -95,6 +95,7 @@ export const GeminiAPI = {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: requestBody,
+          signal: AbortSignal.timeout(12_000),
         });
 
         if (res.status === 429) {
@@ -135,6 +136,9 @@ export const GeminiAPI = {
 
       } catch (err) {
         console.error(`[GeminiAPI] Connection error on Key #${currentKeyIndex + 1}:`, err);
+        if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+          return fallbackResult;
+        }
         // If it's a network error, switch key just in case
         currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
         attempts++;

@@ -86,7 +86,10 @@ async function fetchWithRetry(
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(url, init);
+      const res = await fetch(url, {
+        ...init,
+        signal: init.signal ?? AbortSignal.timeout(8000),
+      });
       if (res.ok || (res.status < 500 && res.status !== 429)) {
         return res;
       }
@@ -302,39 +305,65 @@ export const EpornerAPI = {
    */
   async findRemovedVideoIds(activeIds: Set<string>): Promise<string[]> {
     if (activeIds.size === 0) return [];
-    const res = await fetch(`${BASE_URL}/removed/?format=json`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    if (!res.body) return [];
 
-    const matched: string[] = [];
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let carry = "";
+    const controller = new AbortController();
+    const hardTimeout = setTimeout(
+      () => controller.abort(new Error("Removed feed hard timeout (5m)")),
+      300_000
+    );
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    const resetStallTimer = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(
+        () => controller.abort(new Error("Removed feed stalled (20s)")),
+        20_000
+      );
+    };
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      carry += decoder.decode(value, { stream: true });
+    try {
+      resetStallTimer();
+      const res = await fetch(`${BASE_URL}/removed/?format=json`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.body) return [];
 
-      const parts = carry.split(/[\r\n,]+/);
-      carry = parts.pop() ?? "";
-      for (const raw of parts) {
+      const matched: string[] = [];
+      const pushIfMatched = (raw: string) => {
         const id = raw.trim().replace(/^["'\[]+|["'\]]+$/g, "");
         if (id && activeIds.has(id)) {
           matched.push(id);
         }
-      }
-    }
+      };
 
-    carry += decoder.decode();
-    for (const raw of carry.split(/[\r\n,]+/)) {
-      const id = raw.trim().replace(/^["'\[]+|["'\]]+$/g, "");
-      if (id && activeIds.has(id)) {
-        matched.push(id);
-      }
-    }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let carry = "";
 
-    return matched;
+      while (true) {
+        resetStallTimer();
+        const { value, done } = await reader.read();
+        if (done) break;
+        carry += decoder.decode(value, { stream: true });
+
+        const parts = carry.split(/[\r\n,]+/);
+        carry = parts.pop() ?? "";
+        for (const raw of parts) {
+          pushIfMatched(raw);
+        }
+      }
+
+      carry += decoder.decode();
+      for (const raw of carry.split(/[\r\n,]+/)) {
+        pushIfMatched(raw);
+      }
+
+      return matched;
+    } finally {
+      clearTimeout(hardTimeout);
+      if (stallTimer) clearTimeout(stallTimer);
+    }
   },
 
   async getRemoved(): Promise<string> {

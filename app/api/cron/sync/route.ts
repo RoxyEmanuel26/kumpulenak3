@@ -1,30 +1,23 @@
 /**
  * app/api/cron/sync/route.ts
  *
- * Lightweight sync endpoint designed to be called by cron-job.org every 15 minutes.
+ * Lightweight sync & maintenance endpoint called by cron-job.org.
  * Replaces the need for a running BullMQ/Redis/Docker worker on a dedicated server.
  *
- * DESIGN CONSTRAINTS (Cloudflare Edge = 30s CPU time):
- * - Uses a single batch DB query instead of N individual queries (N+1 fix)
- * - Processes MAX_NEW_PER_RUN new videos per call to stay under time limit
- * - Hard time-guard at 25s to ensure clean response
- * - Eporner API calls are cached via Next.js fetch cache (5 min) to reduce upstream hits
+ * EXECUTION MODEL (cron-job.org 30s timeout safe):
+ * - By default, validates auth and immediately returns HTTP 200 `{ started: true, background: true }`
+ *   while running disk maintenance + sync/cleanup asynchronously in Node.js memory with a per-mode lock.
+ * - Pass `?wait=true` for synchronous execution and full result JSON (used by manual CLI/tests).
+ * - Uses batched SQL queries (UNNEST for tags, ANY for existing check) instead of N+1 round-trips.
  *
  * SECURITY:
- * - POST only (no GET) to prevent accidental browser triggers
- * - Authenticated via Authorization: Bearer <CRON_SECRET> header
- * - Uses CRON_SECRET env var (or falls back to WEBHOOK_SECRET if not set)
+ * - Supports POST (recommended) or GET with Authorization: Bearer <CRON_SECRET> or ?secret=<CRON_SECRET>.
+ * - Uses CRON_SECRET env var (or falls back to WEBHOOK_SECRET if not set).
  *
  * SETUP AT CRON-JOB.ORG:
- * 1. URL: https://www.lusthub.web.id/api/cron/sync
- * 2. Method: POST
+ * 1. Sync job: https://www.lusthub.web.id/api/cron/sync (every 15 minutes)
+ * 2. Daily cleanup: https://www.lusthub.web.id/api/cron/sync?cleanup=true (daily, e.g. 00:00 / 12:00)
  * 3. Header: Authorization: Bearer <your-CRON_SECRET-value>
- * 4. Schedule: Every 15 minutes  ← changed from 30 min
- * 5. Timeout: 30 seconds (cron-job.org side)
- *
- * For daily removed-video cleanup, use a separate cron job:
- * 1. URL: https://www.lusthub.web.id/api/cron/sync?cleanup=true
- * 2. Schedule: Once daily (e.g. 02:00 UTC)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -39,12 +32,42 @@ export const dynamic = "force-dynamic";
 
 
 
-// Hard stop at 25s to leave buffer for response (Cloudflare edge allows 30s CPU)
-const HARD_STOP_MS = 25_000;
+// Time guard when callers wait synchronously (?wait=true) vs background cron execution.
+const SYNC_WAIT_STOP_MS = 25_000;
+const BACKGROUND_STOP_MS = 60_000;
+const LOCK_STALE_MS = 10 * 60 * 1000;
 
 // Max new videos to classify+insert per cron run.
 // Each new video needs ~2-3s for Gemini + DB insert.
 const MAX_NEW_PER_RUN = 2;
+
+type SyncMode = "sync" | "cleanup";
+
+const globalForCron = globalThis as unknown as {
+  cronRunningJobs?: Map<SyncMode, number>;
+};
+const runningJobs = globalForCron.cronRunningJobs ?? new Map<SyncMode, number>();
+globalForCron.cronRunningJobs = runningJobs;
+
+interface SyncResult {
+  fetchedFromEporner: number;
+  newVideosFound: number;
+  videosAdded: number;
+  videosSkipped: number;
+  pendingNewVideos: number;
+  removedVideosDeactivated: number;
+  trashFilesDeleted: number;
+  trashFreedBytes: number;
+  staleCacheDeleted: number;
+  staleCacheFreedBytes: number;
+  fetchCacheSizeBytes: number;
+  durationMs: number;
+  message: string;
+}
+
+type SyncOutcome =
+  | { ok: true; status: 200; result: SyncResult }
+  | { ok: false; dbPaused: boolean; status: 200 | 500; error: string; result: SyncResult };
 
 function verifySecret(provided: string, expected: string): boolean {
   if (provided.length !== expected.length) return false;
@@ -83,9 +106,64 @@ async function handleSync(request: NextRequest) {
 
   const startTime = Date.now();
   const doCleanup = searchParams.get("cleanup") === "true";
+  const waitForCompletion = searchParams.get("wait") === "true";
+  const mode: SyncMode = doCleanup ? "cleanup" : "sync";
 
+  const activeStartedAt = runningJobs.get(mode);
+  if (activeStartedAt !== undefined && Date.now() - activeStartedAt < LOCK_STALE_MS) {
+    return NextResponse.json({
+      success: true,
+      started: false,
+      alreadyRunning: true,
+      mode,
+      background: !waitForCompletion,
+      runningForMs: Date.now() - activeStartedAt,
+      message: `${mode} job is already running in background.`,
+    });
+  }
 
-  const result = {
+  runningJobs.set(mode, startTime);
+  const timeBudgetMs = waitForCompletion ? SYNC_WAIT_STOP_MS : BACKGROUND_STOP_MS;
+  const runPromise = executeSyncJob(doCleanup, startTime, timeBudgetMs).finally(() => {
+    runningJobs.delete(mode);
+  });
+
+  if (!waitForCompletion) {
+    // Return immediately so external schedulers (e.g., cron-job.org 30s limit) never time out
+    // while streaming the ~158MB removed feed or syncing against slow upstream APIs.
+    void runPromise;
+    return NextResponse.json({
+      success: true,
+      started: true,
+      mode,
+      background: true,
+      message: doCleanup
+        ? "Daily disk & removed-video cleanup started in background."
+        : "Video sync & disk cache maintenance started in background.",
+    });
+  }
+
+  const outcome = await runPromise;
+  if (outcome.ok) {
+    return NextResponse.json({ success: true, ...outcome.result });
+  }
+  return NextResponse.json(
+    {
+      success: false,
+      ...(outcome.dbPaused ? { dbPaused: true } : {}),
+      error: outcome.error,
+      ...outcome.result,
+    },
+    { status: outcome.status }
+  );
+}
+
+async function executeSyncJob(
+  doCleanup: boolean,
+  startTime: number,
+  timeBudgetMs: number
+): Promise<SyncOutcome> {
+  const result: SyncResult = {
     fetchedFromEporner: 0,
     newVideosFound: 0,
     videosAdded: 0,
@@ -128,7 +206,7 @@ async function handleSync(request: NextRequest) {
     // ── 2. New Video Sync ────────────────────────────────────────────────────
     // SKIPPED when doCleanup=true: daily cleanup streams the removed feed.
     // The regular cron (no ?cleanup) handles all video syncing.
-    if (!doCleanup && Date.now() - startTime < HARD_STOP_MS - 2000) {
+    if (!doCleanup && Date.now() - startTime < timeBudgetMs - 2000) {
       // We set per_page: 5 to perfectly balance the 15 RPM and 500 RPD limits of Gemini Flash Lite
       const latestRes = await EpornerAPI.search(
         { order: "latest", per_page: 5 },
@@ -153,7 +231,7 @@ async function handleSync(request: NextRequest) {
         result.pendingNewVideos = Math.max(0, newVideos.length - toProcess.length);
 
         for (const v of toProcess) {
-          if (Date.now() - startTime > HARD_STOP_MS) {
+          if (Date.now() - startTime > timeBudgetMs) {
             console.warn("[CronSync] Hard time stop reached. Remaining videos will be processed on next run.");
             break;
           }
@@ -203,17 +281,22 @@ async function handleSync(request: NextRequest) {
               ON CONFLICT (id) DO NOTHING
             `;
 
-            // Insert tags
-            for (const tagName of finalTags) {
-              const tagId = crypto.randomUUID();
-              const [tag] = await sql`
-                INSERT INTO "Tag" (id, name) VALUES (${tagId}, ${tagName})
+            // Batch upsert tags (avoids 20-40 sequential SQL round-trips per video)
+            if (finalTags.length > 0) {
+              const tagIds = finalTags.map(() => crypto.randomUUID());
+              const insertedTags = await sql`
+                INSERT INTO "Tag" (id, name)
+                SELECT tid, tname
+                FROM UNNEST(${tagIds}::text[], ${finalTags}::text[]) AS t(tid, tname)
                 ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
                 RETURNING id
               `;
-              if (tag) {
+              const resolvedTagIds = insertedTags.map((t) => t.id as string);
+              if (resolvedTagIds.length > 0) {
                 await sql`
-                  INSERT INTO "VideoTag" ("videoId", "tagId") VALUES (${v.id}, ${tag.id})
+                  INSERT INTO "VideoTag" ("videoId", "tagId")
+                  SELECT ${v.id}, tid
+                  FROM UNNEST(${resolvedTagIds}::text[]) AS vt(tid)
                   ON CONFLICT DO NOTHING
                 `;
               }
@@ -246,15 +329,16 @@ async function handleSync(request: NextRequest) {
     }
 
     result.durationMs = Date.now() - startTime;
-    result.message =
-      result.pendingNewVideos > 0
+    result.message = doCleanup
+      ? `Daily cleanup finished (${result.removedVideosDeactivated} deactivated).`
+      : result.pendingNewVideos > 0
         ? `${result.pendingNewVideos} more new videos pending — will be processed on the next cron run.`
         : result.videosAdded > 0
           ? `${result.videosAdded} new video(s) added successfully.`
           : "DB is up to date. No new videos found.";
 
     console.log("[CronSync] Completed:", result);
-    return NextResponse.json({ success: true, ...result });
+    return { ok: true, status: 200, result };
   } catch (err) {
     const error = err as Error & { code?: string };
     result.durationMs = Date.now() - startTime;
@@ -267,15 +351,7 @@ async function handleSync(request: NextRequest) {
       // Return HTTP 200 so cron-job.org does NOT auto-disable this cronjob while
       // Neon Free Tier compute hours are exhausted — disk cache cleanup already succeeded.
       console.warn("[CronSync] Neon DB paused/over-quota; disk cache cleanup succeeded:", error.message);
-      return NextResponse.json(
-        {
-          success: false,
-          dbPaused: true,
-          error: error.message,
-          ...result,
-        },
-        { status: 200 }
-      );
+      return { ok: false, dbPaused: true, status: 200, error: error.message, result };
     }
 
     const isMissingTable = error.code === "42P01" || /relation.*does not exist/i.test(error.message);
@@ -284,9 +360,6 @@ async function handleSync(request: NextRequest) {
       : error.message;
 
     console.error("[CronSync] Fatal error:", friendlyError);
-    return NextResponse.json(
-      { success: false, error: friendlyError, ...result },
-      { status: 500 }
-    );
+    return { ok: false, dbPaused: false, status: 500, error: friendlyError, result };
   }
 }
