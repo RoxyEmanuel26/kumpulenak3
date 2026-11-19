@@ -13,7 +13,7 @@ try {
 const BASE_URL = "https://www.eporner.com/api/v2/video";
 
 export function repairMojibake(str: string): string {
-  if (!str) return str;
+  if (!str || !/[^\x00-\x7F]/.test(str)) return str;
   const utf8Regex = /[\u00C2-\u00DF][\u0080-\u00BF]|[\u00E0-\u00EF][\u0080-\u00BF]{2}|[\u00F0-\u00F4][\u0080-\u00BF]{3}/g;
   return str.replace(utf8Regex, (match) => {
     try {
@@ -56,6 +56,17 @@ function cleanVideoData(video: EpornerVideo): EpornerVideo {
 //   VIDEO_TTL  = 6 hours    (was 1 hr)  — video metadata almost never changes
 const memCache = new Map<string, { data: unknown; expires: number }>();
 const MEM_CACHE_MAX = 2000;
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+function coalesceInFlight<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const existing = inFlightRequests.get(key);
+  if (existing) return existing as Promise<T>;
+  const promise = work().finally(() => {
+    inFlightRequests.delete(key);
+  });
+  inFlightRequests.set(key, promise);
+  return promise;
+}
 
 function setCache(key: string, data: unknown, ttlSeconds: number) {
   if (memCache.size >= MEM_CACHE_MAX) {
@@ -257,46 +268,50 @@ export const EpornerAPI = {
     const memHit = getCache(url);
     if (memHit) return memHit as EpornerSearchResponse;
 
-    try {
-      // next.revalidate = Next.js disk/memory cache
-      const res = await fetchWithRetry(url, { next: { revalidate: SEARCH_TTL } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: EpornerSearchResponse = await res.json();
-      if (data && Array.isArray(data.videos)) {
-        data.videos = data.videos.map(cleanVideoData);
-      }
-      setCache(url, data, SEARCH_TTL);
-      return data;
-    } catch (err) {
-      console.warn(`[EpornerAPI] search fallback triggered for "${params.query || "all"}":`, (err as Error).message);
-      const stale = getStaleCache(url);
-      if (stale) return stale as EpornerSearchResponse;
+    const allowDbFallback = options.allowDbFallback !== false;
+    return coalesceInFlight(`search:${allowDbFallback ? "fb" : "nofb"}:${url}`, async () => {
+      try {
+        // next.revalidate = Next.js disk/memory cache
+        const res = await fetchWithRetry(url, { next: { revalidate: SEARCH_TTL } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: EpornerSearchResponse = await res.json();
+        if (data && Array.isArray(data.videos)) {
+          data.videos = data.videos.map(cleanVideoData);
+        }
+        setCache(url, data, SEARCH_TTL);
+        return data;
+      } catch (err) {
+        console.warn(`[EpornerAPI] search fallback triggered for "${params.query || "all"}":`, (err as Error).message);
+        const stale = getStaleCache(url);
+        if (stale) return stale as EpornerSearchResponse;
 
-      if (options.allowDbFallback !== false) {
-        return fallbackSearchFromDb(params);
+        if (allowDbFallback) {
+          return fallbackSearchFromDb(params);
+        }
+        return emptySearchResponse(params.page ?? 1, params.per_page ?? 30);
       }
-      return emptySearchResponse(params.page ?? 1, params.per_page ?? 30);
-    }
+    });
   },
 
   async getById(id: string): Promise<EpornerVideo | null> {
-    try {
-      const queryParams = new URLSearchParams({ id, format: "json" });
-      const url = `${BASE_URL}/id/?${queryParams.toString()}`;
+    const queryParams = new URLSearchParams({ id, format: "json" });
+    const url = `${BASE_URL}/id/?${queryParams.toString()}`;
 
-      const memHit = getCache(url);
-      if (memHit) return memHit as EpornerVideo;
+    const memHit = getCache(url);
+    if (memHit) return memHit as EpornerVideo;
 
-      const res = await fetchWithRetry(url, { next: { revalidate: VIDEO_TTL } });
-      if (!res.ok) return (getStaleCache(url) as EpornerVideo | null) ?? null;
-      const data = await res.json();
-      const video = (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;
-      if (video) setCache(url, video, VIDEO_TTL);
-      return video;
-    } catch {
-      const url = `${BASE_URL}/id/?${new URLSearchParams({ id, format: "json" }).toString()}`;
-      return (getStaleCache(url) as EpornerVideo | null) ?? null;
-    }
+    return coalesceInFlight(`video:${url}`, async () => {
+      try {
+        const res = await fetchWithRetry(url, { next: { revalidate: VIDEO_TTL } });
+        if (!res.ok) return (getStaleCache(url) as EpornerVideo | null) ?? null;
+        const data = await res.json();
+        const video = (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;
+        if (video) setCache(url, video, VIDEO_TTL);
+        return video;
+      } catch {
+        return (getStaleCache(url) as EpornerVideo | null) ?? null;
+      }
+    });
   },
 
   /**
@@ -330,34 +345,41 @@ export const EpornerAPI = {
       if (!res.body) return [];
 
       const matched: string[] = [];
-      const pushIfMatched = (raw: string) => {
-        const id = raw.trim().replace(/^["'\[]+|["'\]]+$/g, "");
-        if (id && activeIds.has(id)) {
-          matched.push(id);
+      let token = "";
+      const processChunk = (chunk: string) => {
+        let start = -1;
+        for (let i = 0; i < chunk.length; i++) {
+          const c = chunk.charCodeAt(i);
+          const isDelim = c <= 32 || c === 34 || c === 39 || c === 44 || c === 91 || c === 93;
+          if (isDelim) {
+            if (start !== -1 || token.length > 0) {
+              const id = start !== -1 ? token + chunk.slice(start, i) : token;
+              if (id && activeIds.has(id)) matched.push(id);
+              token = "";
+              start = -1;
+            }
+          } else if (start === -1) {
+            start = i;
+          }
+        }
+        if (start !== -1) {
+          token += chunk.slice(start);
         }
       };
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let carry = "";
 
       while (true) {
         resetStallTimer();
         const { value, done } = await reader.read();
         if (done) break;
-        carry += decoder.decode(value, { stream: true });
-
-        const parts = carry.split(/[\r\n,]+/);
-        carry = parts.pop() ?? "";
-        for (const raw of parts) {
-          pushIfMatched(raw);
-        }
+        processChunk(decoder.decode(value, { stream: true }));
       }
 
-      carry += decoder.decode();
-      for (const raw of carry.split(/[\r\n,]+/)) {
-        pushIfMatched(raw);
-      }
+      const tail = decoder.decode();
+      if (tail) processChunk(tail);
+      if (token && activeIds.has(token)) matched.push(token);
 
       return matched;
     } finally {

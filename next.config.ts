@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   experimental: {
     isrFlushToDisk: false,
   },
+  // Serve already-optimized /logo.webp directly without sharp multi-core resizing
+  images: {
+    unoptimized: true,
+  },
 
   // Optimize large libraries to fix Cloudflare 3MiB bundle limit
   modularizeImports: {

@@ -26,6 +26,10 @@ export interface EnrichedVideoData {
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "seo-enrichment.json");
+const STORE_CACHE_TTL_MS = 60_000;
+
+let memoryStoreCache: Record<string, EnrichedVideoData> | null = null;
+let memoryStoreLoadedAt = 0;
 
 /** Computes a stable SHA-256 hash of the input metadata to detect upstream changes */
 export function computeSourceHash(title: string, keywords?: string): string {
@@ -33,21 +37,30 @@ export function computeSourceHash(title: string, keywords?: string): string {
   return crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
-/** Ensures the data directory and JSON store exist */
+/** Ensures the data directory and JSON store exist, caching parsed JSON in RAM for 60s */
 function ensureStoreExists(): Record<string, EnrichedVideoData> {
+  const now = Date.now();
+  if (memoryStoreCache && now - memoryStoreLoadedAt < STORE_CACHE_TTL_MS) {
+    return memoryStoreCache;
+  }
+
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     if (!fs.existsSync(STORE_PATH)) {
       fs.writeFileSync(STORE_PATH, JSON.stringify({}, null, 2), "utf8");
-      return {};
+      memoryStoreCache = {};
+      memoryStoreLoadedAt = now;
+      return memoryStoreCache;
     }
     const raw = fs.readFileSync(STORE_PATH, "utf8");
-    return JSON.parse(raw);
+    memoryStoreCache = JSON.parse(raw);
+    memoryStoreLoadedAt = now;
+    return memoryStoreCache!;
   } catch (err) {
     console.warn("[enrichment-store] Failed to read JSON store, returning empty cache:", err);
-    return {};
+    return memoryStoreCache ?? {};
   }
 }
 
@@ -198,6 +211,8 @@ export async function saveEnrichedVideo(record: EnrichedVideoData): Promise<void
   // 1. Persist to local JSON store (non-fatal if running in read-only environment)
   const store = ensureStoreExists();
   store[record.video_id] = record;
+  memoryStoreCache = store;
+  memoryStoreLoadedAt = Date.now();
 
   try {
     if (!fs.existsSync(DATA_DIR)) {
