@@ -16,37 +16,110 @@ import { buildWatchUrl } from "./video/slug";
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 const CHUNK_SIZE = 5_000;
 
-export async function generateSitemaps() {
+// In-memory resilience cache to protect /sitemap.xml and /sitemap/[id].xml from
+// transient Neon Serverless scale-to-zero cold-start hiccups.
+let lastKnownVideoCount = 0;
+let lastKnownLatestMod: string | undefined;
+const lastGoodSegmentXml = new Map<number, string>();
+const MAX_CACHED_SEGMENTS = 5;
+
+async function queryWithRetry<T>(
+  fn: () => Promise<T>,
+  retries = 2,
+  delayMs = 600
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+export interface SitemapSegmentRef {
+  id: number;
+  lastModified?: string;
+}
+
+export async function generateSitemapsWithMeta(): Promise<{
+  sitemaps: SitemapSegmentRef[];
+  degraded: boolean;
+}> {
+  const nowIso = new Date().toISOString();
   let videoCount = 0;
+  let latestModIso: string | undefined;
+  let degraded = false;
+
   try {
     // Include all active non-spam videos so /sitemap/1.xml never 404s when
     // enriched and synced Video IDs have limited overlap; enriched videos are
     // ordered first inside buildVideoSegment().
-    const [row] = await sql`
-      SELECT COUNT(*) as count FROM "Video"
-      WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
-    `;
+    const [row] = await queryWithRetry(
+      () => sql`
+        SELECT
+          COUNT(*) as count,
+          MAX(COALESCE("updatedAt", "addedAt")) as "latestMod"
+        FROM "Video"
+        WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+      `
+    );
     videoCount = parseInt(row.count as string, 10) || 0;
+    if (row.latestMod) {
+      const parsed = new Date(row.latestMod as string | Date);
+      if (!isNaN(parsed.getTime())) {
+        latestModIso = parsed.toISOString();
+      }
+    }
+    if (videoCount > 0) {
+      lastKnownVideoCount = videoCount;
+      lastKnownLatestMod = latestModIso ?? nowIso;
+    }
   } catch (err) {
-    // Never advertise a video segment we cannot fill: an empty <urlset> makes
-    // Google Search Console report "Tidak ada tag XML" (missing <url>).
     console.error("[Sitemap] Failed to count videos for segment generation:", err);
-    return [{ id: 0 }];
+    degraded = true;
+    // If we have a previously verified video count in memory, preserve the video
+    // segments so /sitemap/1.xml never vanishes from /sitemap.xml during a DB blip.
+    if (lastKnownVideoCount > 0) {
+      videoCount = lastKnownVideoCount;
+      latestModIso = lastKnownLatestMod ?? nowIso;
+    } else {
+      return {
+        sitemaps: [{ id: 0, lastModified: nowIso }],
+        degraded: true,
+      };
+    }
   }
 
-  // No eligible videos yet (e.g. fresh DB, or indexing gate with 0 enriched videos):
-  // only expose the static/category segment.
+  // No eligible videos yet (e.g. fresh DB): only expose the static/category segment,
+  // marked degraded so CDN does not cache a 1-segment index for hours.
   if (videoCount === 0) {
-    return [{ id: 0 }];
+    return {
+      sitemaps: [{ id: 0, lastModified: nowIso }],
+      degraded: true,
+    };
   }
 
   const videoChunks = Math.ceil(videoCount / CHUNK_SIZE);
-  const ids = [
-    { id: 0 }, // Static routes + categories
-    ...Array.from({ length: videoChunks }, (_, i) => ({ id: i + 1 })),
+  const sitemaps: SitemapSegmentRef[] = [
+    { id: 0, lastModified: nowIso }, // Static routes + categories
+    ...Array.from({ length: videoChunks }, (_, i) => ({
+      id: i + 1,
+      lastModified: latestModIso ?? nowIso,
+    })),
   ];
 
-  return ids;
+  return { sitemaps, degraded };
+}
+
+export async function generateSitemaps(): Promise<SitemapSegmentRef[]> {
+  const { sitemaps } = await generateSitemapsWithMeta();
+  return sitemaps;
 }
 
 export interface SitemapItem {
@@ -162,23 +235,28 @@ function buildStaticSegment(): SitemapItem[] {
   ];
 }
 
-async function buildVideoSegment(chunkIndex: number): Promise<VideoSitemapItem[]> {
+async function buildVideoSegmentWithMeta(chunkIndex: number): Promise<{
+  items: VideoSitemapItem[];
+  dbFailed: boolean;
+}> {
   try {
-    const videos = await sql`
-      SELECT
-        v.id, v.title, v."updatedAt", v."addedAt", v."lengthSec",
-        v."embedUrl", v."defaultThumb", v.thumbs,
-        COALESCE(se."metaDescription", se.summary, v."aiDescription") AS "aiDescription",
-        v.keywords
-      FROM "Video" v
-      LEFT JOIN "SeoEnrichment" se
-        ON se."videoId" = v.id AND se.status = 'enriched'
-      WHERE v.status = 'ACTIVE' AND v."aiSpamFlag" = false AND v."aiScoreSpam" < 65
-      ORDER BY (se."videoId" IS NOT NULL) DESC, v."addedAt" DESC NULLS LAST
-      LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
-    `;
+    const videos = await queryWithRetry(
+      () => sql`
+        SELECT
+          v.id, v.title, v."updatedAt", v."addedAt", v."lengthSec",
+          v."embedUrl", v."defaultThumb", v.thumbs,
+          COALESCE(se."metaDescription", se.summary, v."aiDescription") AS "aiDescription",
+          v.keywords
+        FROM "Video" v
+        LEFT JOIN "SeoEnrichment" se
+          ON se."videoId" = v.id AND se.status = 'enriched'
+        WHERE v.status = 'ACTIVE' AND v."aiSpamFlag" = false AND v."aiScoreSpam" < 65
+        ORDER BY (se."videoId" IS NOT NULL) DESC, v."addedAt" DESC NULLS LAST
+        LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
+      `
+    );
 
-    return videos.map((v) => {
+    const items: VideoSitemapItem[] = videos.map((v) => {
       const id = v.id as string;
       const title = (v.title as string) || "Adult Video";
       const lastMod = (v.updatedAt || v.addedAt || new Date()) as Date;
@@ -204,21 +282,30 @@ async function buildVideoSegment(chunkIndex: number): Promise<VideoSitemapItem[]
         },
       };
     });
+
+    return { items, dbFailed: false };
   } catch (err) {
     console.error(`[Sitemap] Failed to generate video chunk ${chunkIndex}:`, err);
-    return [];
+    return { items: [], dbFailed: true };
   }
 }
 
+async function buildVideoSegment(chunkIndex: number): Promise<VideoSitemapItem[]> {
+  const { items } = await buildVideoSegmentWithMeta(chunkIndex);
+  return items;
+}
+
 /**
- * Builds the complete, validated XML string for a given sitemap segment.
- * If segmentId === 0: standard urlset for static & category routes.
- * If segmentId > 0: Google Video Sitemap with <video:video> schema tags.
+ * Builds the complete, validated XML string for a given sitemap segment,
+ * returning whether the response used an in-memory fallback (`degraded: true`).
  */
-export async function buildSitemapXml(segmentId: number): Promise<string | null> {
+export async function buildSitemapXmlWithMeta(segmentId: number): Promise<{
+  xml: string | null;
+  degraded: boolean;
+}> {
   if (segmentId === 0) {
     const items = buildStaticSegment();
-    return `<?xml version="1.0" encoding="UTF-8"?>
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${items.map((item) => `  <url>
     <loc>${item.url}</loc>
@@ -227,13 +314,21 @@ ${items.map((item) => `  <url>
     ${item.priority !== undefined ? `<priority>${item.priority.toFixed(2)}</priority>` : ""}
   </url>`).join("\n")}
 </urlset>`.trim();
+    return { xml, degraded: false };
   }
 
-  const items = await buildVideoSegment(segmentId - 1);
-  // An empty <urlset> is invalid for Google ("missing <url> tag"). Signal the
-  // caller to answer 404 instead of serving (and caching) broken XML.
-  if (items.length === 0) return null;
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const { items, dbFailed } = await buildVideoSegmentWithMeta(segmentId - 1);
+  if (items.length === 0) {
+    if (dbFailed && lastGoodSegmentXml.has(segmentId)) {
+      return {
+        xml: lastGoodSegmentXml.get(segmentId)!,
+        degraded: true,
+      };
+    }
+    return { xml: null, degraded: dbFailed };
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
 ${items.map((item) => `  <url>
@@ -252,6 +347,24 @@ ${items.map((item) => `  <url>
     </video:video>
   </url>`).join("\n")}
 </urlset>`.trim();
+
+  if (lastGoodSegmentXml.size >= MAX_CACHED_SEGMENTS && !lastGoodSegmentXml.has(segmentId)) {
+    const firstKey = lastGoodSegmentXml.keys().next().value;
+    if (firstKey !== undefined) lastGoodSegmentXml.delete(firstKey);
+  }
+  lastGoodSegmentXml.set(segmentId, xml);
+
+  return { xml, degraded: false };
+}
+
+/**
+ * Builds the complete, validated XML string for a given sitemap segment.
+ * If segmentId === 0: standard urlset for static & category routes.
+ * If segmentId > 0: Google Video Sitemap with <video:video> schema tags.
+ */
+export async function buildSitemapXml(segmentId: number): Promise<string | null> {
+  const { xml } = await buildSitemapXmlWithMeta(segmentId);
+  return xml;
 }
 
 /** Legacy array export kept for backward compatibility */

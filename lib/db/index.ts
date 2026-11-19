@@ -10,10 +10,10 @@ export const sql =
     max: 10,
     idle_timeout: 20,
     max_lifetime: 60 * 30,
-    // Fail fast (default 30s) so pages fall back to Eporner/JSON quickly
-    // when Neon is suspended, over quota, or unreachable.
-    connect_timeout: 5,
+    // Allow 10s (was 5s) so Neon Serverless scale-to-zero cold wake-ups (4-7s)
+    // succeed reliably while still failing fast when Neon is genuinely unreachable.
+    connect_timeout: 10,
   });
 
-if (process.env.NODE_ENV !== "production") globalForSql.sql = sql;
+globalForSql.sql = sql;
 

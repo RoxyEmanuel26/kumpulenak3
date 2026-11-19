@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildSitemapXml } from "@/lib/sitemap";
+import { buildSitemapXmlWithMeta } from "@/lib/sitemap";
 
 export async function GET(
   request: NextRequest,
@@ -15,7 +15,7 @@ export async function GET(
       return new NextResponse("Invalid segment ID", { status: 400 });
     }
 
-    const xml = await buildSitemapXml(segmentId);
+    const { xml, degraded } = await buildSitemapXmlWithMeta(segmentId);
 
     // Empty / unavailable video segment: 404 + no-store so CDN never caches it
     // and Google re-checks as soon as videos exist.
@@ -26,11 +26,15 @@ export async function GET(
       });
     }
 
+    const cacheControl = degraded
+      ? "no-store, no-cache, must-revalidate"
+      : "public, max-age=43200, s-maxage=43200, stale-while-revalidate=86400";
+
     return new NextResponse(xml, {
       status: 200,
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
-        "Cache-Control": "public, max-age=43200, s-maxage=43200, stale-while-revalidate=86400",
+        "Cache-Control": cacheControl,
       },
     });
   } catch (error) {
