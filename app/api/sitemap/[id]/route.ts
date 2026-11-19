@@ -7,8 +7,11 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params;
-    const segmentId = parseInt(resolvedParams.id, 10);
-    if (isNaN(segmentId) || segmentId < 0) {
+    if (!/^\d+$/.test(resolvedParams.id)) {
+      return new NextResponse("Invalid segment ID", { status: 400 });
+    }
+    const segmentId = Number.parseInt(resolvedParams.id, 10);
+    if (!Number.isSafeInteger(segmentId) || segmentId < 0 || segmentId > 10_000) {
       return new NextResponse("Invalid segment ID", { status: 400 });
     }
 

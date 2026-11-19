@@ -42,7 +42,7 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
   }, [isHovered, video.thumbs]);
 
   const currentImageSrc = isHovered && video.thumbs && video.thumbs.length > 0
-    ? video.thumbs[currentThumbIndex].src
+    ? (video.thumbs[currentThumbIndex]?.src || video.default_thumb?.src)
     : video.default_thumb?.src;
 
   return (
@@ -107,7 +107,7 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
 
           <div className="flex items-center gap-1.5 text-[11px] text-[#AAAAAA] font-mono">
             <span className="flex items-center gap-0.5">
-              <Eye className="h-3 w-3 opacity-60" /> {video.views.toLocaleString("en-US")}
+              <Eye className="h-3 w-3 opacity-60" /> {(Number(video.views) || 0).toLocaleString("en-US")}
             </span>
             {video.added && (
               <>

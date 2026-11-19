@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { cleanEpornerText } from "@/lib/api/eporner";
+import { cleanEpornerText, EpornerAPI } from "@/lib/api/eporner";
 
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let resolvedId = "";
   try {
     const resolvedParams = await params;
     const { id } = resolvedParams;
+    resolvedId = id;
 
     
     // Get the video's tag and category IDs
@@ -65,11 +67,37 @@ export async function GET(
         'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600',
       },
     });
-  } catch (err) { const error = err as Error;
-    console.error("[RelatedVideosAPI] Error fetching related videos:", error.message);
-    return NextResponse.json(
-      { error: "Failed to fetch related videos data." },
-      { status: 500 }
-    );
+  } catch (err) {
+    const error = err as Error;
+    console.warn("[RelatedVideosAPI] DB failed, falling back to Eporner popular videos:", error.message);
+    try {
+      const fallback = await EpornerAPI.search(
+        { order: "most-popular", per_page: 5 },
+        { allowDbFallback: false }
+      );
+      const filtered = (fallback.videos || [])
+        .filter((v) => v.id !== resolvedId)
+        .slice(0, 4)
+        .map((v) => ({
+          id: v.id,
+          title: v.title,
+          keywords: v.keywords,
+          views: v.views,
+          rate: v.rate,
+          addedAt: v.added,
+          lengthSec: v.length_sec,
+          lengthMin: v.length_min,
+          embedUrl: v.embed,
+          defaultThumb: v.default_thumb,
+          thumbs: v.thumbs,
+        }));
+      return NextResponse.json(filtered, {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+        },
+      });
+    } catch {
+      return NextResponse.json([], { status: 200 });
+    }
   }
 }

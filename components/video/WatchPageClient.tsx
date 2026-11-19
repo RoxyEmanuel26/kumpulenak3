@@ -36,9 +36,10 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
   const [descExpanded, setDescExpanded] = useState(false);
 
   // Calculate rating percentage and total estimated votes
+  const safeViews = Number(video.views) || 0;
   const rateVal = video.rate ? parseFloat(video.rate) : 0;
   const ratingPercent = rateVal > 0 ? Math.round(rateVal * 20) : 90;
-  const totalVotes = Math.max(5, Math.round(video.views * 0.015));
+  const totalVotes = Math.max(5, Math.round(safeViews * 0.015));
   
   const baseLikes = Math.round(totalVotes * (ratingPercent / 100));
   const baseDislikes = totalVotes - baseLikes;
@@ -88,7 +89,9 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
     }
   };
 
-  const keywordsList = video.keywords ? video.keywords.split(",").map(k => k.trim()).filter(Boolean) : [];
+  const keywordsList = typeof video.keywords === "string" && video.keywords
+    ? video.keywords.split(",").map((k) => k.trim()).filter(Boolean)
+    : [];
 
   return (
     <div className="flex flex-col w-full bg-[#0F0F0F] text-white">
@@ -233,7 +236,7 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
 
           <div className="bg-[#272727] rounded-xl p-4 hover:bg-[#3F3F3F] transition-colors mt-4">
             <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold mb-2 text-muted-foreground">
-              <span className="text-white">{video.views.toLocaleString("en-US")} views</span>
+              <span className="text-white">{safeViews.toLocaleString("en-US")} views</span>
               <span>•</span>
               <span className="text-white">{formatVideoDate(video.added)}</span>
             </div>

@@ -11,28 +11,32 @@ export async function GET(
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
-        const rows = await sql`
-      SELECT
-        v.id, v.title, v.keywords, v.views, v.rate, v."addedAt", v."lengthSec",
-        v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs, v.status,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object('tag', jsonb_build_object('name', t.name, 'id', t.id))) 
-          FILTER (WHERE t.id IS NOT NULL), '[]'
-        ) AS tags,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object('category', jsonb_build_object('name', c.name, 'id', c.id)))
-          FILTER (WHERE c.id IS NOT NULL), '[]'
-        ) AS categories
-      FROM "Video" v
-      LEFT JOIN "VideoTag" vt ON v.id = vt."videoId"
-      LEFT JOIN "Tag" t ON vt."tagId" = t.id
-      LEFT JOIN "VideoCategory" vc ON v.id = vc."videoId"
-      LEFT JOIN "Category" c ON vc."categoryId" = c.id
-      WHERE v.id = ${id}
-      GROUP BY v.id
-    `;
-
-    const video = rows[0];
+    let video: Record<string, unknown> | undefined;
+    try {
+      const rows = await sql`
+        SELECT
+          v.id, v.title, v.keywords, v.views, v.rate, v."addedAt", v."lengthSec",
+          v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs, v.status,
+          COALESCE(
+            json_agg(DISTINCT jsonb_build_object('tag', jsonb_build_object('name', t.name, 'id', t.id))) 
+            FILTER (WHERE t.id IS NOT NULL), '[]'
+          ) AS tags,
+          COALESCE(
+            json_agg(DISTINCT jsonb_build_object('category', jsonb_build_object('name', c.name, 'id', c.id)))
+            FILTER (WHERE c.id IS NOT NULL), '[]'
+          ) AS categories
+        FROM "Video" v
+        LEFT JOIN "VideoTag" vt ON v.id = vt."videoId"
+        LEFT JOIN "Tag" t ON vt."tagId" = t.id
+        LEFT JOIN "VideoCategory" vc ON v.id = vc."videoId"
+        LEFT JOIN "Category" c ON vc."categoryId" = c.id
+        WHERE v.id = ${id}
+        GROUP BY v.id
+      `;
+      video = rows[0] as Record<string, unknown> | undefined;
+    } catch (dbErr) {
+      console.warn(`[VideoDetailsAPI] DB lookup failed for ${id}, falling back to Eporner:`, (dbErr as Error).message);
+    }
 
     if (!video || video.status !== "ACTIVE") {
       // Fallback: If not in local DB (e.g. hasn't synced yet, or DB was reset but local storage remains),

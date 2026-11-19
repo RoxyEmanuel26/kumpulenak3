@@ -1,7 +1,7 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
-import { EpornerAPI } from "@/lib/api/eporner";
+import { EpornerAPI, mapDbVideoToEporner } from "@/lib/api/eporner";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
@@ -63,19 +63,8 @@ const getCachedVideoById = cache(async (id: string) => {
       }
 
       return {
-        id: dbVideo.id as string,
-        title: dbVideo.title as string,
-        keywords: dbVideo.keywords as string,
-        default_thumb: dbVideo.defaultThumb as { src: string; size: string; width: number; height: number },
-        thumbs: dbVideo.thumbs as { src: string; size: string; width: number; height: number }[],
-        length_sec: dbVideo.lengthSec as number,
-        length_min: dbVideo.lengthMin as string,
-        rate: dbVideo.rate as string,
-        views: dbVideo.views as number,
-        added: dbVideo.addedAt as string,
-        embed: dbVideo.embedUrl as string,
-        url: "", // Not used locally
-        seoDescription: dbVideo.aiDescription as string | null,
+        ...mapDbVideoToEporner(dbVideo as Record<string, unknown>),
+        seoDescription: (dbVideo.aiDescription as string | null) ?? null,
       };
     }
   } catch (err: any) {
@@ -202,7 +191,7 @@ export default async function WatchVideoPage({
   const enriched = await getCachedEnrichedVideo(video.id);
 
   // Fetch related videos using the first keyword for contextual relevance
-  const keywords = video.keywords ? video.keywords.split(",") : [];
+  const keywords = typeof video.keywords === "string" && video.keywords ? video.keywords.split(",") : [];
   const query = keywords.length > 0 ? keywords[0].trim() : "hd";
   const relatedRes = await EpornerAPI.search({ query, per_page: 12 }).catch(() => null);
   const related = relatedRes?.videos?.filter((v) => v.id !== video.id) || [];
@@ -220,7 +209,7 @@ export default async function WatchVideoPage({
   if (video.default_thumb?.src) thumbUrls.push(video.default_thumb.src);
   if (Array.isArray(video.thumbs)) {
     video.thumbs
-      .filter((t) => t.src && t.src !== video.default_thumb?.src)
+      .filter((t) => Boolean(t?.src) && t.src !== video.default_thumb?.src)
       .slice(0, 2)
       .forEach((t) => thumbUrls.push(t.src));
   }

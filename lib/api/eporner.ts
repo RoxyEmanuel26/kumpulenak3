@@ -42,9 +42,18 @@ export function cleanEpornerText(str: string): string {
   return decoded.replace(/[\u200b-\u200d\u200e\u200f\ufeff]/g, '');
 }
 
-function cleanVideoData(video: EpornerVideo): EpornerVideo {
+export function cleanVideoData(video: EpornerVideo): EpornerVideo {
   if (!video) return video;
-  return { ...video, title: cleanEpornerText(video.title), keywords: cleanEpornerText(video.keywords) };
+  const thumbs = Array.isArray(video.thumbs)
+    ? video.thumbs.filter((t): t is EpornerVideo["thumbs"][number] => Boolean(t && typeof t.src === "string"))
+    : [];
+  return {
+    ...video,
+    title: cleanEpornerText(typeof video.title === "string" ? video.title : "HD Video"),
+    keywords: cleanEpornerText(typeof video.keywords === "string" ? video.keywords : ""),
+    views: Number(video.views) || 0,
+    thumbs,
+  };
 }
 
 // ── Two-Layer Cache ──────────────────────────────────────────────────────────
@@ -138,7 +147,7 @@ function parseJsonObject<T>(val: unknown, fallback: T): T {
   return fallback;
 }
 
-function mapDbVideoToEporner(row: Record<string, unknown>): EpornerVideo {
+export function mapDbVideoToEporner(row: Record<string, unknown>): EpornerVideo {
   const id = row.id as string;
   const defaultThumb = parseJsonObject(row.defaultThumb, {
     size: "big",
@@ -146,7 +155,10 @@ function mapDbVideoToEporner(row: Record<string, unknown>): EpornerVideo {
     height: 360,
     src: `https://pi.eporner.com/po/${id}/1.jpg`,
   });
-  const thumbs = parseJsonObject<EpornerVideo["thumbs"]>(row.thumbs, [defaultThumb]);
+  const parsedThumbs = parseJsonObject<unknown>(row.thumbs, null);
+  const thumbs = Array.isArray(parsedThumbs)
+    ? (parsedThumbs as EpornerVideo["thumbs"])
+    : [defaultThumb];
   const addedRaw = row.addedAt;
   const added =
     addedRaw instanceof Date
@@ -275,9 +287,12 @@ export const EpornerAPI = {
         const res = await fetchWithRetry(url, { next: { revalidate: SEARCH_TTL } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: EpornerSearchResponse = await res.json();
-        if (data && Array.isArray(data.videos)) {
-          data.videos = data.videos.map(cleanVideoData);
+        if (!data || typeof data !== "object") {
+          throw new Error("Invalid search payload");
         }
+        data.videos = Array.isArray(data.videos)
+          ? data.videos.filter(Boolean).map(cleanVideoData)
+          : [];
         setCache(url, data, SEARCH_TTL);
         return data;
       } catch (err) {
@@ -305,7 +320,9 @@ export const EpornerAPI = {
         const res = await fetchWithRetry(url, { next: { revalidate: VIDEO_TTL } });
         if (!res.ok) return (getStaleCache(url) as EpornerVideo | null) ?? null;
         const data = await res.json();
-        const video = (data && !Array.isArray(data) && data.id) ? cleanVideoData(data) : null;
+        const video = (data && !Array.isArray(data) && typeof data === "object" && data.id)
+          ? cleanVideoData(data)
+          : null;
         if (video) setCache(url, video, VIDEO_TTL);
         return video;
       } catch {

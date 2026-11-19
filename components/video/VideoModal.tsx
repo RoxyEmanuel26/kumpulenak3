@@ -165,7 +165,7 @@ export function VideoModal({ videoId, onClose }: VideoModalProps) {
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground font-mono mt-3">
                     <span className="flex items-center gap-1">⏱ {video.duration || "N/A"}</span>
                     <span className="flex items-center gap-1 text-yellow-500">★ {video.rating || "N/A"}</span>
-                    <span className="flex items-center gap-1">👁 {video.views.toLocaleString("en-US")}</span>
+                    <span className="flex items-center gap-1">👁 {(Number(video.views) || 0).toLocaleString("en-US")}</span>
                   </div>
                 </div>
 
