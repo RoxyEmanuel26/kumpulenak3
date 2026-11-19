@@ -27,6 +27,15 @@ export interface EnrichedVideoData {
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "seo-enrichment.json");
 const STORE_CACHE_TTL_MS = 60_000;
+const DB_ENRICHED_MAP_TTL_MS = 60 * 60 * 1000; // 1 hour RAM cache for enriched DB rows
+const DB_FAILURE_BACKOFF_MS = 60_000;         // 1 min backoff if DB is paused/unreachable
+
+const globalForEnrichment = globalThis as unknown as {
+  seoDbEnrichedMap?: Map<string, EnrichedVideoData>;
+  seoDbEnrichedLoadedAt?: number;
+  seoDbEnrichedFailedAt?: number;
+  seoDbEnrichedInFlight?: Promise<Map<string, EnrichedVideoData> | null> | null;
+};
 
 let memoryStoreCache: Record<string, EnrichedVideoData> | null = null;
 let memoryStoreLoadedAt = 0;
@@ -105,29 +114,70 @@ function mapDbRowToEnriched(row: Record<string, unknown>): EnrichedVideoData {
 }
 
 /**
- * Retrieves enriched data for a given video ID.
- * Priority: Neon PostgreSQL (SeoEnrichment) -> local JSON store.
- * Basic DB descriptions (Video.aiDescription) are handled directly as fallback by the watch page.
+ * Loads all 'enriched' records from Neon once per hour into shared RAM cache.
+ * Eliminates thousands of per-watch-page SeoEnrichment queries so un-enriched
+ * videos do 0 Neon queries and compute can scale-to-zero cleanly.
  */
-export async function getEnrichedVideo(videoId: string): Promise<EnrichedVideoData | null> {
-  const hasDb = Boolean(process.env.DATABASE_URL);
+async function getDbEnrichedMap(): Promise<Map<string, EnrichedVideoData> | null> {
+  if (!process.env.DATABASE_URL) return null;
 
-  // 1. Try Neon PostgreSQL SeoEnrichment table first (live cloud state, zero-restart sync)
-  if (hasDb) {
+  const now = Date.now();
+  const cached = globalForEnrichment.seoDbEnrichedMap;
+  const loadedAt = globalForEnrichment.seoDbEnrichedLoadedAt ?? 0;
+
+  if (cached && now - loadedAt < DB_ENRICHED_MAP_TTL_MS) {
+    return cached;
+  }
+
+  // During short DB backoff after failure, serve stale map if available
+  const failedAt = globalForEnrichment.seoDbEnrichedFailedAt ?? 0;
+  if (now - failedAt < DB_FAILURE_BACKOFF_MS) {
+    return cached ?? null;
+  }
+
+  if (globalForEnrichment.seoDbEnrichedInFlight) {
+    return globalForEnrichment.seoDbEnrichedInFlight;
+  }
+
+  const work = (async () => {
     try {
       const rows = await sql`
         SELECT "videoId", "sourceHash", "seoTitle", "metaDescription", summary,
                highlights, tags, faq, status, model, "generatedAt", attempts, "rejectionReason"
         FROM "SeoEnrichment"
-        WHERE "videoId" = ${videoId} AND status = 'enriched'
-        LIMIT 1
+        WHERE status = 'enriched'
       `;
-      if (rows && rows.length > 0) {
-        return mapDbRowToEnriched(rows[0] as Record<string, unknown>);
+      const map = new Map<string, EnrichedVideoData>();
+      for (const row of rows) {
+        const mapped = mapDbRowToEnriched(row as Record<string, unknown>);
+        map.set(mapped.video_id, mapped);
       }
+      globalForEnrichment.seoDbEnrichedMap = map;
+      globalForEnrichment.seoDbEnrichedLoadedAt = Date.now();
+      globalForEnrichment.seoDbEnrichedFailedAt = 0;
+      return map;
     } catch {
-      // Table may not exist yet (42P01) or DB temporarily unreachable — fallback to JSON store
+      globalForEnrichment.seoDbEnrichedFailedAt = Date.now();
+      return globalForEnrichment.seoDbEnrichedMap ?? null;
+    } finally {
+      globalForEnrichment.seoDbEnrichedInFlight = null;
     }
+  })();
+
+  globalForEnrichment.seoDbEnrichedInFlight = work;
+  return work;
+}
+
+/**
+ * Retrieves enriched data for a given video ID.
+ * Priority: Cached Neon PostgreSQL map (1h TTL) -> local JSON store.
+ * Basic DB descriptions (Video.aiDescription) are handled directly as fallback by the watch page.
+ */
+export async function getEnrichedVideo(videoId: string): Promise<EnrichedVideoData | null> {
+  // 1. Check RAM-cached Neon SeoEnrichment map first (0 Neon queries when warm)
+  const dbMap = await getDbEnrichedMap();
+  if (dbMap?.has(videoId)) {
+    return dbMap.get(videoId)!;
   }
 
   // 2. Fallback to local JSON store (bundled baseline / offline fallback)
@@ -188,6 +238,15 @@ async function upsertEnrichedRecordToDb(record: EnrichedVideoData): Promise<bool
   } catch (err) {
     console.warn("[enrichment-store] Failed to sync SeoEnrichment to DB:", (err as Error).message);
     return false;
+  }
+
+  // Keep RAM enrichment map synchronized immediately on upsert
+  if (globalForEnrichment.seoDbEnrichedMap) {
+    if (record.status === "enriched") {
+      globalForEnrichment.seoDbEnrichedMap.set(record.video_id, record);
+    } else {
+      globalForEnrichment.seoDbEnrichedMap.delete(record.video_id);
+    }
   }
 
   // Keep legacy Video.aiDescription synced if video already exists in Video table

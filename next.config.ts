@@ -133,13 +133,13 @@ const nextConfig: NextConfig = {
       },
       {
         // Video detail API — used by ContinueWatching component.
-        // Cache at CDN for 5 minutes; serve stale for 1 hour while revalidating.
-        // Prevents N requests for the same video from all hitting the DB.
+        // Cache at CDN for 1 hour; serve stale for 24 hours while revalidating.
+        // Prevents requests every 5 min from resetting Neon's scale-to-zero sleep timer.
         source: "/api/videos/:id",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, s-maxage=300, stale-while-revalidate=3600",
+            value: "public, s-maxage=3600, stale-while-revalidate=86400",
           },
         ],
       },
@@ -149,7 +149,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, s-maxage=600, stale-while-revalidate=3600",
+            value: "public, s-maxage=3600, stale-while-revalidate=86400",
           },
         ],
       },

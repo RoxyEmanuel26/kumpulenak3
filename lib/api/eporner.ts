@@ -59,17 +59,32 @@ export function cleanVideoData(video: EpornerVideo): EpornerVideo {
 }
 
 // ── Two-Layer Cache ──────────────────────────────────────────────────────────
-// Layer 1 (memCache): In-memory Map — zero latency, lives within Node.js process.
-// Layer 2 (next.revalidate): Next.js fetch disk cache — survives Pterodactyl restarts.
+// Layer 1 (memCache): Shared process-wide Map — zero latency, keeps Neon DB
+// able to scale-to-zero (sleep after 5 min) by avoiding repeat DB wakes.
+// Layer 2 (next.revalidate): Next.js fetch cache — survives within process budget.
 //
-// TTL values (intentionally generous — Eporner API calls are the #1 CPU bottleneck):
-//   SEARCH_TTL = 30 minutes (was 5 min) — homepage/category videos stable for 30 min
-//   VIDEO_TTL  = 6 hours    (was 1 hr)  — video metadata almost never changes
-const memCache = new Map<string, { data: unknown; expires: number }>();
-const MEM_CACHE_MAX = 2000;
-const inFlightRequests = new Map<string, Promise<unknown>>();
+// TTL values (intentionally generous — Eporner/DB calls are CPU & CU-hr bottlenecks):
+//   SEARCH_TTL = 30 minutes — homepage/category videos stable for 30 min
+//   VIDEO_TTL  = 6 hours    — video metadata almost never changes
+export const DB_VIDEO_CACHE_TTL = 6 * 60 * 60; // 6 hours
+export const DB_NEGATIVE_CACHE_TTL = 60 * 60;  // 1 hour for REMOVED/DRAFT videos
 
-function coalesceInFlight<T>(key: string, work: () => Promise<T>): Promise<T> {
+type CacheEntry = { data: unknown; expires: number };
+
+const globalForCache = globalThis as unknown as {
+  epornerMemCache?: Map<string, CacheEntry>;
+  epornerInFlight?: Map<string, Promise<unknown>>;
+};
+
+const memCache = globalForCache.epornerMemCache ?? new Map<string, CacheEntry>();
+globalForCache.epornerMemCache = memCache;
+
+const MEM_CACHE_MAX = 5000;
+
+const inFlightRequests = globalForCache.epornerInFlight ?? new Map<string, Promise<unknown>>();
+globalForCache.epornerInFlight = inFlightRequests;
+
+export function coalesceInFlight<T>(key: string, work: () => Promise<T>): Promise<T> {
   const existing = inFlightRequests.get(key);
   if (existing) return existing as Promise<T>;
   const promise = work().finally(() => {
@@ -80,12 +95,20 @@ function coalesceInFlight<T>(key: string, work: () => Promise<T>): Promise<T> {
 }
 
 function setCache(key: string, data: unknown, ttlSeconds: number) {
-  if (memCache.size >= MEM_CACHE_MAX) {
+  if (memCache.size >= MEM_CACHE_MAX && !memCache.has(key)) {
     const now = Date.now();
     for (const [k, v] of memCache.entries()) {
       if (v.expires <= now) memCache.delete(k);
     }
-    if (memCache.size >= MEM_CACHE_MAX) memCache.clear();
+    // Evict oldest 20% (FIFO) instead of wiping the whole cache
+    if (memCache.size >= MEM_CACHE_MAX) {
+      const toEvict = Math.ceil(MEM_CACHE_MAX * 0.2);
+      let evicted = 0;
+      for (const k of memCache.keys()) {
+        memCache.delete(k);
+        if (++evicted >= toEvict) break;
+      }
+    }
   }
   memCache.set(key, { data, expires: Date.now() + ttlSeconds * 1000 });
 }
@@ -93,7 +116,27 @@ function setCache(key: string, data: unknown, ttlSeconds: number) {
 function getCache(key: string): unknown | null {
   const cached = memCache.get(key);
   if (cached && cached.expires > Date.now()) return cached.data;
+  if (cached) memCache.delete(key);
   return null;
+}
+
+export function getDbCache<T>(key: string): T | null {
+  return getCache(key) as T | null;
+}
+
+export function setDbCache(key: string, data: unknown, ttlSeconds = DB_VIDEO_CACHE_TTL): void {
+  setCache(key, data, ttlSeconds);
+}
+
+export function deleteDbCache(key: string): void {
+  memCache.delete(key);
+}
+
+export function invalidateVideoCaches(videoId: string): void {
+  memCache.delete(`db:watch:${videoId}`);
+  memCache.delete(`db:api-video:${videoId}`);
+  memCache.delete(`db:api-related:${videoId}`);
+  memCache.delete(`status:${videoId}`);
 }
 
 function getStaleCache(key: string): unknown | null {

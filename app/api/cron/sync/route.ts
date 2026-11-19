@@ -22,11 +22,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { EpornerAPI } from "@/lib/api/eporner";
+import { EpornerAPI, invalidateVideoCaches } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { runDiskCacheMaintenance } from "@/lib/cache-cleanup";
 import { runRemovedVideosCleanup } from "@/lib/video/cleanup";
+import { invalidateSitemapCache } from "@/lib/sitemap";
 
 export const dynamic = "force-dynamic";
 
@@ -43,11 +44,26 @@ const MAX_NEW_PER_RUN = 2;
 
 type SyncMode = "sync" | "cleanup";
 
+const KNOWN_VIDEO_IDS_MAX = 500;
+
 const globalForCron = globalThis as unknown as {
   cronRunningJobs?: Map<SyncMode, number>;
+  cronKnownVideoIds?: Set<string>;
 };
 const runningJobs = globalForCron.cronRunningJobs ?? new Map<SyncMode, number>();
 globalForCron.cronRunningJobs = runningJobs;
+
+const knownVideoIds = globalForCron.cronKnownVideoIds ?? new Set<string>();
+globalForCron.cronKnownVideoIds = knownVideoIds;
+
+function rememberKnownVideoId(id: string) {
+  if (knownVideoIds.has(id)) return;
+  if (knownVideoIds.size >= KNOWN_VIDEO_IDS_MAX) {
+    const oldest = knownVideoIds.values().next().value;
+    if (oldest !== undefined) knownVideoIds.delete(oldest);
+  }
+  knownVideoIds.add(id);
+}
 
 interface SyncResult {
   fetchedFromEporner: number;
@@ -196,6 +212,11 @@ async function executeSyncJob(
       console.log("[CronSync] Running streaming daily cleanup...");
       const cleanupRes = await runRemovedVideosCleanup();
       result.removedVideosDeactivated = cleanupRes.removedVideosDeactivated;
+      if (cleanupRes.removedIds) {
+        for (const removedId of cleanupRes.removedIds) {
+          knownVideoIds.delete(removedId);
+        }
+      }
 
       // ── Disk Usage Monitoring ────────────────────────────────────────────────
       console.log(
@@ -216,12 +237,21 @@ async function executeSyncJob(
       result.fetchedFromEporner = videos.length;
 
       if (videos.length > 0) {
-        // N+1 FIX: Single batch query instead of N individual queries.
+        // Avoid waking Neon compute if all fetched Eporner IDs were already processed in RAM
         const ids = videos.map((v) => v.id);
-        const existing = await sql`
-          SELECT id FROM "Video" WHERE id = ANY(${ids})
-        `;
-        const existingIds = new Set(existing.map((v) => v.id as string));
+        const uncheckedIds = ids.filter((id) => !knownVideoIds.has(id));
+        const existingIds = new Set<string>(ids.filter((id) => knownVideoIds.has(id)));
+
+        if (uncheckedIds.length > 0) {
+          const existing = await sql`
+            SELECT id FROM "Video" WHERE id = ANY(${uncheckedIds})
+          `;
+          for (const row of existing) {
+            const existingId = row.id as string;
+            existingIds.add(existingId);
+            rememberKnownVideoId(existingId);
+          }
+        }
 
         const newVideos = videos.filter((v) => !existingIds.has(v.id));
         result.newVideosFound = newVideos.length;
@@ -243,6 +273,7 @@ async function executeSyncJob(
             const blacklistRegex = /\b(gay|shemale|tranny|ladyboy|trans|homo)\b/i;
 
             if (blacklistRegex.test(lowerTitle) || blacklistRegex.test(lowerKeywords)) {
+              rememberKnownVideoId(v.id);
               console.log(`[CronSync] Skipped blacklisted video (gay/trans filter): ${v.id} - "${v.title}"`);
               continue; // Skip this video completely, do not insert into DB
             }
@@ -318,12 +349,17 @@ async function executeSyncJob(
               }
             }
 
+            rememberKnownVideoId(v.id);
+            invalidateVideoCaches(v.id);
             result.videosAdded++;
             console.log(`[CronSync] Added video: ${v.id} — "${v.title}"`);
           } catch (videoErr) {
             const err = videoErr as Error;
             console.error(`[CronSync] Failed to process video ${v.id}: ${err.message}`);
           }
+        }
+        if (result.videosAdded > 0) {
+          invalidateSitemapCache();
         }
       }
     }

@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { cleanEpornerText, EpornerAPI } from "@/lib/api/eporner";
+import {
+  cleanEpornerText,
+  EpornerAPI,
+  getDbCache,
+  setDbCache,
+  coalesceInFlight,
+  DB_VIDEO_CACHE_TTL,
+} from "@/lib/api/eporner";
 
+const VIDEO_API_CACHE_HEADER = "public, s-maxage=3600, stale-while-revalidate=86400";
 
 export async function GET(
   request: NextRequest,
@@ -11,29 +19,39 @@ export async function GET(
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
+    const cacheKey = `db:api-video:${id}`;
+    const memHit = getDbCache<Record<string, unknown>>(cacheKey);
+    if (memHit) {
+      return NextResponse.json(memHit, {
+        headers: { "Cache-Control": VIDEO_API_CACHE_HEADER },
+      });
+    }
+
     let video: Record<string, unknown> | undefined;
     try {
-      const rows = await sql`
-        SELECT
-          v.id, v.title, v.keywords, v.views, v.rate, v."addedAt", v."lengthSec",
-          v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs, v.status,
-          COALESCE(
-            json_agg(DISTINCT jsonb_build_object('tag', jsonb_build_object('name', t.name, 'id', t.id))) 
-            FILTER (WHERE t.id IS NOT NULL), '[]'
-          ) AS tags,
-          COALESCE(
-            json_agg(DISTINCT jsonb_build_object('category', jsonb_build_object('name', c.name, 'id', c.id)))
-            FILTER (WHERE c.id IS NOT NULL), '[]'
-          ) AS categories
-        FROM "Video" v
-        LEFT JOIN "VideoTag" vt ON v.id = vt."videoId"
-        LEFT JOIN "Tag" t ON vt."tagId" = t.id
-        LEFT JOIN "VideoCategory" vc ON v.id = vc."videoId"
-        LEFT JOIN "Category" c ON vc."categoryId" = c.id
-        WHERE v.id = ${id}
-        GROUP BY v.id
-      `;
-      video = rows[0] as Record<string, unknown> | undefined;
+      video = await coalesceInFlight(cacheKey, async () => {
+        const rows = await sql`
+          SELECT
+            v.id, v.title, v.keywords, v.views, v.rate, v."addedAt", v."lengthSec",
+            v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs, v.status,
+            COALESCE(
+              json_agg(DISTINCT jsonb_build_object('tag', jsonb_build_object('name', t.name, 'id', t.id))) 
+              FILTER (WHERE t.id IS NOT NULL), '[]'
+            ) AS tags,
+            COALESCE(
+              json_agg(DISTINCT jsonb_build_object('category', jsonb_build_object('name', c.name, 'id', c.id)))
+              FILTER (WHERE c.id IS NOT NULL), '[]'
+            ) AS categories
+          FROM "Video" v
+          LEFT JOIN "VideoTag" vt ON v.id = vt."videoId"
+          LEFT JOIN "Tag" t ON vt."tagId" = t.id
+          LEFT JOIN "VideoCategory" vc ON v.id = vc."videoId"
+          LEFT JOIN "Category" c ON vc."categoryId" = c.id
+          WHERE v.id = ${id}
+          GROUP BY v.id
+        `;
+        return rows[0] as Record<string, unknown> | undefined;
+      });
     } catch (dbErr) {
       console.warn(`[VideoDetailsAPI] DB lookup failed for ${id}, falling back to Eporner:`, (dbErr as Error).message);
     }
@@ -57,8 +75,7 @@ export async function GET(
             status: "ACTIVE"
           }, {
             headers: {
-              // Cache Eporner fallback for 5 min at CDN edge, serve stale for 1hr
-              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
+              "Cache-Control": VIDEO_API_CACHE_HEADER,
             },
           });
         }
@@ -72,7 +89,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
+    const payload = {
       id: video.id,
       title: cleanEpornerText(video.title as string),
       keywords: cleanEpornerText((video.keywords as string) || ""),
@@ -87,11 +104,14 @@ export async function GET(
       status: video.status,
       tags: video.tags,
       categories: video.categories,
-    }, {
+    };
+
+    setDbCache(cacheKey, payload, DB_VIDEO_CACHE_TTL);
+
+    return NextResponse.json(payload, {
       headers: {
-        // Cache at CDN edge for 5 minutes, serve stale for up to 1 hour while revalidating.
-        // 10,000 ContinueWatching requests for the same video = 1 DB hit per 5 min.
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
+        // Cache in server RAM (6h) + CDN edge (1h) so ContinueWatching/bots never wake Neon DB every 5 min.
+        "Cache-Control": VIDEO_API_CACHE_HEADER,
       },
     });
   } catch (err) { const error = err as Error;

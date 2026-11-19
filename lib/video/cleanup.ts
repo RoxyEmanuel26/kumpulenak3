@@ -1,5 +1,6 @@
 import { sql } from "../db";
-import { EpornerAPI } from "../api/eporner";
+import { EpornerAPI, invalidateVideoCaches } from "../api/eporner";
+import { invalidateSitemapCache } from "../sitemap";
 
 export interface CleanupResult {
   skipped: boolean;
@@ -7,10 +8,15 @@ export interface CleanupResult {
   removedVideosDeactivated: number;
   deletedOldRemoved: number;
   prunedExcessVideos: number;
+  removedIds?: string[];
 }
 
 const TWENTY_HOURS_MS = 20 * 60 * 60 * 1000;
 const MAX_STORED_VIDEOS = 15_000;
+
+const globalForCleanup = globalThis as unknown as {
+  lastCleanupRunAt?: number;
+};
 
 /**
  * Checks ACTIVE database videos against Eporner's removed-videos feed using
@@ -28,6 +34,15 @@ export async function runRemovedVideosCleanup(
   };
 
   const now = new Date();
+  if (
+    !options.force &&
+    globalForCleanup.lastCleanupRunAt &&
+    now.getTime() - globalForCleanup.lastCleanupRunAt <= TWENTY_HOURS_MS
+  ) {
+    result.skipped = true;
+    return result;
+  }
+
   if (!options.force) {
     const [lastSyncSetting] = await sql`
       SELECT value FROM "Settings" WHERE key = 'last_removed_sync_at'
@@ -42,6 +57,7 @@ export async function runRemovedVideosCleanup(
     }
 
     if (lastSync && !isNaN(lastSync.getTime()) && now.getTime() - lastSync.getTime() <= TWENTY_HOURS_MS) {
+      globalForCleanup.lastCleanupRunAt = lastSync.getTime();
       result.skipped = true;
       return result;
     }
@@ -65,6 +81,11 @@ export async function runRemovedVideosCleanup(
         (updated as unknown as { count?: number; rowCount?: number }).count ??
         (updated as unknown as { rowCount?: number }).rowCount ??
         removedIds.length;
+      result.removedIds = removedIds;
+      for (const removedId of removedIds) {
+        invalidateVideoCaches(removedId);
+      }
+      invalidateSitemapCache();
     }
   }
 
@@ -73,6 +94,7 @@ export async function runRemovedVideosCleanup(
     VALUES ('last_removed_sync_at', ${JSON.stringify(now.toISOString())}, NOW())
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = NOW()
   `;
+  globalForCleanup.lastCleanupRunAt = now.getTime();
 
   // Neon DB Storage Protection Policy (512 MB Free Tier ceiling)
   try {

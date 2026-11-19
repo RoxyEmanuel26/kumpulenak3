@@ -1,7 +1,17 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
 import { Metadata } from "next";
-import { EpornerAPI, mapDbVideoToEporner } from "@/lib/api/eporner";
+import {
+  EpornerAPI,
+  mapDbVideoToEporner,
+  getDbCache,
+  setDbCache,
+  coalesceInFlight,
+  invalidateVideoCaches,
+  DB_VIDEO_CACHE_TTL,
+  DB_NEGATIVE_CACHE_TTL,
+} from "@/lib/api/eporner";
+import { invalidateSitemapCache } from "@/lib/sitemap";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
@@ -49,46 +59,94 @@ import { sql } from "@/lib/db";
 
 const getCachedEnrichedVideo = cache(getEnrichedVideo);
 
+type WatchCacheRecord =
+  | { status: "active"; video: ReturnType<typeof mapDbVideoToEporner> & { seoDescription: string | null } }
+  | { status: "blocked" };
+
 const getCachedVideoById = cache(async (id: string) => {
-  try {
-    // We select status to check if it's explicitly marked as REMOVED/DRAFT
-    const rows = await sql`SELECT *, "aiDescription" FROM "Video" WHERE id = ${id} LIMIT 1`;
-    if (rows && rows.length > 0) {
-      const dbVideo = rows[0];
-      
-      // If the video exists in our DB but is not ACTIVE (e.g. DRAFT/Spam or REMOVED),
-      // we must hard block it. Do NOT fall back to Eporner API.
-      if (dbVideo.status !== 'ACTIVE') {
-        return null;
-      }
+  const cacheKey = `db:watch:${id}`;
+  const memHit = getDbCache<WatchCacheRecord>(cacheKey);
 
-      // Self-healing upstream check: if Eporner permanently deleted this video between
-      // daily cron runs, immediately mark it REMOVED in DB and return 404 so Googlebot
-      // never crawls a 200 OK watch page pointing to /embed404/ and dead 404 thumbnails.
-      const upstreamStatus = await EpornerAPI.checkVideoStatus(id);
-      if (upstreamStatus === "removed") {
-        await sql`UPDATE "Video" SET status = 'REMOVED', "updatedAt" = NOW() WHERE id = ${id}`.catch((e) =>
-          console.warn(`[WatchPage] Failed to self-heal REMOVED status for ${id}:`, e)
-        );
-        return null;
-      }
-
-      return {
-        ...mapDbVideoToEporner(dbVideo as Record<string, unknown>),
-        seoDescription: (dbVideo.aiDescription as string | null) ?? null,
-      };
+  if (memHit) {
+    if (memHit.status === "blocked") {
+      return null;
     }
-  } catch (err: any) {
-    if (err?.code === "42P01") {
-      // 42P01 = undefined_table (Database table "Video" does not exist yet)
-      // Only warn concisely so terminal log stays clean; will automatically fallback to Eporner API
-      console.warn("[WatchPage] Database table 'Video' not yet created (run 'npm run db:push' on server to initialize). Falling back to Eporner API.");
-    } else {
-      console.error("[WatchPage] Error fetching video from DB:", err);
+    // Respect 6-hour cached checkVideoStatus; only updates DB if upstream removed it
+    const upstreamStatus = await EpornerAPI.checkVideoStatus(id);
+    if (upstreamStatus === "removed") {
+      await sql`UPDATE "Video" SET status = 'REMOVED', "updatedAt" = NOW() WHERE id = ${id}`.catch((e) =>
+        console.warn(`[WatchPage] Failed to self-heal REMOVED status for ${id}:`, e)
+      );
+      invalidateVideoCaches(id);
+      setDbCache(cacheKey, { status: "blocked" }, DB_NEGATIVE_CACHE_TTL);
+      invalidateSitemapCache();
+      return null;
     }
+    return memHit.video;
   }
-  // Fallback to Eporner if not in local DB at all
-  return EpornerAPI.getById(id);
+
+  let dbErrored = false;
+  const dbRecord = await coalesceInFlight(cacheKey, async (): Promise<WatchCacheRecord | null> => {
+    try {
+      // We select status to check if it's explicitly marked as REMOVED/DRAFT
+      const rows = await sql`SELECT *, "aiDescription" FROM "Video" WHERE id = ${id} LIMIT 1`;
+      if (rows && rows.length > 0) {
+        const dbVideo = rows[0];
+
+        // If the video exists in our DB but is not ACTIVE (e.g. DRAFT/Spam or REMOVED),
+        // we must hard block it. Do NOT fall back to Eporner API.
+        if (dbVideo.status !== "ACTIVE") {
+          setDbCache(cacheKey, { status: "blocked" }, DB_NEGATIVE_CACHE_TTL);
+          return { status: "blocked" };
+        }
+
+        // Self-healing upstream check: if Eporner permanently deleted this video between
+        // daily cron runs, immediately mark it REMOVED in DB and return 404 so Googlebot
+        // never crawls a 200 OK watch page pointing to /embed404/ and dead 404 thumbnails.
+        const upstreamStatus = await EpornerAPI.checkVideoStatus(id);
+        if (upstreamStatus === "removed") {
+          await sql`UPDATE "Video" SET status = 'REMOVED', "updatedAt" = NOW() WHERE id = ${id}`.catch((e) =>
+            console.warn(`[WatchPage] Failed to self-heal REMOVED status for ${id}:`, e)
+          );
+          invalidateVideoCaches(id);
+          setDbCache(cacheKey, { status: "blocked" }, DB_NEGATIVE_CACHE_TTL);
+          invalidateSitemapCache();
+          return { status: "blocked" };
+        }
+
+        const mapped = {
+          ...mapDbVideoToEporner(dbVideo as Record<string, unknown>),
+          seoDescription: (dbVideo.aiDescription as string | null) ?? null,
+        };
+        const entry: WatchCacheRecord = { status: "active", video: mapped };
+        setDbCache(cacheKey, entry, DB_VIDEO_CACHE_TTL);
+        return entry;
+      }
+      return null;
+    } catch (err: any) {
+      dbErrored = true;
+      if (err?.code === "42P01") {
+        // 42P01 = undefined_table (Database table "Video" does not exist yet)
+        // Only warn concisely so terminal log stays clean; will automatically fallback to Eporner API
+        console.warn("[WatchPage] Database table 'Video' not yet created (run 'npm run db:push' on server to initialize). Falling back to Eporner API.");
+      } else {
+        console.error("[WatchPage] Error fetching video from DB:", err);
+      }
+      return null;
+    }
+  });
+
+  if (dbRecord) {
+    return dbRecord.status === "blocked" ? null : dbRecord.video;
+  }
+
+  // Fallback to Eporner if not in local DB or DB temporarily failed
+  const epornerVideo = await EpornerAPI.getById(id);
+  if (!dbErrored && !epornerVideo) {
+    // Video genuinely does not exist in DB or upstream — avoid repeated lookups
+    setDbCache(cacheKey, { status: "blocked" }, DB_NEGATIVE_CACHE_TTL);
+  }
+  return epornerVideo;
 });
 
 /**

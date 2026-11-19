@@ -15,13 +15,32 @@ import { buildWatchUrl } from "./video/slug";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 const CHUNK_SIZE = 5_000;
-
-// In-memory resilience cache to protect /sitemap.xml and /sitemap/[id].xml from
-// transient Neon Serverless scale-to-zero cold-start hiccups.
-let lastKnownVideoCount = 0;
-let lastKnownLatestMod: string | undefined;
-const lastGoodSegmentXml = new Map<number, string>();
+const SITEMAP_INDEX_TTL_MS = 15 * 60 * 1000;   // 15 minutes RAM cache for index
+const SITEMAP_SEGMENT_TTL_MS = 60 * 60 * 1000; // 1 hour RAM cache for video segment XML
 const MAX_CACHED_SEGMENTS = 5;
+
+const globalForSitemap = globalThis as unknown as {
+  sitemapIndexCache?: { sitemaps: SitemapSegmentRef[]; expiresAt: number } | null;
+  sitemapLastKnownVideoCount?: number;
+  sitemapLastKnownLatestMod?: string;
+  sitemapSegmentFresh?: Map<number, { xml: string; expiresAt: number }>;
+  sitemapLastGoodSegmentXml?: Map<number, string>;
+  sitemapIndexInFlight?: Promise<{ sitemaps: SitemapSegmentRef[]; degraded: boolean }> | null;
+};
+
+const segmentFreshCache =
+  globalForSitemap.sitemapSegmentFresh ?? new Map<number, { xml: string; expiresAt: number }>();
+globalForSitemap.sitemapSegmentFresh = segmentFreshCache;
+
+const lastGoodSegmentXml =
+  globalForSitemap.sitemapLastGoodSegmentXml ?? new Map<number, string>();
+globalForSitemap.sitemapLastGoodSegmentXml = lastGoodSegmentXml;
+
+/** Invalidates fresh sitemap RAM caches when videos are added or marked REMOVED */
+export function invalidateSitemapCache(): void {
+  globalForSitemap.sitemapIndexCache = null;
+  segmentFreshCache.clear();
+}
 
 async function queryWithRetry<T>(
   fn: () => Promise<T>,
@@ -51,70 +70,93 @@ export async function generateSitemapsWithMeta(): Promise<{
   sitemaps: SitemapSegmentRef[];
   degraded: boolean;
 }> {
-  const nowIso = new Date().toISOString();
-  let videoCount = 0;
-  let latestModIso: string | undefined;
-  let degraded = false;
+  const now = Date.now();
+  const cachedIndex = globalForSitemap.sitemapIndexCache;
+  if (cachedIndex && now < cachedIndex.expiresAt) {
+    return { sitemaps: cachedIndex.sitemaps, degraded: false };
+  }
 
-  try {
-    // Include all active non-spam videos so /sitemap/1.xml never 404s when
-    // enriched and synced Video IDs have limited overlap; enriched videos are
-    // ordered first inside buildVideoSegment().
-    const [row] = await queryWithRetry(
-      () => sql`
-        SELECT
-          COUNT(*) as count,
-          MAX(COALESCE("updatedAt", "addedAt")) as "latestMod"
-        FROM "Video"
-        WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
-      `
-    );
-    videoCount = parseInt(row.count as string, 10) || 0;
-    if (row.latestMod) {
-      const parsed = new Date(row.latestMod as string | Date);
-      if (!isNaN(parsed.getTime())) {
-        latestModIso = parsed.toISOString();
+  if (globalForSitemap.sitemapIndexInFlight) {
+    return globalForSitemap.sitemapIndexInFlight;
+  }
+
+  const work = (async (): Promise<{ sitemaps: SitemapSegmentRef[]; degraded: boolean }> => {
+    const nowIso = new Date().toISOString();
+    let videoCount = 0;
+    let latestModIso: string | undefined;
+    let degraded = false;
+
+    try {
+      // Include all active non-spam videos so /sitemap/1.xml never 404s when
+      // enriched and synced Video IDs have limited overlap; enriched videos are
+      // ordered first inside buildVideoSegment().
+      const [row] = await queryWithRetry(
+        () => sql`
+          SELECT
+            COUNT(*) as count,
+            MAX(COALESCE("updatedAt", "addedAt")) as "latestMod"
+          FROM "Video"
+          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+        `
+      );
+      videoCount = parseInt(row.count as string, 10) || 0;
+      if (row.latestMod) {
+        const parsed = new Date(row.latestMod as string | Date);
+        if (!isNaN(parsed.getTime())) {
+          latestModIso = parsed.toISOString();
+        }
+      }
+      if (videoCount > 0) {
+        globalForSitemap.sitemapLastKnownVideoCount = videoCount;
+        globalForSitemap.sitemapLastKnownLatestMod = latestModIso ?? nowIso;
+      }
+    } catch (err) {
+      console.error("[Sitemap] Failed to count videos for segment generation:", err);
+      degraded = true;
+      // Preserve last verified video count in memory so /sitemap/1.xml never vanishes during a DB blip.
+      if ((globalForSitemap.sitemapLastKnownVideoCount ?? 0) > 0) {
+        videoCount = globalForSitemap.sitemapLastKnownVideoCount!;
+        latestModIso = globalForSitemap.sitemapLastKnownLatestMod ?? nowIso;
+      } else {
+        return {
+          sitemaps: [{ id: 0, lastModified: nowIso }],
+          degraded: true,
+        };
       }
     }
-    if (videoCount > 0) {
-      lastKnownVideoCount = videoCount;
-      lastKnownLatestMod = latestModIso ?? nowIso;
-    }
-  } catch (err) {
-    console.error("[Sitemap] Failed to count videos for segment generation:", err);
-    degraded = true;
-    // If we have a previously verified video count in memory, preserve the video
-    // segments so /sitemap/1.xml never vanishes from /sitemap.xml during a DB blip.
-    if (lastKnownVideoCount > 0) {
-      videoCount = lastKnownVideoCount;
-      latestModIso = lastKnownLatestMod ?? nowIso;
-    } else {
+
+    // No eligible videos yet (e.g. fresh DB): only expose the static/category segment,
+    // marked degraded so CDN does not cache a 1-segment index for hours.
+    if (videoCount === 0) {
       return {
         sitemaps: [{ id: 0, lastModified: nowIso }],
         degraded: true,
       };
     }
-  }
 
-  // No eligible videos yet (e.g. fresh DB): only expose the static/category segment,
-  // marked degraded so CDN does not cache a 1-segment index for hours.
-  if (videoCount === 0) {
-    return {
-      sitemaps: [{ id: 0, lastModified: nowIso }],
-      degraded: true,
-    };
-  }
+    const videoChunks = Math.ceil(videoCount / CHUNK_SIZE);
+    const sitemaps: SitemapSegmentRef[] = [
+      { id: 0, lastModified: nowIso }, // Static routes + categories
+      ...Array.from({ length: videoChunks }, (_, i) => ({
+        id: i + 1,
+        lastModified: latestModIso ?? nowIso,
+      })),
+    ];
 
-  const videoChunks = Math.ceil(videoCount / CHUNK_SIZE);
-  const sitemaps: SitemapSegmentRef[] = [
-    { id: 0, lastModified: nowIso }, // Static routes + categories
-    ...Array.from({ length: videoChunks }, (_, i) => ({
-      id: i + 1,
-      lastModified: latestModIso ?? nowIso,
-    })),
-  ];
+    if (!degraded) {
+      globalForSitemap.sitemapIndexCache = {
+        sitemaps,
+        expiresAt: Date.now() + SITEMAP_INDEX_TTL_MS,
+      };
+    }
 
-  return { sitemaps, degraded };
+    return { sitemaps, degraded };
+  })().finally(() => {
+    globalForSitemap.sitemapIndexInFlight = null;
+  });
+
+  globalForSitemap.sitemapIndexInFlight = work;
+  return work;
 }
 
 export async function generateSitemaps(): Promise<SitemapSegmentRef[]> {
@@ -317,6 +359,11 @@ ${items.map((item) => `  <url>
     return { xml, degraded: false };
   }
 
+  const cachedFresh = segmentFreshCache.get(segmentId);
+  if (cachedFresh && Date.now() < cachedFresh.expiresAt) {
+    return { xml: cachedFresh.xml, degraded: false };
+  }
+
   const { items, dbFailed } = await buildVideoSegmentWithMeta(segmentId - 1);
   if (items.length === 0) {
     if (dbFailed && lastGoodSegmentXml.has(segmentId)) {
@@ -347,6 +394,15 @@ ${items.map((item) => `  <url>
     </video:video>
   </url>`).join("\n")}
 </urlset>`.trim();
+
+  if (segmentFreshCache.size >= MAX_CACHED_SEGMENTS && !segmentFreshCache.has(segmentId)) {
+    const firstKey = segmentFreshCache.keys().next().value;
+    if (firstKey !== undefined) segmentFreshCache.delete(firstKey);
+  }
+  segmentFreshCache.set(segmentId, {
+    xml,
+    expiresAt: Date.now() + SITEMAP_SEGMENT_TTL_MS,
+  });
 
   if (lastGoodSegmentXml.size >= MAX_CACHED_SEGMENTS && !lastGoodSegmentXml.has(segmentId)) {
     const firstKey = lastGoodSegmentXml.keys().next().value;
