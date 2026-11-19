@@ -3,6 +3,7 @@ import { sql } from "@/lib/db";
 import {
   cleanEpornerText,
   EpornerAPI,
+  parseJsonObject,
   getDbCache,
   setDbCache,
   coalesceInFlight,
@@ -99,8 +100,8 @@ export async function GET(
       lengthSec: video.lengthSec,
       lengthMin: video.lengthMin,
       embedUrl: video.embedUrl,
-      defaultThumb: video.defaultThumb,
-      thumbs: video.thumbs,
+      defaultThumb: parseJsonObject(video.defaultThumb, null),
+      thumbs: parseJsonObject(video.thumbs, []),
       status: video.status,
       tags: video.tags,
       categories: video.categories,

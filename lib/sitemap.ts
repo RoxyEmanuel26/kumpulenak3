@@ -12,12 +12,15 @@
 import { sql } from "./db";
 import { TIER1_CATEGORIES } from "./category-config";
 import { buildWatchUrl } from "./video/slug";
+import { parseJsonObject } from "./api/eporner";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
-const CHUNK_SIZE = 5_000;
+// Split video sitemaps into ~1,000-URL segments (~750 KB each) so generation
+// stays <150ms and never stalls Node event loop or triggers Cloudflare HTTP 522.
+const CHUNK_SIZE = 1_000;
 const SITEMAP_INDEX_TTL_MS = 15 * 60 * 1000;   // 15 minutes RAM cache for index
 const SITEMAP_SEGMENT_TTL_MS = 60 * 60 * 1000; // 1 hour RAM cache for video segment XML
-const MAX_CACHED_SEGMENTS = 5;
+const MAX_CACHED_SEGMENTS = 20;
 
 const globalForSitemap = globalThis as unknown as {
   sitemapIndexCache?: { sitemaps: SitemapSegmentRef[]; expiresAt: number } | null;
@@ -203,13 +206,13 @@ function buildVideoDescription(title: string, keywords: string | null | undefine
   return `Watch "${title}" in HD quality for free on LustHub. No registration required.`;
 }
 
-function resolveThumbUrl(id: string, defaultThumb?: unknown, thumbs?: unknown): string {
-  const dt = defaultThumb as { src?: string } | null;
-  if (dt && typeof dt === "object" && typeof dt.src === "string") {
+function resolveThumbUrl(defaultThumb?: unknown, thumbs?: unknown): string {
+  const dt = parseJsonObject<{ src?: string } | null>(defaultThumb, null);
+  if (dt && typeof dt.src === "string" && dt.src.startsWith("http")) {
     return dt.src;
   }
-  const th = thumbs as Array<{ src?: string }> | null;
-  if (Array.isArray(th) && th[0]?.src) {
+  const th = parseJsonObject<Array<{ src?: string }> | null>(thumbs, null);
+  if (Array.isArray(th) && typeof th[0]?.src === "string" && th[0].src.startsWith("http")) {
     return th[0].src;
   }
   return `${BASE_URL}/logo.webp`;
@@ -286,7 +289,11 @@ async function buildVideoSegmentWithMeta(chunkIndex: number): Promise<{
       () => sql`
         SELECT
           v.id, v.title, v."updatedAt", v."addedAt", v."lengthSec",
-          v."embedUrl", v."defaultThumb", v.thumbs,
+          v."embedUrl",
+          COALESCE(
+            v."defaultThumb",
+            CASE WHEN jsonb_typeof(v.thumbs) = 'array' THEN v.thumbs->0 ELSE NULL END
+          ) AS "defaultThumb",
           COALESCE(se."metaDescription", se.summary, v."aiDescription") AS "aiDescription",
           v.keywords
         FROM "Video" v
@@ -302,7 +309,7 @@ async function buildVideoSegmentWithMeta(chunkIndex: number): Promise<{
       const id = v.id as string;
       const title = (v.title as string) || "Adult Video";
       const lastMod = (v.updatedAt || v.addedAt || new Date()) as Date;
-      const thumbUrl = resolveThumbUrl(id, v.defaultThumb, v.thumbs);
+      const thumbUrl = resolveThumbUrl(v.defaultThumb);
       const rawDesc = (v.aiDescription as string) || buildVideoDescription(title, v.keywords as string);
       const playerUrl = (v.embedUrl as string || `https://www.eporner.com/embed/${id}`).replace(/\/+$/, "");
       const duration = v.lengthSec && Number(v.lengthSec) > 0 ? Number(v.lengthSec) : undefined;

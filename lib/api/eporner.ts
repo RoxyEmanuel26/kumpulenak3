@@ -180,15 +180,16 @@ function emptySearchResponse(page: number, perPage: number): EpornerSearchRespon
   };
 }
 
-function parseJsonObject<T>(val: unknown, fallback: T): T {
-  if (val && typeof val === "object") return val as T;
-  if (typeof val === "string") {
+export function parseJsonObject<T>(val: unknown, fallback: T): T {
+  let cur: unknown = val;
+  for (let i = 0; i < 2 && typeof cur === "string"; i++) {
     try {
-      return JSON.parse(val) as T;
+      cur = JSON.parse(cur);
     } catch {
       return fallback;
     }
   }
+  if (cur && typeof cur === "object") return cur as T;
   return fallback;
 }
 

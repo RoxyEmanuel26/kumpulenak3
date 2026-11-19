@@ -3,6 +3,7 @@ import { sql } from "@/lib/db";
 import {
   cleanEpornerText,
   EpornerAPI,
+  parseJsonObject,
   getDbCache,
   setDbCache,
   coalesceInFlight,
@@ -74,6 +75,8 @@ export async function GET(
         ...v,
         title: cleanEpornerText(v.title as string),
         keywords: cleanEpornerText((v.keywords as string) || ""),
+        defaultThumb: parseJsonObject(v.defaultThumb, null),
+        thumbs: parseJsonObject(v.thumbs, []),
       }));
     });
 

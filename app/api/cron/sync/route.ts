@@ -303,7 +303,7 @@ async function executeSyncJob(
                 ${v.id}, ${v.title}, ${v.length_min}, ${v.length_sec},
                 ${v.added ? new Date(v.added).toISOString() : null},
                 ${v.rate}, ${v.views},
-                ${JSON.stringify(v.default_thumb)}, ${JSON.stringify(v.thumbs)},
+                ${JSON.stringify(v.default_thumb)}::jsonb, ${JSON.stringify(v.thumbs)}::jsonb,
                 ${v.keywords}, ${v.embed ? v.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${v.id}`},
                 ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
                 ${aiResult.scores.trending}, ${aiResult.scores.engagement},

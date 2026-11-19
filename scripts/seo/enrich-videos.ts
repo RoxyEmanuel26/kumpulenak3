@@ -178,7 +178,7 @@ async function runEnrichment() {
             ${full.id}, ${full.title}, ${full.length_min}, ${full.length_sec},
             ${full.added ? new Date(full.added).toISOString() : null},
             ${full.rate}, ${full.views ?? 0},
-            ${JSON.stringify(full.default_thumb)}, ${JSON.stringify(full.thumbs)},
+            ${JSON.stringify(full.default_thumb)}::jsonb, ${JSON.stringify(full.thumbs)}::jsonb,
             ${full.keywords},
             ${full.embed ? full.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${full.id}`},
             'ACTIVE', 60, 60, 5, false,

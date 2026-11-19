@@ -2,7 +2,7 @@ import { sql } from "@/lib/db";
 import { LibraryClient } from "@/components/video/LibraryClient";
 import { Metadata } from "next";
 import { EpornerVideo } from "@/types/eporner";
-import { cleanEpornerText } from "@/lib/api/eporner";
+import { mapDbVideoToEporner } from "@/lib/api/eporner";
 
 export const metadata: Metadata = {
   title: "Library",
@@ -25,20 +25,7 @@ export default async function LibraryPage() {
       ORDER BY "addedAt" DESC
     `;
 
-    mappedVideos = videos.map((v) => ({
-      id: v.id as string,
-      title: cleanEpornerText(v.title as string),
-      keywords: cleanEpornerText((v.keywords as string) || ""),
-      views: v.views as number,
-      rate: (v.rate as string) || "",
-      url: "",
-      added: (v.addedAt as Date)?.toISOString() || "",
-      length_sec: (v.lengthSec as number) || 0,
-      length_min: (v.lengthMin as string) || "",
-      embed: (v.embedUrl as string) || "",
-      default_thumb: v.defaultThumb as unknown as EpornerVideo["default_thumb"],
-      thumbs: v.thumbs as unknown as EpornerVideo["thumbs"],
-    }));
+    mappedVideos = videos.map((v) => mapDbVideoToEporner(v as Record<string, unknown>));
   } catch (err: any) {
     if (err?.code !== "42P01") {
       console.error("[LibraryPage] Failed to fetch videos:", err);
