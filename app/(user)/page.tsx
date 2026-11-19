@@ -15,7 +15,9 @@ const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id"
 export const revalidate = 1800;
 
 export const metadata: Metadata = {
-  title: "LustHub — Free HD Porn Videos",
+  title: {
+    absolute: "LustHub — Free HD Porn Videos",
+  },
   description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
   alternates: {
     canonical: SITE_URL,
@@ -28,9 +30,9 @@ export const metadata: Metadata = {
     siteName: "LustHub",
     images: [
       {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
+        url: "/logo.webp",
+        width: 512,
+        height: 512,
         alt: "LustHub — Free HD Porn Videos",
       },
     ],
@@ -39,7 +41,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "LustHub — Free HD Porn Videos",
     description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
-    images: ["/opengraph-image"],
+    images: ["/logo.webp"],
   },
 };
 

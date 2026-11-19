@@ -26,9 +26,9 @@ export const metadata: Metadata = {
     siteName: "LustHub",
     images: [
       {
-        url: `${SITE_URL}/opengraph-image`,
-        width: 1200,
-        height: 630,
+        url: `${SITE_URL}/logo.webp`,
+        width: 512,
+        height: 512,
         alt: "LustHub \u2014 Browse All Categories",
       },
     ],
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Browse All Categories \u2014 LustHub",
     description: "Browse all porn video categories on LustHub.",
-    images: [`${SITE_URL}/opengraph-image`],
+    images: [`${SITE_URL}/logo.webp`],
   },
 };
 

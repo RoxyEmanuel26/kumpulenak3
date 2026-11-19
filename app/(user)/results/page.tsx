@@ -17,33 +17,33 @@ export async function generateMetadata({
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
   if (query && query !== "all") {
-    const title = `"${query}" Porn Videos \u2014 LustHub`;
+    const title = `"${query}" Porn Videos`;
     const description = `Watch free HD porn videos for "${query}" on LustHub. Thousands of results updated daily. No registration required.`;
-    const canonicalUrl = `${baseUrl}/results`;
+    const fullTitle = `${title} — LustHub`;
+    const resultsUrl = `${baseUrl}/results`;
 
     return {
       title,
       description,
-      // Internal search pages MUST NOT be indexed to avoid thin/duplicate content penaties,
-      // but crawlers SHOULD follow links to discover videos and categories.
+      // Internal search pages MUST NOT be indexed to avoid thin/duplicate content penalties,
+      // and must not carry a conflicting canonical while noindex is set.
       robots: {
         index: false,
         follow: true,
       },
-      alternates: { canonical: canonicalUrl },
       openGraph: {
-        title,
+        title: fullTitle,
         description,
         type: "website",
-        url: canonicalUrl,
+        url: resultsUrl,
         siteName: "LustHub",
-        images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630, alt: "LustHub" }],
+        images: [{ url: `${baseUrl}/logo.webp`, width: 512, height: 512, alt: "LustHub" }],
       },
       twitter: {
         card: "summary_large_image",
-        title,
+        title: fullTitle,
         description,
-        images: [`${baseUrl}/opengraph-image`],
+        images: [`${baseUrl}/logo.webp`],
       },
     };
   }
@@ -57,31 +57,30 @@ export async function generateMetadata({
   };
 
   const label = (order && orderLabels[order]) || "Latest Videos";
-  const title = `${label} \u2014 LustHub`;
+  const fullTitle = `${label} — LustHub`;
   const description = `${label} — Browse free HD porn videos on LustHub, updated daily. No registration required.`;
-  const canonicalUrl = `${baseUrl}/results`;
+  const resultsUrl = `${baseUrl}/results`;
 
   return {
-    title,
+    title: label,
     description,
     robots: {
       index: false,
       follow: true,
     },
-    alternates: { canonical: canonicalUrl },
     openGraph: {
-      title,
+      title: fullTitle,
       description,
       type: "website",
-      url: canonicalUrl,
+      url: resultsUrl,
       siteName: "LustHub",
-      images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630, alt: "LustHub" }],
+      images: [{ url: `${baseUrl}/logo.webp`, width: 512, height: 512, alt: "LustHub" }],
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: fullTitle,
       description,
-      images: [`${baseUrl}/opengraph-image`],
+      images: [`${baseUrl}/logo.webp`],
     },
   };
 }
@@ -180,6 +179,7 @@ export default async function ResultsPage({
           {page > 1 ? (
             <Link 
               href={getPageUrl(page - 1)}
+              rel="nofollow"
               className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#272727] hover:bg-[#3F3F3F] text-xs transition-colors text-white cursor-pointer border border-white/5"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -202,6 +202,7 @@ export default async function ResultsPage({
           {page < totalPages ? (
             <Link 
               href={getPageUrl(page + 1)}
+              rel="nofollow"
               className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#272727] hover:bg-[#3F3F3F] text-xs transition-colors text-white cursor-pointer border border-white/5"
             >
               <span>Next</span>

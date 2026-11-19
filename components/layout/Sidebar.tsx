@@ -52,10 +52,12 @@ export function Sidebar() {
       <aside className="fixed top-14 left-0 bottom-0 z-40 w-[72px] bg-[#0F0F0F] hidden md:flex flex-col items-center py-4 border-r border-white/5 overflow-y-auto no-scrollbar">
         {primaryItems.map((item) => {
           const active = isActive(item.href);
+          const isNoFollow = item.href.startsWith("/results") || item.href.startsWith("/library");
           return (
             <Link
               key={item.label}
               href={item.href}
+              rel={isNoFollow ? "nofollow" : undefined}
               className={`flex flex-col items-center justify-center w-[64px] h-[72px] rounded-xl transition-all mb-1 cursor-pointer group ${
                 active 
                   ? "bg-white/10 text-white font-semibold" 
@@ -97,10 +99,12 @@ export function Sidebar() {
   // Common item renderer
   const renderItem = (item: { label: string; href: string; icon: React.ComponentType<{ className?: string }> }) => {
     const active = isActive(item.href);
+    const isNoFollow = item.href.startsWith("/results") || item.href.startsWith("/library");
     return (
       <Link
         key={item.label}
         href={item.href}
+        rel={isNoFollow ? "nofollow" : undefined}
         onClick={() => setMobileMenuOpen(false)}
         className={`flex items-center gap-6 px-4 py-2.5 rounded-xl transition-all cursor-pointer group ${
           active 

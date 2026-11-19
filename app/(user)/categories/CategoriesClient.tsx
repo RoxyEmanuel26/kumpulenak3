@@ -65,6 +65,7 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
             <Link
               key={cat.name}
               href={href}
+              rel={isTier1 ? undefined : "nofollow"}
               className="group relative overflow-hidden aspect-[4/3] rounded-2xl border border-white/5 shadow-md hover:shadow-xl hover:border-white/10 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer flex flex-col justify-end p-3 sm:p-4"
             >
               {/* Background Image */}

@@ -30,10 +30,12 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-40 h-[calc(3.5rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-[#0F0F0F]/95 border-t border-white/5 backdrop-blur-md flex items-center justify-around md:hidden px-2 shadow-[0_-8px_24px_rgba(0,0,0,0.4)]">
       {navItems.map((item) => {
         const active = isActive(item.href);
+        const isNoFollow = item.href.startsWith("/results") || item.href.startsWith("/library");
         return (
           <Link
             key={item.label}
             href={item.href}
+            rel={isNoFollow ? "nofollow" : undefined}
             className={`flex flex-col items-center justify-center flex-grow py-1.5 transition-all duration-200 cursor-pointer group relative ${
               active 
                 ? "text-red-500 font-bold" 

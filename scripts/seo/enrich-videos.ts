@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { EpornerAPI } from "../../lib/api/eporner";
+import { sql } from "../../lib/db";
 import { TIER1_CATEGORIES } from "../../lib/category-config";
 import type { EpornerVideo } from "../../types/eporner";
 import { 
@@ -49,11 +50,13 @@ async function runEnrichment() {
   const existingStore = await getAllEnrichedVideosAsync();
 
   const candidateMap = new Map<string, VideoInputItem>();
+  const fullVideoMap = new Map<string, EpornerVideo>();
 
   const ingest = (videos: EpornerVideo[] | undefined) => {
     if (!Array.isArray(videos)) return;
     for (const v of videos) {
       if (v?.id && !candidateMap.has(v.id)) {
+        fullVideoMap.set(v.id, v);
         candidateMap.set(v.id, {
           id: v.id,
           title: v.title,
@@ -158,6 +161,33 @@ async function runEnrichment() {
     totalEnriched += result.enrichedCount;
     totalRejected += result.rejectedCount;
     totalFailed += result.failedCount;
+
+    if (process.env.DATABASE_URL && result.enrichedCount > 0) {
+      const updatedStore = await getAllEnrichedVideosAsync();
+      for (const b of batch) {
+        if (updatedStore[b.id]?.status !== "enriched") continue;
+        const full = fullVideoMap.get(b.id);
+        if (!full) continue;
+        await sql`
+          INSERT INTO "Video" (
+            id, title, "lengthMin", "lengthSec", "addedAt", rate, views,
+            "defaultThumb", thumbs, keywords, "embedUrl", status,
+            "aiScoreTrending", "aiScoreEngagement", "aiScoreSpam", "aiSpamFlag",
+            "aiDescription", "updatedAt"
+          ) VALUES (
+            ${full.id}, ${full.title}, ${full.length_min}, ${full.length_sec},
+            ${full.added ? new Date(full.added).toISOString() : null},
+            ${full.rate}, ${full.views ?? 0},
+            ${JSON.stringify(full.default_thumb)}, ${JSON.stringify(full.thumbs)},
+            ${full.keywords},
+            ${full.embed ? full.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${full.id}`},
+            'ACTIVE', 60, 60, 5, false,
+            ${updatedStore[b.id].summary}, NOW()
+          )
+          ON CONFLICT (id) DO NOTHING
+        `.catch(() => {});
+      }
+    }
 
     console.log(`   -> Batch result: ${result.enrichedCount} enriched, ${result.rejectedCount} rejected by QC, ${result.failedCount} failed.`);
     

@@ -18,21 +18,14 @@ const CHUNK_SIZE = 5_000;
 
 export async function generateSitemaps() {
   let videoCount = 0;
-  const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
   try {
-    const [row] = isGateEnforced
-      ? await sql`
-          SELECT COUNT(*) as count FROM "Video" v
-          WHERE v.status = 'ACTIVE' AND v."aiSpamFlag" = false AND v."aiScoreSpam" < 65
-          AND EXISTS (
-            SELECT 1 FROM "SeoEnrichment" se
-            WHERE se."videoId" = v.id AND se.status = 'enriched'
-          )
-        `
-      : await sql`
-          SELECT COUNT(*) as count FROM "Video"
-          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
-        `;
+    // Include all active non-spam videos so /sitemap/1.xml never 404s when
+    // enriched and synced Video IDs have limited overlap; enriched videos are
+    // ordered first inside buildVideoSegment().
+    const [row] = await sql`
+      SELECT COUNT(*) as count FROM "Video"
+      WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+    `;
     videoCount = parseInt(row.count as string, 10) || 0;
   } catch (err) {
     // Never advertise a video segment we cannot fill: an empty <urlset> makes
@@ -171,26 +164,19 @@ function buildStaticSegment(): SitemapItem[] {
 
 async function buildVideoSegment(chunkIndex: number): Promise<VideoSitemapItem[]> {
   try {
-    const isGateEnforced = process.env.ENFORCE_INDEXING_GATE === "true";
-    const videos = isGateEnforced
-      ? await sql`
-          SELECT v.id, v.title, v."updatedAt", v."addedAt", v."lengthSec", v."embedUrl", v."defaultThumb", v.thumbs, v."aiDescription", v.keywords
-          FROM "Video" v
-          WHERE v.status = 'ACTIVE' AND v."aiSpamFlag" = false AND v."aiScoreSpam" < 65
-          AND EXISTS (
-            SELECT 1 FROM "SeoEnrichment" se
-            WHERE se."videoId" = v.id AND se.status = 'enriched'
-          )
-          ORDER BY v."addedAt" DESC
-          LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
-        `
-      : await sql`
-          SELECT id, title, "updatedAt", "addedAt", "lengthSec", "embedUrl", "defaultThumb", thumbs, "aiDescription", keywords
-          FROM "Video"
-          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
-          ORDER BY "addedAt" DESC
-          LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
-        `;
+    const videos = await sql`
+      SELECT
+        v.id, v.title, v."updatedAt", v."addedAt", v."lengthSec",
+        v."embedUrl", v."defaultThumb", v.thumbs,
+        COALESCE(se."metaDescription", se.summary, v."aiDescription") AS "aiDescription",
+        v.keywords
+      FROM "Video" v
+      LEFT JOIN "SeoEnrichment" se
+        ON se."videoId" = v.id AND se.status = 'enriched'
+      WHERE v.status = 'ACTIVE' AND v."aiSpamFlag" = false AND v."aiScoreSpam" < 65
+      ORDER BY (se."videoId" IS NOT NULL) DESC, v."addedAt" DESC NULLS LAST
+      LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
+    `;
 
     return videos.map((v) => {
       const id = v.id as string;

@@ -268,13 +268,15 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
             <div className={`text-xs sm:text-sm text-[#F1F1F1] leading-relaxed whitespace-pre-wrap ${!descExpanded ? "line-clamp-3" : ""}`}>
               {(descExpanded ? keywordsList : keywordsList.slice(0, 10)).map((tag, idx) => {
                   const slug = slugify(tag);
-                  const href = TIER1_SLUGS.has(slug)
+                  const isTier1 = TIER1_SLUGS.has(slug);
+                  const href = isTier1
                     ? `/category/${slug}`
                     : `/results?search_query=${encodeURIComponent(tag)}`;
                   return (
                     <Link
                       key={idx}
                       href={href}
+                      rel={isTier1 ? undefined : "nofollow"}
                       className="text-blue-400 hover:underline mr-2 inline-block"
                     >
                       #{tag.replace(/\s+/g, '')}
@@ -295,11 +297,12 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
                 {keywordsList.map((tag, index) => {
                   const tagSlug = slugify(tag);
-                  const tagHref = TIER1_SLUGS.has(tagSlug)
+                  const isTier1 = TIER1_SLUGS.has(tagSlug);
+                  const tagHref = isTier1
                     ? `/category/${tagSlug}`
                     : `/results?search_query=${encodeURIComponent(tag)}`;
                   return (
-                    <Link key={index} href={tagHref}>
+                    <Link key={index} href={tagHref} rel={isTier1 ? undefined : "nofollow"}>
                       <Badge variant="secondary" className="bg-white/10 text-xs text-[#F1F1F1] hover:bg-white/20 border-0 cursor-pointer py-1 px-2.5 rounded-lg">
                         {tag}
                       </Badge>
@@ -327,21 +330,29 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
           </div>
 
           {/* ── Continuation CTA ─────────────────────────────────────────
-               Shown after the related list to prevent dead-end exits.
-               Uses first keyword as search anchor — one link only.
+               Routes Tier-1 keywords directly to their indexed /category/{slug};
+               non-Tier-1 search links use nofollow to preserve crawl budget.
           */}
-          {keywordsList.length > 0 && (
-            <div className="pt-3 border-t border-white/5 text-center">
-              <Link
-                href={`/results?search_query=${encodeURIComponent(keywordsList[0])}`}
-                onClick={() => trackEvent("see_more_click", { keyword: keywordsList[0] })}
-                className="text-xs text-muted-foreground hover:text-red-400 transition-colors font-medium inline-flex items-center gap-1 group"
-              >
-                See more {keywordsList[0]} videos
-                <span className="transition-transform group-hover:translate-x-0.5">→</span>
-              </Link>
-            </div>
-          )}
+          {keywordsList.length > 0 && (() => {
+            const firstSlug = slugify(keywordsList[0]);
+            const isTier1 = TIER1_SLUGS.has(firstSlug);
+            const seeMoreHref = isTier1
+              ? `/category/${firstSlug}`
+              : `/results?search_query=${encodeURIComponent(keywordsList[0])}`;
+            return (
+              <div className="pt-3 border-t border-white/5 text-center">
+                <Link
+                  href={seeMoreHref}
+                  rel={isTier1 ? undefined : "nofollow"}
+                  onClick={() => trackEvent("see_more_click", { keyword: keywordsList[0] })}
+                  className="text-xs text-muted-foreground hover:text-red-400 transition-colors font-medium inline-flex items-center gap-1 group"
+                >
+                  See more {keywordsList[0]} videos
+                  <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                </Link>
+              </div>
+            );
+          })()}
 
         </div>
 
