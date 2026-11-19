@@ -35,7 +35,7 @@ export function VideoPlayer({
   // Preconnect helper to warm up Eporner CDN when user hovers over facade
   const preconnectOrigin = useCallback(() => {
     if (typeof document === "undefined") return;
-    const origins = ["https://www.eporner.com", "https://pi.eporner.com"];
+    const origins = ["https://www.eporner.com", "https://static-ca-cdn.eporner.com"];
     origins.forEach((origin) => {
       if (!document.querySelector(`link[rel="preconnect"][href="${origin}"]`)) {
         const link = document.createElement("link");
@@ -135,6 +135,20 @@ export function VideoPlayer({
           />
         )}
 
+        {/* ── Primary Video Iframe (Always mounted in active DOM for Googlebot WRS Video Indexing) ── */}
+        <iframe
+          src={isPlaying ? activeEmbedUrl : embedUrl}
+          title={title}
+          loading="lazy"
+          className="absolute inset-0 w-full h-full border-0"
+          allowFullScreen
+          allow="autoplay; encrypted-media; picture-in-picture"
+          referrerPolicy="no-referrer-when-downgrade"
+          onLoad={() => {
+            if (isPlaying) setLoading(false);
+          }}
+        />
+
         {/* ── Facade Layer: Thumbnail + Play Button (LCP Optimization) ── */}
         {!isPlaying ? (
           <div
@@ -150,7 +164,7 @@ export function VideoPlayer({
                 handleStartPlay();
               }
             }}
-            className="group relative w-full h-full cursor-pointer overflow-hidden focus:outline-none focus:ring-2 focus:ring-red-600"
+            className="group relative z-10 w-full h-full cursor-pointer overflow-hidden bg-black focus:outline-none focus:ring-2 focus:ring-red-600"
           >
             {/* Native high-priority thumbnail — instant LCP */}
             {thumbnailUrl ? (
@@ -184,40 +198,16 @@ export function VideoPlayer({
             </div>
           </div>
         ) : (
-          <>
-            {/* Loading Spinner during iframe handoff */}
-            {loading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10">
-                <Loader2 className="h-10 w-10 animate-spin text-red-600 mb-3" />
-                <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest animate-pulse">
-                  Connecting Stream...
-                </span>
-              </div>
-            )}
-
-            {/* Active Iframe Embed */}
-            <iframe
-              src={activeEmbedUrl}
-              title={title}
-              className="absolute inset-0 w-full h-full border-0"
-              allowFullScreen
-              allow="autoplay; encrypted-media; picture-in-picture"
-              referrerPolicy="no-referrer-when-downgrade"
-              onLoad={() => setLoading(false)}
-            />
-          </>
+          /* Loading Spinner during iframe handoff */
+          loading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10 pointer-events-none">
+              <Loader2 className="h-10 w-10 animate-spin text-red-600 mb-3" />
+              <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest animate-pulse">
+                Connecting Stream...
+              </span>
+            </div>
+          )
         )}
-
-        {/* Fallback for non-JS / search engines */}
-        <noscript>
-          <iframe
-            src={embedUrl}
-            title={title}
-            className="absolute inset-0 w-full h-full border-0"
-            allowFullScreen
-            loading="lazy"
-          />
-        </noscript>
       </div>
 
       {/* Mode Bioskop instruction tip */}

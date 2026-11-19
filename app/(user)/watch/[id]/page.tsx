@@ -62,6 +62,17 @@ const getCachedVideoById = cache(async (id: string) => {
         return null;
       }
 
+      // Self-healing upstream check: if Eporner permanently deleted this video between
+      // daily cron runs, immediately mark it REMOVED in DB and return 404 so Googlebot
+      // never crawls a 200 OK watch page pointing to /embed404/ and dead 404 thumbnails.
+      const upstreamStatus = await EpornerAPI.checkVideoStatus(id);
+      if (upstreamStatus === "removed") {
+        await sql`UPDATE "Video" SET status = 'REMOVED', "updatedAt" = NOW() WHERE id = ${id}`.catch((e) =>
+          console.warn(`[WatchPage] Failed to self-heal REMOVED status for ${id}:`, e)
+        );
+        return null;
+      }
+
       return {
         ...mapDbVideoToEporner(dbVideo as Record<string, unknown>),
         seoDescription: (dbVideo.aiDescription as string | null) ?? null,
@@ -115,7 +126,9 @@ export async function generateMetadata({
   const thumbUrl =
     video.default_thumb?.src ||
     (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
-    `https://pi.eporner.com/po/${video.id}/1.jpg`;
+    `${SITE_URL}/logo.webp`;
+
+  const embedUrl = (video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "");
 
   // Fetch enriched AI metadata if available (Fase 5C)
   const enriched = await getCachedEnrichedVideo(video.id);
@@ -149,6 +162,15 @@ export async function generateMetadata({
       url: canonicalUrl,
       siteName: "LustHub",
       ...(thumbUrl ? { images: [{ url: thumbUrl, width: 1280, height: 720, alt: displayTitle }] } : {}),
+      videos: [
+        {
+          url: embedUrl,
+          secureUrl: embedUrl,
+          type: "text/html",
+          width: 1280,
+          height: 720,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
@@ -215,8 +237,7 @@ export default async function WatchVideoPage({
   }
   
   if (thumbUrls.length === 0) {
-    thumbUrls.push(`https://pi.eporner.com/po/${video.id}/1.jpg`);
-    thumbUrls.push(`https://pi.eporner.com/po/${video.id}/2.jpg`);
+    thumbUrls.push(`${SITE_URL}/logo.webp`);
   }
 
   const duration = toISO8601Duration(video.length_sec);
@@ -234,6 +255,8 @@ export default async function WatchVideoPage({
     ? new Date(video.added).toISOString()
     : undefined;
 
+  const cleanEmbedUrl = (video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "");
+
   // Build VideoObject — conditionally include optional fields
   const videoSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -242,7 +265,10 @@ export default async function WatchVideoPage({
     "name": enriched?.seo_title || video.title,
     "description": description,
     "url": canonicalUrl,
-    "embedUrl": (video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, ""),
+    "embedUrl": cleanEmbedUrl,
+    "contentUrl": cleanEmbedUrl,
+    "width": 1280,
+    "height": 720,
     "isFamilyFriendly": false,
     "potentialAction": {
       "@type": "WatchAction",

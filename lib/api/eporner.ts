@@ -11,6 +11,7 @@ try {
 }
 
 const BASE_URL = "https://www.eporner.com/api/v2/video";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
 export function repairMojibake(str: string): string {
   if (!str || !/[^\x00-\x7F]/.test(str)) return str;
@@ -52,6 +53,7 @@ export function cleanVideoData(video: EpornerVideo): EpornerVideo {
     title: cleanEpornerText(typeof video.title === "string" ? video.title : "HD Video"),
     keywords: cleanEpornerText(typeof video.keywords === "string" ? video.keywords : ""),
     views: Number(video.views) || 0,
+    embed: typeof video.embed === "string" ? video.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${video.id}`,
     thumbs,
   };
 }
@@ -153,7 +155,7 @@ export function mapDbVideoToEporner(row: Record<string, unknown>): EpornerVideo 
     size: "big",
     width: 640,
     height: 360,
-    src: `https://pi.eporner.com/po/${id}/1.jpg`,
+    src: `${SITE_URL}/logo.webp`,
   });
   const parsedThumbs = parseJsonObject<unknown>(row.thumbs, null);
   const thumbs = Array.isArray(parsedThumbs)
@@ -323,10 +325,56 @@ export const EpornerAPI = {
         const video = (data && !Array.isArray(data) && typeof data === "object" && data.id)
           ? cleanVideoData(data)
           : null;
-        if (video) setCache(url, video, VIDEO_TTL);
+        if (video) {
+          setCache(url, video, VIDEO_TTL);
+          setCache(`status:${id}`, "alive", VIDEO_TTL);
+        } else {
+          setCache(`status:${id}`, "removed", VIDEO_TTL);
+        }
         return video;
       } catch {
         return (getStaleCache(url) as EpornerVideo | null) ?? null;
+      }
+    });
+  },
+
+  /**
+   * Verifies whether a video ID is still active on Eporner or has been deleted upstream.
+   * Returns "alive" | "removed" | "unknown" (on network error/timeout, never false-positives as removed).
+   */
+  async checkVideoStatus(id: string): Promise<"alive" | "removed" | "unknown"> {
+    const statusKey = `status:${id}`;
+    const cachedStatus = getCache(statusKey) as "alive" | "removed" | null;
+    if (cachedStatus) return cachedStatus;
+
+    const queryParams = new URLSearchParams({ id, format: "json" });
+    const url = `${BASE_URL}/id/?${queryParams.toString()}`;
+    if (getCache(url)) {
+      setCache(statusKey, "alive", VIDEO_TTL);
+      return "alive";
+    }
+
+    return coalesceInFlight(statusKey, async () => {
+      try {
+        const res = await fetchWithRetry(
+          url,
+          {
+            next: { revalidate: VIDEO_TTL },
+            signal: AbortSignal.timeout(4000),
+          },
+          0
+        );
+        if (!res.ok) return "unknown";
+        const data = await res.json();
+        if (data && !Array.isArray(data) && typeof data === "object" && data.id) {
+          setCache(url, cleanVideoData(data), VIDEO_TTL);
+          setCache(statusKey, "alive", VIDEO_TTL);
+          return "alive";
+        }
+        setCache(statusKey, "removed", VIDEO_TTL);
+        return "removed";
+      } catch {
+        return "unknown";
       }
     });
   },

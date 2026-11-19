@@ -97,7 +97,7 @@ function resolveThumbUrl(id: string, defaultThumb?: unknown, thumbs?: unknown): 
   if (Array.isArray(th) && th[0]?.src) {
     return th[0].src;
   }
-  return `https://pi.eporner.com/po/${id}/1.jpg`;
+  return `${BASE_URL}/logo.webp`;
 }
 
 function buildStaticSegment(): SitemapItem[] {

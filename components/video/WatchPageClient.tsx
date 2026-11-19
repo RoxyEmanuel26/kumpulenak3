@@ -102,7 +102,7 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
         <VideoPlayer
           embedUrl={(video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "")}
           title={video.title}
-          thumbnailUrl={video.default_thumb?.src || null}
+          thumbnailUrl={video.default_thumb?.src || (Array.isArray(video.thumbs) && video.thumbs[0]?.src) || null}
           isTheater={isTheater}
           onToggleTheater={() => setIsTheater(!isTheater)}
         />
