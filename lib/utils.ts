@@ -54,3 +54,26 @@ export function formatVideoDate(dateStr: string): string {
     day: "numeric",
   });
 }
+
+/**
+ * Parses a positive 1-based page parameter from query strings.
+ * Returns 1 when omitted/empty, or null for invalid values (0, negative, NaN, trailing text).
+ */
+export function parsePositivePage(raw?: string): number | null {
+  if (raw === undefined || raw.trim() === "") return 1;
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 1 ? parsed : null;
+}
+
+/**
+ * Detects literal schema template placeholders (e.g. `{search_term_string}`) or
+ * malformed oversized search queries that should return 404 instead of hitting upstream APIs.
+ */
+export function isInvalidSearchQuery(raw?: string): boolean {
+  if (!raw) return false;
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  return /\{[^}]*\}/.test(trimmed) || /[\u0000-\u001F\u007F]/.test(trimmed) || trimmed.length > 200;
+}

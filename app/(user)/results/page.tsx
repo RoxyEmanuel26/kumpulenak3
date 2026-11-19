@@ -1,10 +1,11 @@
+import { notFound } from "next/navigation";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
-import { slugify } from "@/lib/utils";
+import { slugify, parsePositivePage, isInvalidSearchQuery } from "@/lib/utils";
 
 export async function generateMetadata({
   searchParams,
@@ -95,8 +96,12 @@ export default async function ResultsPage({
   }>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const query = resolvedSearchParams.search_query || "all";
-  const page = parseInt(resolvedSearchParams.page || "1");
+  const rawQuery = resolvedSearchParams.search_query;
+  const page = parsePositivePage(resolvedSearchParams.page);
+  if (page === null || isInvalidSearchQuery(rawQuery)) {
+    return notFound();
+  }
+  const query = rawQuery?.trim() || "all";
   const order = (resolvedSearchParams.order as "latest" | "top-weekly" | "top-monthly" | "most-popular" | "longest" | "shortest") || "latest";
   const per_page = 30;
 
@@ -109,6 +114,12 @@ export default async function ResultsPage({
 
   const videos = res?.videos || [];
   const totalPages = res?.total_pages || 1;
+
+  // Strict Soft-404 guard: return HTTP 404 instead of 200 "No videos found"
+  // when a search yields zero results or exceeds available pagination.
+  if (videos.length === 0 || (totalPages > 0 && page > totalPages)) {
+    return notFound();
+  }
 
   // Helper to build page URL
   const getPageUrl = (targetPage: number) => {

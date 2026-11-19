@@ -7,6 +7,7 @@ import { VideoGrid } from "@/components/video/VideoGrid";
 import { getCategoryBySlug, TIER1_CATEGORIES } from "@/lib/category-config";
 import { buildWatchUrl } from "@/lib/video/slug";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { parsePositivePage } from "@/lib/utils";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
@@ -32,8 +33,7 @@ export async function generateMetadata({
   if (!cat) return notFound();
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
-  const pageStr = resolvedSearchParams.page;
-  const pageNum = parseInt(pageStr || "1", 10);
+  const pageNum = parsePositivePage(resolvedSearchParams.page) ?? 1;
   
   const canonicalUrl = pageNum > 1 
     ? `${baseUrl}/category/${cat.slug}?page=${pageNum}` 
@@ -85,11 +85,10 @@ export default async function CategoryPage({
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
 
-  // Reject unknown slugs immediately — keeps non-Tier-1 pages from going live
+  // Reject unknown slugs or invalid page params immediately
   const cat = getCategoryBySlug(slug);
-  if (!cat) return notFound();
-
-  const page = Math.max(1, parseInt(resolvedSearchParams.page || "1", 10));
+  const page = parsePositivePage(resolvedSearchParams.page);
+  if (!cat || page === null) return notFound();
 
   // Fetch videos from Eporner using the category display name as the search query
   const res = await EpornerAPI.search({

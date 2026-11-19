@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { EpornerAPI } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
@@ -6,6 +7,7 @@ import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { ContinueWatching } from "@/components/video/ContinueWatching";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { parsePositivePage, isInvalidSearchQuery } from "@/lib/utils";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
@@ -56,8 +58,12 @@ export default async function UserHome({
   }>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const query = resolvedSearchParams.q || "all";
-  const page = parseInt(resolvedSearchParams.page || "1");
+  const rawQuery = resolvedSearchParams.q;
+  const page = parsePositivePage(resolvedSearchParams.page);
+  if (page === null || isInvalidSearchQuery(rawQuery)) {
+    return notFound();
+  }
+  const query = rawQuery?.trim() || "all";
   const order = (resolvedSearchParams.order as "latest" | "top-weekly" | "top-monthly" | "most-popular" | "longest" | "shortest") || "latest";
   const lq = parseInt(resolvedSearchParams.lq || "1") as 0 | 1 | 2;
   const per_page = 30; 
@@ -72,6 +78,12 @@ export default async function UserHome({
 
   const videos = res?.videos || [];
   const totalPages = res?.total_pages || 1;
+
+  // Prevent Soft 404 on explicit query/pagination variants while keeping bare `/` resilient
+  const hasExplicitQuery = Boolean(rawQuery?.trim() && rawQuery.trim() !== "all");
+  if ((hasExplicitQuery || page > 1) && (videos.length === 0 || (totalPages > 0 && page > totalPages))) {
+    return notFound();
+  }
 
   // Helper to build page URL
   const getPageUrl = (targetPage: number) => {
