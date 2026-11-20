@@ -26,9 +26,9 @@ export function Sidebar() {
   const primaryItems = [
     { label: "New", href: "/", icon: Home },
     { label: "Categories", href: "/categories", icon: LayoutGrid },
-    { label: "Top Weekly", href: "/results?order=top-weekly", icon: Flame },
-    { label: "Top Monthly", href: "/results?order=top-monthly", icon: Compass },
-    { label: "Most Popular", href: "/results?order=most-popular", icon: ThumbsUp },
+    { label: "Top Weekly", href: "/?order=top-weekly", icon: Flame },
+    { label: "Top Monthly", href: "/?order=top-monthly", icon: Compass },
+    { label: "Most Popular", href: "/?order=most-popular", icon: ThumbsUp },
   ];
 
   const personalItems = [
@@ -38,10 +38,11 @@ export function Sidebar() {
 
   const isActive = (href: string) => {
     if (href === "/") {
-      return pathname === "/";
+      return pathname === "/" && !searchParams.get("order");
     }
     if (href.includes("?")) {
-      return searchParams.toString().includes(href.split("?")[1]);
+      const [hrefPath, hrefQuery] = href.split("?");
+      return pathname === hrefPath && searchParams.toString().includes(hrefQuery);
     }
     return pathname.startsWith(href);
   };

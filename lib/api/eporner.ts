@@ -317,6 +317,7 @@ export const EpornerAPI = {
       format: "json",
       per_page: "100",
       order: "latest",
+      thumbsize: "big",
       gay: "0",
       lq: "0",
       ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
@@ -355,7 +356,7 @@ export const EpornerAPI = {
   },
 
   async getById(id: string): Promise<EpornerVideo | null> {
-    const queryParams = new URLSearchParams({ id, format: "json" });
+    const queryParams = new URLSearchParams({ id, thumbsize: "big", format: "json" });
     const url = `${BASE_URL}/id/?${queryParams.toString()}`;
 
     const memHit = getCache(url);
@@ -391,7 +392,7 @@ export const EpornerAPI = {
     const cachedStatus = getCache(statusKey) as "alive" | "removed" | null;
     if (cachedStatus) return cachedStatus;
 
-    const queryParams = new URLSearchParams({ id, format: "json" });
+    const queryParams = new URLSearchParams({ id, thumbsize: "big", format: "json" });
     const url = `${BASE_URL}/id/?${queryParams.toString()}`;
     if (getCache(url)) {
       setCache(statusKey, "alive", VIDEO_TTL);

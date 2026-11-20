@@ -139,7 +139,6 @@ export function VideoPlayer({
         <iframe
           src={isPlaying ? activeEmbedUrl : embedUrl}
           title={title}
-          loading="lazy"
           className="absolute inset-0 w-full h-full border-0"
           allowFullScreen
           allow="autoplay; encrypted-media; picture-in-picture"

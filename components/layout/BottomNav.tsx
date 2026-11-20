@@ -10,18 +10,19 @@ export function BottomNav() {
 
   const navItems = [
     { label: "Home", href: "/", icon: Home },
-    { label: "Trending", href: "/results?order=top-weekly", icon: Compass },
+    { label: "Trending", href: "/?order=top-weekly", icon: Compass },
     { label: "Categories", href: "/categories", icon: LayoutGrid },
-    { label: "Popular", href: "/results?order=most-popular", icon: Flame },
+    { label: "Popular", href: "/?order=most-popular", icon: Flame },
     { label: "Library", href: "/library", icon: PlaySquare },
   ];
 
   const isActive = (href: string) => {
     if (href === "/") {
-      return pathname === "/";
+      return pathname === "/" && !searchParams.get("order");
     }
     if (href.includes("?")) {
-      return searchParams.toString().includes(href.split("?")[1]);
+      const [hrefPath, hrefQuery] = href.split("?");
+      return pathname === hrefPath && searchParams.toString().includes(hrefQuery);
     }
     return pathname.startsWith(href);
   };

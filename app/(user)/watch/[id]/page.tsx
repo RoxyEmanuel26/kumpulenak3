@@ -186,6 +186,15 @@ export async function generateMetadata({
     (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
     `${SITE_URL}/logo.webp`;
 
+  const thumbWidth =
+    video.default_thumb?.width && video.default_thumb.width > 0
+      ? video.default_thumb.width
+      : 640;
+  const thumbHeight =
+    video.default_thumb?.height && video.default_thumb.height > 0
+      ? video.default_thumb.height
+      : 360;
+
   const embedUrl = (video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "");
 
   // Fetch enriched AI metadata if available (Fase 5C)
@@ -219,7 +228,7 @@ export async function generateMetadata({
       type: "video.other",
       url: canonicalUrl,
       siteName: "LustHub",
-      ...(thumbUrl ? { images: [{ url: thumbUrl, width: 1280, height: 720, alt: displayTitle }] } : {}),
+      ...(thumbUrl ? { images: [{ url: thumbUrl, width: thumbWidth, height: thumbHeight, alt: displayTitle }] } : {}),
       videos: [
         {
           url: embedUrl,
@@ -315,7 +324,7 @@ export default async function WatchVideoPage({
 
   const cleanEmbedUrl = (video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "");
 
-  // Build VideoObject — conditionally include optional fields
+  // Build VideoObject — omit contentUrl since cleanEmbedUrl is an HTML player URL, not raw video bytes
   const videoSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
@@ -324,7 +333,6 @@ export default async function WatchVideoPage({
     "description": description,
     "url": canonicalUrl,
     "embedUrl": cleanEmbedUrl,
-    "contentUrl": cleanEmbedUrl,
     "width": 1280,
     "height": 720,
     "isFamilyFriendly": false,

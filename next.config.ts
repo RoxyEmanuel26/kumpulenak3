@@ -220,20 +220,9 @@ const nextConfig: NextConfig = {
 
   // Permanent redirects for URL normalization and legacy path support
   async redirects() {
-    return [
-      // ── non-www → www redirect ────────────────────────────────────────────
-      // HANDLED BY CLOUDFLARE REDIRECT RULE — not duplicated here to avoid
-      // ERR_TOO_MANY_REDIRECTS when Cloudflare and Next.js both redirect.
-      // Cloudflare Redirect Rule: lusthub.web.id → https://www.lusthub.web.id
-
-      // ── Legacy /video/{id} path format ────────────────────────────────────
-      // Legacy /video/{id} → single-hop 301 to new canonical /watch/{id}
-      {
-        source: "/video/:id",
-        destination: "/watch/:id",
-        permanent: true,
-      },
-    ];
+    // non-www -> www is handled by Cloudflare Redirect Rule; legacy /video/{id}
+    // resolves directly via app/video/[id]/page.tsx in 1 hop to canonical slug (or 404).
+    return [];
   },
 };
 

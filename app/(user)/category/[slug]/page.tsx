@@ -134,17 +134,17 @@ export default async function CategoryPage({
   const categoryJsonLd = [
     {
       "@type": "CollectionPage",
-      "@id": `${categoryUrl}/#collectionpage`,
+      "@id": `${categoryUrl}#collectionpage`,
       "name": cat.title,
       "description": cat.description,
       "url": categoryUrl,
-      "breadcrumb": { "@id": `${categoryUrl}/#breadcrumb` },
+      "breadcrumb": { "@id": `${categoryUrl}#breadcrumb` },
       "isPartOf": { "@id": `${SITE_URL}/#website` },
-      "mainEntity": { "@id": `${categoryUrl}/#itemlist` },
+      "mainEntity": { "@id": `${categoryUrl}#itemlist` },
     },
     {
       "@type": "BreadcrumbList",
-      "@id": `${categoryUrl}/#breadcrumb`,
+      "@id": `${categoryUrl}#breadcrumb`,
       "itemListElement": [
         {
           "@type": "ListItem",
@@ -168,7 +168,7 @@ export default async function CategoryPage({
     },
     {
       "@type": "ItemList",
-      "@id": `${categoryUrl}/#itemlist`,
+      "@id": `${categoryUrl}#itemlist`,
       "name": cat.title,
       "description": cat.description,
       "url": categoryUrl,

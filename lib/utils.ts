@@ -68,12 +68,18 @@ export function parsePositivePage(raw?: string): number | null {
 }
 
 /**
- * Detects literal schema template placeholders (e.g. `{search_term_string}`) or
- * malformed oversized search queries that should return 404 instead of hitting upstream APIs.
+ * Detects literal schema template placeholders (e.g. `{search_term_string}`),
+ * external spam domain/URL insertions, or malformed oversized queries that
+ * should return 404 instead of hitting upstream APIs.
  */
 export function isInvalidSearchQuery(raw?: string): boolean {
   if (!raw) return false;
   const trimmed = raw.trim();
   if (!trimmed) return false;
-  return /\{[^}]*\}/.test(trimmed) || /[\u0000-\u001F\u007F]/.test(trimmed) || trimmed.length > 200;
+  return (
+    /\{[^}]*\}/.test(trimmed) ||
+    /[\u0000-\u001F\u007F]/.test(trimmed) ||
+    /https?:\/\/|\bwww\.|\b[a-z0-9-]{2,}\.(?:com|net|org|co|io|xyz|tv|cc|ru|me|info|site|online|top)(?:\/|\b)/i.test(trimmed) ||
+    trimmed.length > 200
+  );
 }
