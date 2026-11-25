@@ -12,6 +12,7 @@
 import { sql } from "./db";
 import { TIER1_CATEGORIES } from "./category-config";
 import { buildWatchUrl } from "./video/slug";
+import { toProxiedThumbUrl } from "./video/thumb-url";
 import { parseJsonObject } from "./api/eporner";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
@@ -209,11 +210,11 @@ function buildVideoDescription(title: string, keywords: string | null | undefine
 function resolveThumbUrl(defaultThumb?: unknown, thumbs?: unknown): string {
   const dt = parseJsonObject<{ src?: string } | null>(defaultThumb, null);
   if (dt && typeof dt.src === "string" && dt.src.startsWith("http")) {
-    return dt.src;
+    return toProxiedThumbUrl(dt.src, BASE_URL) || `${BASE_URL}/logo.webp`;
   }
   const th = parseJsonObject<Array<{ src?: string }> | null>(thumbs, null);
   if (Array.isArray(th) && typeof th[0]?.src === "string" && th[0].src.startsWith("http")) {
-    return th[0].src;
+    return toProxiedThumbUrl(th[0].src, BASE_URL) || `${BASE_URL}/logo.webp`;
   }
   return `${BASE_URL}/logo.webp`;
 }

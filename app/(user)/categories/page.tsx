@@ -17,11 +17,17 @@ export const metadata: Metadata = {
   description: "Browse all porn video categories on LustHub. Find exactly what you're looking for — from amateur to HD, Asian to MILF and everything in between.",
   alternates: {
     canonical: `${SITE_URL}/categories`,
+    languages: {
+      "x-default": `${SITE_URL}/categories`,
+      en: `${SITE_URL}/categories`,
+    },
   },
   openGraph: {
     title: "Browse All Categories \u2014 LustHub",
     description: "Browse all porn video categories on LustHub. Find exactly what you're looking for — amateur, HD, Asian, MILF, Lesbian and more.",
     type: "website",
+    locale: "en_US",
+    alternateLocale: ["en_GB", "de_DE", "fr_FR", "es_ES", "ja_JP", "ko_KR", "id_ID"],
     url: `${SITE_URL}/categories`,
     siteName: "LustHub",
     images: [
@@ -44,6 +50,8 @@ export const metadata: Metadata = {
 
 const CATEGORY_MAPPING = [
   { name: "Japanese", imageId: "52" },
+  { name: "European", imageId: "37" },
+  { name: "Korean", imageId: "11" },
   { name: "Anal", imageId: "3" },
   { name: "HD Porn 1080p", imageId: "43" },
   { name: "VR Porn", imageId: "72" },
@@ -179,6 +187,7 @@ export default async function CategoriesPage() {
       "name": "Browse All Adult Video Categories",
       "description": "Browse all porn video categories on LustHub. Find exactly what you're looking for — free HD porn organized by category.",
       "url": `${SITE_URL}/categories`,
+      "inLanguage": "en",
       "breadcrumb": { "@id": `${SITE_URL}/categories#breadcrumb` },
       "isPartOf": { "@id": `${SITE_URL}/#website` },
     },

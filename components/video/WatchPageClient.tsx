@@ -18,6 +18,7 @@ import { TIER1_SLUGS } from "@/lib/category-config";
 import { ShareButton } from "./ShareButton";
 import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 import { buildWatchUrl } from "@/lib/video/slug";
+import { toProxiedThumbUrl } from "@/lib/video/thumb-url";
 import type { EnrichedVideoData } from "@/lib/seo/enrichment-store";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
@@ -102,7 +103,7 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
         <VideoPlayer
           embedUrl={(video.embed || `https://www.eporner.com/embed/${video.id}`).replace(/\/+$/, "")}
           title={video.title}
-          thumbnailUrl={video.default_thumb?.src || (Array.isArray(video.thumbs) && video.thumbs[0]?.src) || null}
+          thumbnailUrl={toProxiedThumbUrl(video.default_thumb?.src || (Array.isArray(video.thumbs) && video.thumbs[0]?.src) || null, SITE_URL)}
           isTheater={isTheater}
           onToggleTheater={() => setIsTheater(!isTheater)}
         />

@@ -136,11 +136,11 @@ export function Sidebar() {
         <div className="px-2 py-4 border-b border-white/5">
           <h4 className="px-4 text-[11px] font-bold text-[#f6396c] uppercase tracking-wider mb-2 font-mono">Top Categories</h4>
           {[
-            { label: "Indonesia", href: "/category/indonesia", slug: "indonesia" },
             { label: "Japanese", href: "/category/japanese", slug: "japanese" },
             { label: "MILF", href: "/category/milf", slug: "milf" },
-            { label: "Lesbian", href: "/category/lesbian", slug: "lesbian" },
             { label: "Amateur", href: "/category/amateur", slug: "amateur" },
+            { label: "European", href: "/category/european", slug: "european" },
+            { label: "Latina", href: "/category/latina", slug: "latina" },
             { label: "Asian", href: "/category/asian", slug: "asian" },
           ].map((item) => (
             <Link
@@ -235,11 +235,11 @@ export function Sidebar() {
             <div className="px-2 py-4 border-t border-white/5">
               <h4 className="px-4 text-[10px] font-bold text-[#f6396c] uppercase tracking-wider mb-2 font-mono">Top Categories</h4>
               {[
-                { label: "Indonesia", href: "/category/indonesia", slug: "indonesia" },
                 { label: "Japanese", href: "/category/japanese", slug: "japanese" },
                 { label: "MILF", href: "/category/milf", slug: "milf" },
-                { label: "Lesbian", href: "/category/lesbian", slug: "lesbian" },
                 { label: "Amateur", href: "/category/amateur", slug: "amateur" },
+                { label: "European", href: "/category/european", slug: "european" },
+                { label: "Latina", href: "/category/latina", slug: "latina" },
                 { label: "Asian", href: "/category/asian", slug: "asian" },
               ].map((item) => (
                 <Link

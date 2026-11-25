@@ -42,7 +42,7 @@ export async function syncVideoToDatabase(videoId: string) {
       ${v.id}, ${v.title}, ${v.length_min}, ${v.length_sec},
       ${v.added ? new Date(v.added).toISOString() : null},
       ${v.rate}, ${v.views},
-      ${JSON.stringify(v.default_thumb)}::jsonb, ${JSON.stringify(v.thumbs)}::jsonb,
+      ${sql.json(v.default_thumb as unknown as Parameters<typeof sql.json>[0])}, ${sql.json(v.thumbs as unknown as Parameters<typeof sql.json>[0])},
       ${v.keywords}, ${v.embed ? v.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${v.id}`},
       ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
       ${aiResult.scores.trending}, ${aiResult.scores.engagement}, ${aiResult.scores.spam},

@@ -14,6 +14,7 @@ import {
 import { invalidateSitemapCache } from "@/lib/sitemap";
 import { cache } from "react";
 import { buildWatchUrl, extractVideoId } from "@/lib/video/slug";
+import { toProxiedThumbUrl } from "@/lib/video/thumb-url";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { slugify } from "@/lib/utils";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -180,11 +181,12 @@ export async function generateMetadata({
 
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
-  // Resolve best available thumbnail — matches the array logic in the page body.
-  const thumbUrl =
+  // Resolve primary thumbnail via first-party Cloudflare-cached /thumbs/ proxy
+  const rawThumbUrl =
     video.default_thumb?.src ||
     (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
     `${SITE_URL}/logo.webp`;
+  const thumbUrl = toProxiedThumbUrl(rawThumbUrl, SITE_URL) || `${SITE_URL}/logo.webp`;
 
   const thumbWidth =
     video.default_thumb?.width && video.default_thumb.width > 0
@@ -220,12 +222,18 @@ export async function generateMetadata({
     // Canonical always points to the slug-based URL — never the bare ID URL
     alternates: {
       canonical: canonicalUrl,
+      languages: {
+        "x-default": canonicalUrl,
+        en: canonicalUrl,
+      },
     },
     robots,
     openGraph: {
       title: `${displayTitle} — LustHub`,
       description,
       type: "video.other",
+      locale: "en_US",
+      alternateLocale: ["en_GB", "de_DE", "fr_FR", "es_ES", "ja_JP", "ko_KR", "id_ID"],
       url: canonicalUrl,
       siteName: "LustHub",
       ...(thumbUrl ? { images: [{ url: thumbUrl, width: thumbWidth, height: thumbHeight, alt: displayTitle }] } : {}),
@@ -294,18 +302,13 @@ export default async function WatchVideoPage({
     .find(Boolean);
 
   // ── VideoObject JSON-LD ────────────────────────────────────────────────────────────────────────────
-  const thumbUrls: string[] = [];
-  if (video.default_thumb?.src) thumbUrls.push(video.default_thumb.src);
-  if (Array.isArray(video.thumbs)) {
-    video.thumbs
-      .filter((t) => Boolean(t?.src) && t.src !== video.default_thumb?.src)
-      .slice(0, 2)
-      .forEach((t) => thumbUrls.push(t.src));
-  }
-  
-  if (thumbUrls.length === 0) {
-    thumbUrls.push(`${SITE_URL}/logo.webp`);
-  }
+  // Emit a single first-party Cloudflare-cached thumbnail URL (/thumbs/...jpg) to cut
+  // Googlebot thumbnail crawl load by 67% and eliminate third-party hostload failures.
+  const rawPrimaryThumb =
+    video.default_thumb?.src ||
+    (Array.isArray(video.thumbs) && video.thumbs[0]?.src) ||
+    `${SITE_URL}/logo.webp`;
+  const primaryThumbUrl = toProxiedThumbUrl(rawPrimaryThumb, SITE_URL) || `${SITE_URL}/logo.webp`;
 
   const duration = toISO8601Duration(video.length_sec);
 
@@ -333,6 +336,8 @@ export default async function WatchVideoPage({
     "description": description,
     "url": canonicalUrl,
     "embedUrl": cleanEmbedUrl,
+    "thumbnailUrl": primaryThumbUrl,
+    "inLanguage": "en",
     "width": 1280,
     "height": 720,
     "isFamilyFriendly": false,
@@ -341,10 +346,6 @@ export default async function WatchVideoPage({
       "target": canonicalUrl,
     },
   };
-
-  if (thumbUrls.length > 0) {
-    videoSchema["thumbnailUrl"] = thumbUrls.length === 1 ? thumbUrls[0] : thumbUrls;
-  }
 
   if (duration) videoSchema["duration"] = duration;
   if (uploadDate) videoSchema["uploadDate"] = uploadDate;

@@ -38,6 +38,7 @@ export const metadata: Metadata = {
     description: "LustHub is a fast, free, and modern HD porn video platform. Watch thousands of premium adult videos instantly in high quality.",
     type: "website",
     locale: "en_US",
+    alternateLocale: ["en_GB", "de_DE", "fr_FR", "es_ES", "ja_JP", "ko_KR", "id_ID"],
     siteName: "LustHub",
     url: process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id",
     images: [
@@ -58,6 +59,9 @@ export const metadata: Metadata = {
   verification: {
     google: "G71CC4n1uaSgqVnjIvv3JSKs78kXb2lYNn_yJXiEb7Q",
   },
+  other: {
+    rating: "RTA-5042-1996-1400-1577-RTA",
+  },
   icons: {
     icon: "/favicon.webp",
     shortcut: "/favicon.webp",
@@ -77,6 +81,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="preconnect" href="https://www.eporner.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://www.eporner.com" />
+      </head>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} min-h-screen bg-[#0F0F0F] text-[#F1F1F1] antialiased font-sans`}>
         <UIProvider>
           {children}

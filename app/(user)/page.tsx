@@ -23,11 +23,17 @@ export const metadata: Metadata = {
   description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
   alternates: {
     canonical: SITE_URL,
+    languages: {
+      "x-default": SITE_URL,
+      en: SITE_URL,
+    },
   },
   openGraph: {
     title: "LustHub — Free HD Porn Videos",
     description: "Watch the latest and most popular free HD porn videos on LustHub. New videos added daily, free streaming, no registration required.",
     type: "website",
+    locale: "en_US",
+    alternateLocale: ["en_GB", "de_DE", "fr_FR", "es_ES", "ja_JP", "ko_KR", "id_ID"],
     url: SITE_URL,
     siteName: "LustHub",
     images: [
@@ -106,6 +112,7 @@ export default async function UserHome({
         "@id": `${SITE_URL}/#website`,
         "name": "LustHub",
         "url": SITE_URL,
+        "inLanguage": "en",
         "description": "Free HD porn videos updated daily. No registration required.",
         "potentialAction": {
           "@type": "SearchAction",

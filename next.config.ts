@@ -185,8 +185,9 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Static assets (images, fonts, favicons in /public)
-        source: "/:all*(svg|jpg|jpeg|png|webp|ico|woff|woff2)",
+        // Static assets (images, fonts, favicons in /public) — exclude /thumbs/ proxy
+        // so app/thumbs/[...path]/route.ts controls its own 30d immutable & no-store headers.
+        source: "/((?!thumbs/).*)\\.(svg|jpg|jpeg|png|webp|ico|woff|woff2)",
         headers: [
           {
             key: "Cache-Control",

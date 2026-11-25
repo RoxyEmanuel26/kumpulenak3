@@ -46,6 +46,8 @@ export async function generateMetadata({
       title: pageNum > 1 ? `${cat.title} - Page ${pageNum} — LustHub` : `${cat.title} — LustHub`,
       description: cat.description,
       type: "website",
+      locale: "en_US",
+      alternateLocale: ["en_GB", "de_DE", "fr_FR", "es_ES", "ja_JP", "ko_KR", "id_ID"],
       url: canonicalUrl,
       siteName: "LustHub",
       images: [
@@ -67,6 +69,10 @@ export async function generateMetadata({
     },
     alternates: {
       canonical: canonicalUrl,
+      languages: {
+        "x-default": canonicalUrl,
+        en: canonicalUrl,
+      },
     },
   };
 }
@@ -138,6 +144,7 @@ export default async function CategoryPage({
       "name": cat.title,
       "description": cat.description,
       "url": categoryUrl,
+      "inLanguage": "en",
       "breadcrumb": { "@id": `${categoryUrl}#breadcrumb` },
       "isPartOf": { "@id": `${SITE_URL}/#website` },
       "mainEntity": { "@id": `${categoryUrl}#itemlist` },
