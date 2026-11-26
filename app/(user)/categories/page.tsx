@@ -2,6 +2,7 @@ import { sql } from "@/lib/db";
 import { Metadata } from "next";
 import { LayoutGrid } from "lucide-react";
 import { CategoriesClient } from "./CategoriesClient";
+import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { JsonLd } from "@/components/seo/JsonLd";
 
@@ -240,7 +241,29 @@ export default async function CategoriesPage() {
           </p>
         </div>
 
+        {/* ── Adsterra Top Banner (728×90 desktop / 320×50 mobile) ──────── */}
+        <AdsterraBanner
+          adKey="361158242f9f7ba4b97dddf961d303d6"
+          width={728}
+          height={90}
+          className="hidden lg:flex my-2"
+        />
+        <AdsterraBanner
+          adKey="1657e4fb76c1445cfbb411b5b0a859ee"
+          width={320}
+          height={50}
+          className="flex lg:hidden my-2"
+        />
+
         <CategoriesClient categories={finalCategories} />
+
+        {/* ── Adsterra Bottom Banner (300×250 Medium Rectangle) ─────────── */}
+        <AdsterraBanner
+          adKey="3f7aeb74bde61edc8e369b2303797899"
+          width={300}
+          height={250}
+          className="flex my-4"
+        />
       </div>
     </>
   );

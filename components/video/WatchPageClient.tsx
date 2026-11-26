@@ -18,6 +18,7 @@ import { trackEvent } from "@/lib/analytics";
 import { TIER1_SLUGS } from "@/lib/category-config";
 import { ShareButton } from "./ShareButton";
 import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
+import { AdsterraNativeBanner } from "@/components/ads/AdsterraNativeBanner";
 import { buildWatchUrl } from "@/lib/video/slug";
 import { toProxiedThumbUrl } from "@/lib/video/thumb-url";
 import type { EnrichedVideoData } from "@/lib/seo/enrichment-store";
@@ -403,10 +404,23 @@ export function WatchPageClient({
             )}
           </div>
 
+          {/* ── Adsterra Native Banner (below video details, never blocking player) ── */}
+          <div className="pt-2" aria-hidden="true">
+            <AdsterraNativeBanner />
+          </div>
+
         </div>
 
         {/* Right Column: Related Videos */}
         <div className="w-full lg:w-[400px] shrink-0 space-y-4">
+          {/* ── Adsterra 300×250 Medium Rectangle (top of sidebar) ─────────── */}
+          <AdsterraBanner
+            adKey="3f7aeb74bde61edc8e369b2303797899"
+            width={300}
+            height={250}
+            className="flex justify-center w-full"
+          />
+
           <div className="flex items-center justify-between pb-2">
             <h2 className="font-bold text-lg">Recommended Videos</h2>
           </div>

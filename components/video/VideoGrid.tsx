@@ -3,22 +3,31 @@
 import React from "react";
 import { VideoCard } from "./VideoCard";
 import { EpornerVideo } from "../../types/eporner";
+import { AdsterraNativeBanner } from "../ads/AdsterraNativeBanner";
 
 interface VideoGridProps {
   videos: EpornerVideo[];
+  showNativeAd?: boolean;
 }
 
-export function VideoGrid({ videos }: VideoGridProps) {
+export function VideoGrid({ videos, showNativeAd = true }: VideoGridProps) {
   return (
     <div className="space-y-6">
       <h2 className="sr-only">Videos List</h2>
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-y-8 gap-x-4 animate-in fade-in duration-300">
         {videos.map((video, index) => (
-          <VideoCard 
-            key={video.id} 
-            video={video} 
-            priority={index < 4}
-          />
+          <React.Fragment key={video.id}>
+            {/* Inject Native Banner after first 5 videos (strictly 1 per page via showNativeAd) */}
+            {showNativeAd && index === 5 && (
+              <div className="flex w-full items-center justify-center overflow-hidden col-span-full my-2" aria-hidden="true">
+                <AdsterraNativeBanner />
+              </div>
+            )}
+            <VideoCard
+              video={video}
+              priority={index < 4}
+            />
+          </React.Fragment>
         ))}
       </div>
 

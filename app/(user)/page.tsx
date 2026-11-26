@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Metadata } from "next";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { ContinueWatching } from "@/components/video/ContinueWatching";
+import { AdsterraBanner } from "@/components/ads/AdsterraBanner";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { parsePositivePage, isInvalidSearchQuery } from "@/lib/utils";
 
@@ -213,9 +214,23 @@ export default async function UserHome({
                 Explore Categories →
               </Link>
             </div>
-            <VideoGrid videos={featuredVideos} />
+            <VideoGrid videos={featuredVideos} showNativeAd={false} />
           </section>
         )}
+
+        {/* ── Adsterra Top Banner (728×90 desktop / 320×50 mobile) ────────── */}
+        <AdsterraBanner
+          adKey="361158242f9f7ba4b97dddf961d303d6"
+          width={728}
+          height={90}
+          className="hidden lg:flex my-2"
+        />
+        <AdsterraBanner
+          adKey="1657e4fb76c1445cfbb411b5b0a859ee"
+          width={320}
+          height={50}
+          className="flex lg:hidden my-2"
+        />
 
         {/* ── Curated Feed Tabs (5A: Hub Curations) ───────────────────────────
              Provides one-click navigation between the core curated feeds:
@@ -250,6 +265,14 @@ export default async function UserHome({
         {/* Grid Video Container */}
         <VideoGrid
           videos={videos}
+        />
+
+        {/* ── Adsterra Bottom Banner (300×250 Medium Rectangle) ───────────── */}
+        <AdsterraBanner
+          adKey="3f7aeb74bde61edc8e369b2303797899"
+          width={300}
+          height={250}
+          className="flex my-4"
         />
 
         {/* Pagination Controls */}
