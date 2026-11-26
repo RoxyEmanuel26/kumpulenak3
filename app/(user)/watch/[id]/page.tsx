@@ -8,6 +8,8 @@ import {
   setDbCache,
   coalesceInFlight,
   invalidateVideoCaches,
+  getCuratedDbVideos,
+  isCompetitorFallbackDesc,
   DB_VIDEO_CACHE_TTL,
   DB_NEGATIVE_CACHE_TTL,
 } from "@/lib/api/eporner";
@@ -54,6 +56,79 @@ function buildVideoDescription(title: string, keywords: string | undefined): str
     return `Watch "${title}" on LustHub — featuring ${kws.join(", ")}. Free HD streaming, no registration required.`;
   }
   return `Watch "${title}" in HD quality for free on LustHub. No registration required.`;
+}
+
+/**
+ * Formats runtime into a natural English duration label for editorial overview text.
+ */
+function formatRuntimeLabel(lengthSec?: number | null, lengthMin?: string | null): string | null {
+  if (lengthSec && lengthSec >= 60) {
+    const mins = Math.round(lengthSec / 60);
+    return mins === 1 ? "1-minute" : `${mins}-minute`;
+  }
+  if (lengthMin && lengthMin !== "0:00") {
+    return `${lengthMin}`;
+  }
+  return null;
+}
+
+/**
+ * Builds a clean, unique, server-rendered editorial overview for every watch page so
+ * non-enriched videos still provide substantive on-page context instead of bare hashtags.
+ */
+function buildRichVideoOverview(params: {
+  title: string;
+  keywords?: string;
+  lengthSec?: number | null;
+  lengthMin?: string | null;
+  views?: number;
+  rate?: string;
+  primaryCategoryName?: string | null;
+  enrichedSummary?: string | null;
+  dbAiDescription?: string | null;
+}): string {
+  if (params.enrichedSummary && params.enrichedSummary.trim().length >= 40) {
+    return params.enrichedSummary.trim();
+  }
+  if (!isCompetitorFallbackDesc(params.dbAiDescription)) {
+    return params.dbAiDescription!.trim();
+  }
+
+  const runtime = formatRuntimeLabel(params.lengthSec, params.lengthMin);
+  const cleanKws = (params.keywords || "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter((k) => k.length >= 2 && k.length <= 40)
+    .slice(0, 6);
+  const catPhrase = params.primaryCategoryName
+    ? `${params.primaryCategoryName} HD`
+    : "HD adult";
+  const lengthPhrase = runtime ? `${runtime} ${catPhrase}` : catPhrase;
+  const viewsCount = Number(params.views) || 0;
+  const rateVal = params.rate ? parseFloat(params.rate) : 0;
+  const approvalPct = rateVal > 0 ? Math.round(rateVal * 20) : 0;
+
+  const sentences: string[] = [
+    `Stream "${params.title}", a ${lengthPhrase} video available for instant free playback on LustHub without registration.`,
+  ];
+
+  if (cleanKws.length > 0) {
+    sentences.push(
+      `This scene highlights ${cleanKws.slice(0, 5).join(", ")} themes curated for fast desktop and mobile viewing.`
+    );
+  }
+
+  if (viewsCount >= 100 && approvalPct > 0) {
+    sentences.push(
+      `Watched over ${viewsCount.toLocaleString("en-US")} times with a ${approvalPct}% viewer approval rating across our global catalog.`
+    );
+  } else if (viewsCount >= 100) {
+    sentences.push(
+      `Viewed ${viewsCount.toLocaleString("en-US")} times on LustHub with adaptive streaming quality.`
+    );
+  }
+
+  return sentences.join(" ");
 }
 
 import { sql } from "@/lib/db";
@@ -204,11 +279,12 @@ export async function generateMetadata({
 
   const displayTitle = enriched?.seo_title || video.title;
 
-  // Use AI SEO Description if available, otherwise fallback to template
-  const description = enriched?.meta_description || 
-    (('seoDescription' in video && video.seoDescription)
-      ? (video.seoDescription as string) 
-      : buildVideoDescription(video.title, video.keywords));
+  // Use clean AI SEO Description if available (ignoring broken competitor fallback templates)
+  const rawDbDesc = "seoDescription" in video ? (video.seoDescription as string | null) : null;
+  const cleanDbDesc = !isCompetitorFallbackDesc(rawDbDesc) ? rawDbDesc!.trim() : null;
+  const description = enriched?.meta_description ||
+    cleanDbDesc ||
+    buildVideoDescription(video.title, video.keywords);
 
   // Watch pages are always indexable. The catalog is open-ended (links come from
   // the live Eporner feed), so gating robots on enrichment status produced
@@ -287,19 +363,45 @@ export default async function WatchVideoPage({
   // Fetch enriched AI metadata if available (Fase 5C)
   const enriched = await getCachedEnrichedVideo(video.id);
 
-  // Fetch related videos using the first keyword for contextual relevance
-  const keywords = typeof video.keywords === "string" && video.keywords ? video.keywords.split(",") : [];
-  const query = keywords.length > 0 ? keywords[0].trim() : "hd";
-  const relatedRes = await EpornerAPI.search({ query, per_page: 12 }).catch(() => null);
-  const related = relatedRes?.videos?.filter((v) => v.id !== video.id) || [];
-
   // Match keyword to a Tier-1 category for breadcrumbs & semantic hierarchy
+  const keywords = typeof video.keywords === "string" && video.keywords ? video.keywords.split(",") : [];
   const primaryCat = keywords
     .map((k) => {
       const slug = slugify(k.trim());
       return TIER1_CATEGORIES.find((c) => c.slug === slug);
     })
     .find(Boolean);
+
+  // Prioritize curated, sitemap-indexed DB videos for Recommended Videos so internal
+  // link equity flows across stable catalog pages instead of ephemeral non-DB uploads.
+  const firstKeyword = keywords.length > 0 ? keywords[0].trim() : "";
+  const curatedTopicVideos = await getCuratedDbVideos({
+    limit: 10,
+    categoryOrKeyword: primaryCat?.name || firstKeyword || undefined,
+    excludeId: video.id,
+  });
+  let related = curatedTopicVideos;
+  if (related.length < 6) {
+    const existingIds = new Set([video.id, ...related.map((v) => v.id)]);
+    const curatedGeneral = await getCuratedDbVideos({ limit: 12, excludeId: video.id });
+    for (const item of curatedGeneral) {
+      if (!existingIds.has(item.id) && related.length < 10) {
+        existingIds.add(item.id);
+        related = [...related, item];
+      }
+    }
+  }
+  if (related.length < 6) {
+    const query = primaryCat?.name || firstKeyword || "hd";
+    const relatedRes = await EpornerAPI.search({ query, order: "most-popular", per_page: 12 }).catch(() => null);
+    const existingIds = new Set([video.id, ...related.map((v) => v.id)]);
+    for (const item of relatedRes?.videos || []) {
+      if (!existingIds.has(item.id) && related.length < 10) {
+        existingIds.add(item.id);
+        related = [...related, item];
+      }
+    }
+  }
 
   // ── VideoObject JSON-LD ────────────────────────────────────────────────────────────────────────────
   // Emit a single first-party Cloudflare-cached thumbnail URL (/thumbs/...jpg) to cut
@@ -312,11 +414,24 @@ export default async function WatchVideoPage({
 
   const duration = toISO8601Duration(video.length_sec);
 
-  // Use Enriched AI Description if available, otherwise fallback to template
+  // Use clean AI SEO Description if available (ignoring broken competitor fallback templates)
+  const rawDbDesc = "seoDescription" in video ? (video.seoDescription as string | null) : null;
+  const cleanDbDesc = !isCompetitorFallbackDesc(rawDbDesc) ? rawDbDesc!.trim() : null;
   const description = enriched?.meta_description ||
-    (('seoDescription' in video && video.seoDescription)
-      ? (video.seoDescription as string) 
-      : buildVideoDescription(video.title, video.keywords));
+    cleanDbDesc ||
+    buildVideoDescription(video.title, video.keywords);
+
+  const editorialOverview = buildRichVideoOverview({
+    title: enriched?.seo_title || video.title,
+    keywords: video.keywords,
+    lengthSec: video.length_sec,
+    lengthMin: video.length_min,
+    views: video.views,
+    rate: video.rate,
+    primaryCategoryName: primaryCat?.name || null,
+    enrichedSummary: enriched?.summary || null,
+    dbAiDescription: cleanDbDesc,
+  });
     
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
 
@@ -426,6 +541,7 @@ export default async function WatchVideoPage({
         relatedVideos={related} 
         primaryCategory={primaryCat ? { name: primaryCat.name, slug: primaryCat.slug } : null}
         enriched={enriched}
+        editorialOverview={editorialOverview}
       />
     </>
   );

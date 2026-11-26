@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoCardMini } from "./VideoCardMini";
 import { useUI } from "../layout/UIContext";
@@ -29,9 +30,17 @@ interface WatchPageClientProps {
   relatedVideos: EpornerVideo[];
   primaryCategory?: { name: string; slug: string } | null;
   enriched?: EnrichedVideoData | null;
+  editorialOverview?: string;
 }
 
-export function WatchPageClient({ video, relatedVideos, primaryCategory, enriched }: WatchPageClientProps) {
+export function WatchPageClient({
+  video,
+  relatedVideos,
+  primaryCategory,
+  enriched,
+  editorialOverview,
+}: WatchPageClientProps) {
+  const router = useRouter();
   const { likedVideos, toggleLikeVideo, addToHistory } = useUI();
   const [isTheater, setIsTheater] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -235,85 +244,162 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
           })()}
 
 
-          <div className="bg-[#272727] rounded-xl p-4 hover:bg-[#3F3F3F] transition-colors mt-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold mb-2 text-muted-foreground">
+          <div className="bg-[#272727] rounded-xl p-4 hover:bg-[#2F2F2F] transition-colors mt-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm font-semibold text-muted-foreground">
               <span className="text-white">{safeViews.toLocaleString("en-US")} views</span>
-              <span>•</span>
-              <span className="text-white">{formatVideoDate(video.added)}</span>
-            </div>
-            
-            {/* Unique Enriched Content (Fase 5: AI Enrichment & Value Addition) */}
-            {enriched?.summary && (
-              <div className="mb-3 space-y-2 text-xs sm:text-sm text-[#F1F1F1] leading-relaxed">
-                <p className="font-normal">{enriched.summary}</p>
-                {enriched.highlights && enriched.highlights.length > 0 && (
-                  <ul className="mt-2 space-y-1 text-xs text-[#CCCCCC] list-disc list-inside">
-                    {enriched.highlights.map((h, i) => (
-                      <li key={i}>{h}</li>
-                    ))}
-                  </ul>
-                )}
-                {enriched.faq && enriched.faq.length > 0 && descExpanded && (
-                  <div className="mt-4 pt-3 border-t border-white/10 space-y-2 text-xs">
-                    <span className="font-bold text-muted-foreground uppercase font-mono tracking-wider">
-                      Frequently Asked Questions
-                    </span>
-                    {enriched.faq.map((item, idx) => (
-                      <div key={idx} className="bg-black/30 border border-white/5 p-2.5 rounded-lg space-y-1">
-                        <p className="font-semibold text-white">Q: {item.question}</p>
-                        <p className="text-muted-foreground">A: {item.answer}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            <div className={`text-xs sm:text-sm text-[#F1F1F1] leading-relaxed whitespace-pre-wrap ${!descExpanded ? "line-clamp-3" : ""}`}>
-              {(descExpanded ? keywordsList : keywordsList.slice(0, 10)).map((tag, idx) => {
-                  const slug = slugify(tag);
-                  const isTier1 = TIER1_SLUGS.has(slug);
-                  const href = isTier1
-                    ? `/category/${slug}`
-                    : `/results?search_query=${encodeURIComponent(tag)}`;
-                  return (
-                    <Link
-                      key={idx}
-                      href={href}
-                      rel={isTier1 ? undefined : "nofollow"}
-                      className="text-blue-400 hover:underline mr-2 inline-block"
-                    >
-                      #{tag.replace(/\s+/g, '')}
-                    </Link>
-                  );
-                })}
+              {video.added && (
+                <>
+                  <span>•</span>
+                  <span className="text-white">{formatVideoDate(video.added)}</span>
+                </>
+              )}
+              {video.length_min && video.length_min !== "0:00" && (
+                <>
+                  <span>•</span>
+                  <span className="text-white font-mono">{video.length_min}</span>
+                </>
+              )}
             </div>
 
-            <button 
-              onClick={() => setDescExpanded(!descExpanded)}
-              className="text-xs sm:text-sm font-semibold mt-2 hover:underline cursor-pointer text-[#AAAAAA] hover:text-white"
-            >
-              {descExpanded ? "Show less" : "Show more"}
-            </button>
-            
-            {/* Tags / Categories badges inside desc */}
-            {descExpanded && (
-              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
+            {/* Always-visible server-rendered editorial overview & highlights */}
+            <section aria-label="About this video" className="space-y-2.5 text-xs sm:text-sm text-[#E5E5E5] leading-relaxed">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider font-mono text-muted-foreground">
+                About This Video
+              </h2>
+              <p className="font-normal">
+                {editorialOverview || enriched?.summary || `Watch "${video.title}" in HD quality on LustHub.`}
+              </p>
+              {enriched?.highlights && enriched.highlights.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-[#CCCCCC] list-disc list-inside">
+                  {enriched.highlights.map((h, i) => (
+                    <li key={i}>{h}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* Structured Video Details Grid — visible in initial SSR HTML */}
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-[11px]">
+              <div className="bg-black/25 rounded-lg px-2.5 py-1.5 border border-white/5">
+                <dt className="text-muted-foreground font-mono uppercase text-[9px]">Duration</dt>
+                <dd className="text-white font-semibold font-mono mt-0.5">{video.length_min || "HD"}</dd>
+              </div>
+              <div className="bg-black/25 rounded-lg px-2.5 py-1.5 border border-white/5">
+                <dt className="text-muted-foreground font-mono uppercase text-[9px]">Category</dt>
+                <dd className="text-white font-semibold mt-0.5 truncate">
+                  {primaryCategory ? (
+                    <Link href={`/category/${primaryCategory.slug}`} className="hover:text-red-400 transition-colors">
+                      {primaryCategory.name}
+                    </Link>
+                  ) : (
+                    <Link href="/categories" className="hover:text-red-400 transition-colors">
+                      HD Videos
+                    </Link>
+                  )}
+                </dd>
+              </div>
+              <div className="bg-black/25 rounded-lg px-2.5 py-1.5 border border-white/5">
+                <dt className="text-muted-foreground font-mono uppercase text-[9px]">Rating</dt>
+                <dd className="text-white font-semibold font-mono mt-0.5">{currentPercent}% Liked</dd>
+              </div>
+              <div className="bg-black/25 rounded-lg px-2.5 py-1.5 border border-white/5">
+                <dt className="text-muted-foreground font-mono uppercase text-[9px]">Quality</dt>
+                <dd className="text-white font-semibold font-mono mt-0.5">Free HD Stream</dd>
+              </div>
+            </dl>
+
+            {/* Tags: Tier-1 categories render as SEO <Link>, non-Tier-1 tags navigate
+                client-side via <button> to eliminate /results?search_query= crawl traps. */}
+            {keywordsList.length > 0 && (
+              <div className={`text-xs sm:text-sm text-[#F1F1F1] leading-relaxed flex flex-wrap gap-x-2 gap-y-1 ${!descExpanded ? "max-h-14 overflow-hidden" : ""}`}>
+                {(descExpanded ? keywordsList : keywordsList.slice(0, 10)).map((tag, idx) => {
+                  const slug = slugify(tag);
+                  const isTier1 = TIER1_SLUGS.has(slug);
+                  if (isTier1) {
+                    return (
+                      <Link
+                        key={idx}
+                        href={`/category/${slug}`}
+                        className="text-blue-400 hover:underline inline-block"
+                      >
+                        #{tag.replace(/\s+/g, "")}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => router.push(`/results?search_query=${encodeURIComponent(tag)}`)}
+                      className="text-blue-400 hover:underline inline-block cursor-pointer bg-transparent border-0 p-0"
+                    >
+                      #{tag.replace(/\s+/g, "")}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {keywordsList.length > 10 && (
+              <button 
+                type="button"
+                onClick={() => setDescExpanded(!descExpanded)}
+                className="text-xs sm:text-sm font-semibold hover:underline cursor-pointer text-[#AAAAAA] hover:text-white"
+              >
+                {descExpanded ? "Show less tags" : "Show all tags"}
+              </button>
+            )}
+
+            {/* Expanded tag badges */}
+            {descExpanded && keywordsList.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-white/10">
                 {keywordsList.map((tag, index) => {
                   const tagSlug = slugify(tag);
                   const isTier1 = TIER1_SLUGS.has(tagSlug);
-                  const tagHref = isTier1
-                    ? `/category/${tagSlug}`
-                    : `/results?search_query=${encodeURIComponent(tag)}`;
+                  if (isTier1) {
+                    return (
+                      <Link key={index} href={`/category/${tagSlug}`}>
+                        <Badge variant="secondary" className="bg-white/10 text-xs text-[#F1F1F1] hover:bg-white/20 border-0 cursor-pointer py-1 px-2.5 rounded-lg">
+                          {tag}
+                        </Badge>
+                      </Link>
+                    );
+                  }
                   return (
-                    <Link key={index} href={tagHref} rel={isTier1 ? undefined : "nofollow"}>
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => router.push(`/results?search_query=${encodeURIComponent(tag)}`)}
+                      className="bg-transparent border-0 p-0 cursor-pointer"
+                    >
                       <Badge variant="secondary" className="bg-white/10 text-xs text-[#F1F1F1] hover:bg-white/20 border-0 cursor-pointer py-1 px-2.5 rounded-lg">
                         {tag}
                       </Badge>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
+            )}
+
+            {/* FAQ Section — ALWAYS rendered in SSR HTML via native <details> so FAQPage JSON-LD
+                matches visible DOM content per Google Structured Data guidelines. */}
+            {enriched?.faq && enriched.faq.length > 0 && (
+              <section aria-label="Frequently asked questions" className="pt-3 border-t border-white/10 space-y-2 text-xs">
+                <h2 className="font-bold text-muted-foreground uppercase font-mono tracking-wider text-[11px]">
+                  Frequently Asked Questions
+                </h2>
+                <div className="space-y-1.5">
+                  {enriched.faq.map((item, idx) => (
+                    <details key={idx} className="bg-black/30 border border-white/5 rounded-lg p-2.5 group" open={idx === 0}>
+                      <summary className="font-semibold text-white cursor-pointer list-none flex items-center justify-between gap-2">
+                        <span>{item.question}</span>
+                        <span className="text-muted-foreground text-[10px] font-mono shrink-0">+</span>
+                      </summary>
+                      <p className="text-muted-foreground mt-1.5 leading-relaxed">{item.answer}</p>
+                    </details>
+                  ))}
+                </div>
+              </section>
             )}
           </div>
 
@@ -334,29 +420,19 @@ export function WatchPageClient({ video, relatedVideos, primaryCategory, enriche
           </div>
 
           {/* ── Continuation CTA ─────────────────────────────────────────
-               Routes Tier-1 keywords directly to their indexed /category/{slug};
-               non-Tier-1 search links use nofollow to preserve crawl budget.
+               Always links to an indexed category hub (never /results?search_query=)
+               so internal crawl equity stays inside indexable category pages.
           */}
-          {keywordsList.length > 0 && (() => {
-            const firstSlug = slugify(keywordsList[0]);
-            const isTier1 = TIER1_SLUGS.has(firstSlug);
-            const seeMoreHref = isTier1
-              ? `/category/${firstSlug}`
-              : `/results?search_query=${encodeURIComponent(keywordsList[0])}`;
-            return (
-              <div className="pt-3 border-t border-white/5 text-center">
-                <Link
-                  href={seeMoreHref}
-                  rel={isTier1 ? undefined : "nofollow"}
-                  onClick={() => trackEvent("see_more_click", { keyword: keywordsList[0] })}
-                  className="text-xs text-muted-foreground hover:text-red-400 transition-colors font-medium inline-flex items-center gap-1 group"
-                >
-                  See more {keywordsList[0]} videos
-                  <span className="transition-transform group-hover:translate-x-0.5">→</span>
-                </Link>
-              </div>
-            );
-          })()}
+          <div className="pt-3 border-t border-white/5 text-center">
+            <Link
+              href={primaryCategory ? `/category/${primaryCategory.slug}` : "/categories"}
+              onClick={() => trackEvent("see_more_click", { keyword: primaryCategory?.name || "categories" })}
+              className="text-xs text-muted-foreground hover:text-red-400 transition-colors font-medium inline-flex items-center gap-1 group"
+            >
+              {primaryCategory ? `Explore more ${primaryCategory.name} videos` : "Browse all HD categories"}
+              <span className="transition-transform group-hover:translate-x-0.5">→</span>
+            </Link>
+          </div>
 
         </div>
 

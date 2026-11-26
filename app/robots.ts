@@ -49,22 +49,12 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           // API routes — internal backend endpoints, never public
           "/api/",
-
-          // Note on /library: intentionally NOT disallowed here so crawlers can visit
-          // and read the <meta name="robots" content="noindex, nofollow"> and
-          // X-Robots-Tag header, permanently de-indexing it from search results
-          // instead of triggering "Indexed, though blocked by robots.txt".
-
-          // Note on /watch?v=: intentionally NOT disallowed here so crawlers can receive
-          // HTTP 308 Permanent Redirect to /watch/[id] and transfer full SEO link equity.
-
-          // Note on /?page=, /?order=, etc.: intentionally NOT disallowed here so crawlers
-          // can crawl pagination variants, read the canonical tag pointing to
-          // https://www.lusthub.web.id, and consolidate indexing into the homepage
-          // rather than creating "Indexed, though blocked by robots.txt" warnings in GSC.
-
-          // Note on /results?page=: intentionally NOT disallowed here so crawlers can read
-          // the `<meta name="robots" content="noindex, follow">` tag on deep search pages.
+          // Internal search results — already de-indexed via noindex and removed from
+          // internal anchor tags; disallow stops crawlers wasting crawl budget on 1,180+
+          // parameterized /results?search_query=... trap URLs.
+          "/results",
+          // Personal client-side watch history/favorites — no SEO value
+          "/library",
         ],
       },
     ],

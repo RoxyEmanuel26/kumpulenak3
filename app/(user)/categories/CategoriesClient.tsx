@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, Hash } from "lucide-react";
 import { TIER1_SLUGS } from "@/lib/category-config";
 import { slugify } from "@/lib/utils";
@@ -17,6 +18,7 @@ interface CategoriesClientProps {
 }
 
 export function CategoriesClient({ categories }: CategoriesClientProps) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
 
   const filtered = categories.filter((c) =>
@@ -60,14 +62,10 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
         {filtered.map((cat) => {
           const href = getCategoryHref(cat.name);
           const isTier1 = TIER1_SLUGS.has(slugify(cat.name));
-
-          return (
-            <Link
-              key={cat.name}
-              href={href}
-              rel={isTier1 ? undefined : "nofollow"}
-              className="group relative overflow-hidden aspect-[4/3] rounded-2xl border border-white/5 shadow-md hover:shadow-xl hover:border-white/10 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer flex flex-col justify-end p-3 sm:p-4"
-            >
+          const cardClass =
+            "group relative overflow-hidden aspect-[4/3] rounded-2xl border border-white/5 shadow-md hover:shadow-xl hover:border-white/10 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer flex flex-col justify-end p-3 sm:p-4 text-left w-full";
+          const cardInner = (
+            <>
               {/* Background Image */}
               <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -100,7 +98,28 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
                   {cat.count > 0 ? `${cat.count} videos synced` : "Explore videos"}
                 </p>
               </div>
-            </Link>
+            </>
+          );
+
+          if (isTier1) {
+            return (
+              <Link key={cat.name} href={href} className={cardClass}>
+                {cardInner}
+              </Link>
+            );
+          }
+
+          // Non-Tier-1 categories navigate client-side to /results without emitting
+          // crawlable <a href="/results?search_query=..."> trap links in SSR HTML.
+          return (
+            <button
+              key={cat.name}
+              type="button"
+              onClick={() => router.push(href)}
+              className={cardClass}
+            >
+              {cardInner}
+            </button>
           );
         })}
 

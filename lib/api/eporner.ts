@@ -43,11 +43,48 @@ export function cleanEpornerText(str: string): string {
   return decoded.replace(/[\u200b-\u200d\u200e\u200f\ufeff]/g, '');
 }
 
+const MAX_HOVER_THUMBS = 4;
+
+/** Detects generic/competitor fallback descriptions produced when Gemini failed. */
+export function isCompetitorFallbackDesc(desc: string | null | undefined): boolean {
+  if (!desc) return true;
+  const trimmed = desc.trim();
+  if (trimmed.length < 25) return true;
+  return /find more of the best eporner videos catalog/i.test(trimmed);
+}
+
+const SPAM_TITLE_EXACT = new Set([
+  "3xxx",
+  "p4wgp0v",
+  "xxxraw",
+  "chatu video",
+  "webcam show",
+  "hd video",
+]);
+
+/** Detects ultra-short, URL-spam, or bulk-duplicate gibberish titles that hurt index quality. */
+export function isLowQualityVideoTitle(title: string | null | undefined): boolean {
+  if (!title) return true;
+  const trimmed = title.trim();
+  if (trimmed.length < 12) return true;
+  if (SPAM_TITLE_EXACT.has(trimmed.toLowerCase())) return true;
+  if (/https?:\/\/|\bwww\.|\b[a-z0-9-]{2,}\.(?:com|net|org|co|io|xyz|tv|cc|ru|me|info|site|online|top)(?:\/|\b)/i.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 export function cleanVideoData(video: EpornerVideo): EpornerVideo {
   if (!video) return video;
-  const thumbs = Array.isArray(video.thumbs)
+  const validThumbs = Array.isArray(video.thumbs)
     ? video.thumbs.filter((t): t is EpornerVideo["thumbs"][number] => Boolean(t && typeof t.src === "string"))
     : [];
+  // Keep at most 4 evenly-spaced hover preview frames to cut RSC HTML payload by ~40-50%.
+  let thumbs = validThumbs;
+  if (validThumbs.length > MAX_HOVER_THUMBS) {
+    const step = (validThumbs.length - 1) / (MAX_HOVER_THUMBS - 1);
+    thumbs = Array.from({ length: MAX_HOVER_THUMBS }, (_, i) => validThumbs[Math.round(i * step)]);
+  }
   return {
     ...video,
     title: cleanEpornerText(typeof video.title === "string" ? video.title : "HD Video"),
@@ -84,14 +121,36 @@ const MEM_CACHE_MAX = 5000;
 const inFlightRequests = globalForCache.epornerInFlight ?? new Map<string, Promise<unknown>>();
 globalForCache.epornerInFlight = inFlightRequests;
 
-export function coalesceInFlight<T>(key: string, work: () => Promise<T>): Promise<T> {
+const IN_FLIGHT_TIMEOUT_MS = 12_000;
+
+export function coalesceInFlight<T>(
+  key: string,
+  work: () => Promise<T>,
+  timeoutMs = IN_FLIGHT_TIMEOUT_MS
+): Promise<T> {
   const existing = inFlightRequests.get(key);
   if (existing) return existing as Promise<T>;
-  const promise = work().finally(() => {
-    inFlightRequests.delete(key);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const guarded = Promise.race<T>([
+    work(),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => {
+        if (inFlightRequests.get(key) === guarded) {
+          inFlightRequests.delete(key);
+        }
+        reject(new Error(`In-flight request timeout (${timeoutMs}ms) for ${key}`));
+      }, timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+    if (inFlightRequests.get(key) === guarded) {
+      inFlightRequests.delete(key);
+    }
   });
-  inFlightRequests.set(key, promise);
-  return promise;
+
+  inFlightRequests.set(key, guarded);
+  return guarded;
 }
 
 function setCache(key: string, data: unknown, ttlSeconds: number) {
@@ -143,29 +202,58 @@ function getStaleCache(key: string): unknown | null {
   return memCache.get(key)?.data ?? null;
 }
 
-async function fetchWithRetry(
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+/**
+ * Fetches JSON with a single end-to-end AbortController covering BOTH response headers
+ * and `res.json()` body streaming, using `cache: "no-store"` so Next.js's internal
+ * fetch-cache revalidate lock cannot deadlock on top of our own bounded `memCache`.
+ */
+async function fetchJsonWithRetry<T>(
   url: string,
-  init: RequestInit & { next?: { revalidate?: number | false } },
-  retries = 1
-): Promise<Response> {
+  options: { timeoutMs?: number; retries?: number } = {}
+): Promise<{ ok: true; status: number; data: T } | { ok: false; status: number }> {
+  const timeoutMs = options.timeoutMs ?? 6000;
+  const retries = options.retries ?? 1;
   let lastError: unknown;
+
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error(`Fetch timeout (${timeoutMs}ms)`)), timeoutMs);
     try {
       const res = await fetch(url, {
-        ...init,
-        signal: init.signal ?? AbortSignal.timeout(8000),
+        cache: "no-store",
+        signal: controller.signal,
       });
-      if (res.ok || (res.status < 500 && res.status !== 429)) {
-        return res;
+      if (!res.ok) {
+        if (res.status < 500 && res.status !== 429) {
+          return { ok: false, status: res.status };
+        }
+        lastError = new Error(`HTTP ${res.status}`);
+      } else {
+        const data = (await res.json()) as T;
+        return { ok: true, status: res.status, data };
       }
-      lastError = new Error(`HTTP ${res.status}`);
     } catch (err) {
       lastError = err;
+    } finally {
+      clearTimeout(timer);
     }
     if (attempt < retries) {
-      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
     }
   }
+
   throw lastError;
 }
 
@@ -245,41 +333,51 @@ async function fallbackSearchFromDb(params: {
   const pattern = hasFilter ? `%${q}%` : "";
 
   try {
-    let rows = hasFilter
-      ? await sql`
+    const queryPromise = hasFilter
+      ? sql`
           SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
           FROM "Video"
           WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+            AND LENGTH(TRIM(title)) >= 12
             AND (title ILIKE ${pattern} OR keywords ILIKE ${pattern})
-          ORDER BY "addedAt" DESC NULLS LAST, views DESC
+          ORDER BY views DESC, "addedAt" DESC NULLS LAST
           LIMIT ${perPage} OFFSET ${offset}
         `
       : params.order === "most-popular"
-        ? await sql`
+        ? sql`
             SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
             FROM "Video"
             WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+              AND LENGTH(TRIM(title)) >= 12
             ORDER BY views DESC, "addedAt" DESC NULLS LAST
             LIMIT ${perPage} OFFSET ${offset}
           `
-        : await sql`
+        : sql`
             SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
             FROM "Video"
             WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+              AND LENGTH(TRIM(title)) >= 12
             ORDER BY "addedAt" DESC NULLS LAST
             LIMIT ${perPage} OFFSET ${offset}
           `;
 
+    let rows = await withTimeout(queryPromise, 5000, "DB fallback search");
+
     // If a specific search/category had 0 exact keyword matches on page 1, fall back to
     // top active DB videos so category/watch fallback never triggers a false Soft 404.
     if (rows.length === 0 && page === 1 && hasFilter) {
-      rows = await sql`
-        SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
-        FROM "Video"
-        WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
-        ORDER BY views DESC, "addedAt" DESC NULLS LAST
-        LIMIT ${perPage}
-      `;
+      rows = await withTimeout(
+        sql`
+          SELECT id, title, keywords, views, rate, "addedAt", "lengthSec", "lengthMin", "embedUrl", "defaultThumb", thumbs
+          FROM "Video"
+          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+            AND LENGTH(TRIM(title)) >= 12
+          ORDER BY views DESC, "addedAt" DESC NULLS LAST
+          LIMIT ${perPage}
+        `,
+        4000,
+        "DB fallback top videos"
+      );
     }
 
     const videos = rows.map((r) => mapDbVideoToEporner(r as Record<string, unknown>));
@@ -294,6 +392,93 @@ async function fallbackSearchFromDb(params: {
   } catch (dbErr) {
     console.warn("[EpornerAPI] DB fallback failed:", (dbErr as Error).message);
     return emptySearchResponse(page, perPage);
+  }
+}
+
+/**
+ * Fetches curated, active, high-quality videos from Neon DB (SeoEnrichment prioritized first),
+ * cached in shared process RAM for 30 minutes so homepage Featured Picks and Watch Page
+ * Recommended Videos strengthen internal linking to indexed DB pages with ~0 extra DB load.
+ */
+export async function getCuratedDbVideos(options: {
+  limit?: number;
+  categoryOrKeyword?: string;
+  excludeId?: string;
+} = {}): Promise<EpornerVideo[]> {
+  if (!process.env.DATABASE_URL) return [];
+
+  const limit = Math.max(1, Math.min(24, options.limit ?? 8));
+  const rawFilter = options.categoryOrKeyword?.trim().toLowerCase() || "";
+  const cacheKey = `db:curated:${rawFilter || "featured"}:${limit + 4}`;
+  const cached = getCache(cacheKey) as EpornerVideo[] | null;
+
+  const filterOutExcluded = (list: EpornerVideo[]) =>
+    (options.excludeId ? list.filter((v) => v.id !== options.excludeId) : list).slice(0, limit);
+
+  if (cached) {
+    return filterOutExcluded(cached);
+  }
+
+  try {
+    const fetched = await coalesceInFlight(
+      cacheKey,
+      async () => {
+        const fetchLimit = limit + 4;
+        const pattern = rawFilter ? `%${rawFilter}%` : "";
+        const rows = rawFilter
+          ? await withTimeout(
+              sql`
+                SELECT
+                  v.id, v.title, v.keywords, v.views, v.rate, v."addedAt",
+                  v."lengthSec", v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs
+                FROM "Video" v
+                LEFT JOIN "SeoEnrichment" se ON se."videoId" = v.id AND se.status = 'enriched'
+                WHERE v.status = 'ACTIVE'
+                  AND v."aiSpamFlag" = false
+                  AND v."aiScoreSpam" < 65
+                  AND LENGTH(TRIM(v.title)) >= 12
+                  AND v.title !~* '(https?://|www\\.|\\.(com|net|org|xyz|tv|cc|io|ru|me|site|online))'
+                  AND (v.keywords ILIKE ${pattern} OR v.title ILIKE ${pattern})
+                ORDER BY (se."videoId" IS NOT NULL) DESC, v.views DESC, v."addedAt" DESC NULLS LAST
+                LIMIT ${fetchLimit}
+              `,
+              5000,
+              "getCuratedDbVideos(filtered)"
+            )
+          : await withTimeout(
+              sql`
+                SELECT
+                  v.id, v.title, v.keywords, v.views, v.rate, v."addedAt",
+                  v."lengthSec", v."lengthMin", v."embedUrl", v."defaultThumb", v.thumbs
+                FROM "Video" v
+                LEFT JOIN "SeoEnrichment" se ON se."videoId" = v.id AND se.status = 'enriched'
+                WHERE v.status = 'ACTIVE'
+                  AND v."aiSpamFlag" = false
+                  AND v."aiScoreSpam" < 65
+                  AND LENGTH(TRIM(v.title)) >= 12
+                  AND v.title !~* '(https?://|www\\.|\\.(com|net|org|xyz|tv|cc|io|ru|me|site|online))'
+                ORDER BY (se."videoId" IS NOT NULL) DESC, v.views DESC, v."addedAt" DESC NULLS LAST
+                LIMIT ${fetchLimit}
+              `,
+              5000,
+              "getCuratedDbVideos(featured)"
+            );
+
+        const mapped = rows
+          .map((r) => mapDbVideoToEporner(r as Record<string, unknown>))
+          .filter((v) => !isLowQualityVideoTitle(v.title));
+
+        setCache(cacheKey, mapped, SEARCH_TTL);
+        return mapped;
+      },
+      7000
+    );
+
+    return filterOutExcluded(fetched);
+  } catch (err) {
+    console.warn("[EpornerAPI] getCuratedDbVideos failed:", (err as Error).message);
+    const stale = getStaleCache(cacheKey) as EpornerVideo[] | null;
+    return stale ? filterOutExcluded(stale) : [];
   }
 }
 
@@ -330,10 +515,12 @@ export const EpornerAPI = {
     const allowDbFallback = options.allowDbFallback !== false;
     return coalesceInFlight(`search:${allowDbFallback ? "fb" : "nofb"}:${url}`, async () => {
       try {
-        // next.revalidate = Next.js disk/memory cache
-        const res = await fetchWithRetry(url, { next: { revalidate: SEARCH_TTL } });
+        const res = await fetchJsonWithRetry<EpornerSearchResponse>(url, {
+          timeoutMs: 6000,
+          retries: 1,
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: EpornerSearchResponse = await res.json();
+        const data = res.data;
         if (!data || typeof data !== "object") {
           throw new Error("Invalid search payload");
         }
@@ -352,6 +539,11 @@ export const EpornerAPI = {
         }
         return emptySearchResponse(params.page ?? 1, params.per_page ?? 30);
       }
+    }).catch((err) => {
+      console.warn(`[EpornerAPI] search coalesced timeout for "${params.query || "all"}":`, (err as Error).message);
+      const stale = getStaleCache(url);
+      if (stale) return stale as EpornerSearchResponse;
+      return emptySearchResponse(params.page ?? 1, params.per_page ?? 30);
     });
   },
 
@@ -364,9 +556,12 @@ export const EpornerAPI = {
 
     return coalesceInFlight(`video:${url}`, async () => {
       try {
-        const res = await fetchWithRetry(url, { next: { revalidate: VIDEO_TTL } });
+        const res = await fetchJsonWithRetry<EpornerVideo>(url, {
+          timeoutMs: 6000,
+          retries: 1,
+        });
         if (!res.ok) return (getStaleCache(url) as EpornerVideo | null) ?? null;
-        const data = await res.json();
+        const data = res.data;
         const video = (data && !Array.isArray(data) && typeof data === "object" && data.id)
           ? cleanVideoData(data)
           : null;
@@ -380,7 +575,7 @@ export const EpornerAPI = {
       } catch {
         return (getStaleCache(url) as EpornerVideo | null) ?? null;
       }
-    });
+    }).catch(() => (getStaleCache(url) as EpornerVideo | null) ?? null);
   },
 
   /**
@@ -399,29 +594,29 @@ export const EpornerAPI = {
       return "alive";
     }
 
-    return coalesceInFlight(statusKey, async () => {
-      try {
-        const res = await fetchWithRetry(
-          url,
-          {
-            next: { revalidate: VIDEO_TTL },
-            signal: AbortSignal.timeout(4000),
-          },
-          0
-        );
-        if (!res.ok) return "unknown";
-        const data = await res.json();
-        if (data && !Array.isArray(data) && typeof data === "object" && data.id) {
-          setCache(url, cleanVideoData(data), VIDEO_TTL);
-          setCache(statusKey, "alive", VIDEO_TTL);
-          return "alive";
+    return coalesceInFlight(
+      statusKey,
+      async () => {
+        try {
+          const res = await fetchJsonWithRetry<EpornerVideo>(url, {
+            timeoutMs: 4000,
+            retries: 0,
+          });
+          if (!res.ok) return "unknown";
+          const data = res.data;
+          if (data && !Array.isArray(data) && typeof data === "object" && data.id) {
+            setCache(url, cleanVideoData(data), VIDEO_TTL);
+            setCache(statusKey, "alive", VIDEO_TTL);
+            return "alive";
+          }
+          setCache(statusKey, "removed", VIDEO_TTL);
+          return "removed";
+        } catch {
+          return "unknown";
         }
-        setCache(statusKey, "removed", VIDEO_TTL);
-        return "removed";
-      } catch {
-        return "unknown";
-      }
-    });
+      },
+      6000
+    ).catch(() => "unknown");
   },
 
   /**

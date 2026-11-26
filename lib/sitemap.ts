@@ -13,7 +13,7 @@ import { sql } from "./db";
 import { TIER1_CATEGORIES } from "./category-config";
 import { buildWatchUrl } from "./video/slug";
 import { toProxiedThumbUrl } from "./video/thumb-url";
-import { parseJsonObject } from "./api/eporner";
+import { parseJsonObject, isCompetitorFallbackDesc } from "./api/eporner";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 // Split video sitemaps into ~1,000-URL segments (~750 KB each) so generation
@@ -100,7 +100,12 @@ export async function generateSitemapsWithMeta(): Promise<{
             COUNT(*) as count,
             MAX(COALESCE("updatedAt", "addedAt")) as "latestMod"
           FROM "Video"
-          WHERE status = 'ACTIVE' AND "aiSpamFlag" = false AND "aiScoreSpam" < 65
+          WHERE status = 'ACTIVE'
+            AND "aiSpamFlag" = false
+            AND "aiScoreSpam" < 65
+            AND LENGTH(TRIM(title)) >= 12
+            AND title !~* '(https?://|www\\.|\\.(com|net|org|xyz|tv|cc|io|ru|me|site|online))'
+            AND LOWER(TRIM(title)) NOT IN ('3xxx', 'p4wgp0v', 'xxxraw', 'chatu video', 'webcam show', 'hd video')
         `
       );
       videoCount = parseInt(row.count as string, 10) || 0;
@@ -295,13 +300,31 @@ async function buildVideoSegmentWithMeta(chunkIndex: number): Promise<{
             v."defaultThumb",
             CASE WHEN jsonb_typeof(v.thumbs) = 'array' THEN v.thumbs->0 ELSE NULL END
           ) AS "defaultThumb",
-          COALESCE(se."metaDescription", se.summary, v."aiDescription") AS "aiDescription",
+          COALESCE(
+            se."metaDescription",
+            se.summary,
+            CASE
+              WHEN v."aiDescription" IS NOT NULL
+                AND v."aiDescription" NOT ILIKE '%Find more of the best Eporner videos catalog%'
+              THEN v."aiDescription"
+              ELSE NULL
+            END
+          ) AS "aiDescription",
           v.keywords
         FROM "Video" v
         LEFT JOIN "SeoEnrichment" se
           ON se."videoId" = v.id AND se.status = 'enriched'
-        WHERE v.status = 'ACTIVE' AND v."aiSpamFlag" = false AND v."aiScoreSpam" < 65
-        ORDER BY (se."videoId" IS NOT NULL) DESC, v."addedAt" DESC NULLS LAST
+        WHERE v.status = 'ACTIVE'
+          AND v."aiSpamFlag" = false
+          AND v."aiScoreSpam" < 65
+          AND LENGTH(TRIM(v.title)) >= 12
+          AND v.title !~* '(https?://|www\\.|\\.(com|net|org|xyz|tv|cc|io|ru|me|site|online))'
+          AND LOWER(TRIM(v.title)) NOT IN ('3xxx', 'p4wgp0v', 'xxxraw', 'chatu video', 'webcam show', 'hd video')
+        ORDER BY
+          (se."videoId" IS NOT NULL) DESC,
+          (v."aiDescription" IS NOT NULL AND v."aiDescription" NOT ILIKE '%Find more of the best Eporner videos catalog%') DESC,
+          v.views DESC,
+          v."addedAt" DESC NULLS LAST
         LIMIT ${CHUNK_SIZE} OFFSET ${chunkIndex * CHUNK_SIZE}
       `
     );
@@ -311,7 +334,10 @@ async function buildVideoSegmentWithMeta(chunkIndex: number): Promise<{
       const title = (v.title as string) || "Adult Video";
       const lastMod = (v.updatedAt || v.addedAt || new Date()) as Date;
       const thumbUrl = resolveThumbUrl(v.defaultThumb);
-      const rawDesc = (v.aiDescription as string) || buildVideoDescription(title, v.keywords as string);
+      const cleanAiDesc = isCompetitorFallbackDesc(v.aiDescription as string | null)
+        ? null
+        : (v.aiDescription as string).trim();
+      const rawDesc = cleanAiDesc || buildVideoDescription(title, v.keywords as string);
       const playerUrl = (v.embedUrl as string || `https://www.eporner.com/embed/${id}`).replace(/\/+$/, "");
       const duration = v.lengthSec && Number(v.lengthSec) > 0 ? Number(v.lengthSec) : undefined;
       const pubDate = v.addedAt ? new Date(v.addedAt as Date).toISOString() : undefined;

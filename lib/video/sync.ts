@@ -46,7 +46,7 @@ export async function syncVideoToDatabase(videoId: string) {
       ${v.keywords}, ${v.embed ? v.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${v.id}`},
       ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
       ${aiResult.scores.trending}, ${aiResult.scores.engagement}, ${aiResult.scores.spam},
-      ${aiResult.isSpam}, ${aiResult.seoDescription},
+      ${aiResult.isSpam}, ${aiResult.seoDescription.trim() || null},
       NOW()
     )
     ON CONFLICT (id) DO NOTHING

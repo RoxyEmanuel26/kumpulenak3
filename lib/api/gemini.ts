@@ -30,7 +30,7 @@ export const GeminiAPI = {
       category: "General",
       isSpam: false,
       scores: { trending: 50, engagement: 50, spam: 5 },
-      seoDescription: `Watch full video ${title} for free. Find more of the best Eporner videos catalog on our website.`,
+      seoDescription: "",
     };
 
     if (API_KEYS.length === 0) {

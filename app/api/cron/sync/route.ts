@@ -22,7 +22,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { EpornerAPI, invalidateVideoCaches } from "@/lib/api/eporner";
+import { EpornerAPI, invalidateVideoCaches, isLowQualityVideoTitle } from "@/lib/api/eporner";
 import { GeminiAPI } from "@/lib/api/gemini";
 import { TIER1_CATEGORIES } from "@/lib/category-config";
 import { runDiskCacheMaintenance } from "@/lib/cache-cleanup";
@@ -278,6 +278,13 @@ async function executeSyncJob(
               continue; // Skip this video completely, do not insert into DB
             }
 
+            // Skip gibberish, ultra-short (<12 chars), or URL-spam titles before wasting Gemini quota
+            if (isLowQualityVideoTitle(v.title)) {
+              rememberKnownVideoId(v.id);
+              console.log(`[CronSync] Skipped low-quality/spam title: ${v.id} - "${v.title}"`);
+              continue;
+            }
+
             const aiResult = await GeminiAPI.classifyVideo(v.title, v.keywords);
 
             const rawTags =
@@ -307,7 +314,7 @@ async function executeSyncJob(
                 ${v.keywords}, ${v.embed ? v.embed.replace(/\/+$/, "") : `https://www.eporner.com/embed/${v.id}`},
                 ${aiResult.isSpam ? "DRAFT" : "ACTIVE"},
                 ${aiResult.scores.trending}, ${aiResult.scores.engagement},
-                ${aiResult.scores.spam}, ${aiResult.isSpam}, ${aiResult.seoDescription}, NOW()
+                ${aiResult.scores.spam}, ${aiResult.isSpam}, ${aiResult.seoDescription.trim() || null}, NOW()
               )
               ON CONFLICT (id) DO NOTHING
             `;

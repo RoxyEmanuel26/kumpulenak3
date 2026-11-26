@@ -96,12 +96,13 @@ export default async function CategoryPage({
   const page = parsePositivePage(resolvedSearchParams.page);
   if (!cat || page === null) return notFound();
 
-  // Fetch videos from Eporner using the category display name as the search query
+  // Fetch popular evergreen videos from Eporner using top-monthly ordering so category
+  // grids showcase high-engagement videos that survive DMCA churn instead of 0-view uploads.
   const res = await EpornerAPI.search({
     query: cat.name,
     page,
     per_page: PER_PAGE,
-    order: "latest",
+    order: "top-monthly",
   });
 
   const videos = res?.videos || [];

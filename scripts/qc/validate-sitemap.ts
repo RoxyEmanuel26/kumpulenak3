@@ -1,5 +1,18 @@
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.lusthub.web.id";
 
+function resolveTargetUrl(locUrl: string): string {
+  try {
+    const parsed = new URL(locUrl);
+    const base = new URL(BASE_URL);
+    if (parsed.origin !== base.origin) {
+      return `${base.origin}${parsed.pathname}${parsed.search}`;
+    }
+  } catch {
+    // keep original URL
+  }
+  return locUrl;
+}
+
 async function run() {
   console.log(`🚀 Starting Sitemap Quality Control check against ${BASE_URL}...`);
 
@@ -26,7 +39,7 @@ async function run() {
     }
 
     // 2. Fetch the first segment (static + categories)
-    const segmentUrl = segmentUrls[0];
+    const segmentUrl = resolveTargetUrl(segmentUrls[0]);
     console.log(`\n🔍 Fetching segment ${segmentUrl}`);
     const segmentRes = await fetch(segmentUrl);
     if (!segmentRes.ok) {
@@ -51,7 +64,8 @@ async function run() {
     const sampleUrls = pageUrls.sort(() => 0.5 - Math.random()).slice(0, sampleSize);
 
     console.log(`\n🔍 Verifying ${sampleSize} random URLs...`);
-    for (const url of sampleUrls) {
+    for (const rawUrl of sampleUrls) {
+      const url = resolveTargetUrl(rawUrl);
       const pageRes = await fetch(url, { method: 'HEAD' });
       if (!pageRes.ok) {
         throw new Error(`URL failed validation: ${url} returned ${pageRes.status}`);

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { EpornerAPI } from "@/lib/api/eporner";
+import { EpornerAPI, getCuratedDbVideos } from "@/lib/api/eporner";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -74,15 +74,24 @@ export default async function UserHome({
   const lq = parseInt(resolvedSearchParams.lq || "1") as 0 | 1 | 2;
   const per_page = 30; 
 
-  const res = await EpornerAPI.search({
-    query,
-    page,
-    per_page,
-    order,
-    lq,
-  });
+  const showFeaturedRow = page === 1 && order === "latest" && query === "all";
 
-  const videos = res?.videos || [];
+  const [res, featuredVideos] = await Promise.all([
+    EpornerAPI.search({
+      query,
+      page,
+      per_page,
+      order,
+      lq,
+    }),
+    showFeaturedRow ? getCuratedDbVideos({ limit: 8 }) : Promise.resolve([]),
+  ]);
+
+  const featuredIdSet = new Set(featuredVideos.map((v) => v.id));
+  const rawVideos = res?.videos || [];
+  const videos = showFeaturedRow && featuredVideos.length > 0
+    ? rawVideos.filter((v) => !featuredIdSet.has(v.id))
+    : rawVideos;
   const totalPages = res?.total_pages || 1;
 
   // Prevent Soft 404 on explicit query/pagination variants while keeping bare `/` resilient
@@ -185,6 +194,27 @@ export default async function UserHome({
               </Link>
             </div>
           </nav>
+        )}
+
+        {/* ── Featured HD Videos (Curated DB + SeoEnrichment Power Pages) ────
+             Links top evergreen, richly enriched videos 1 click from Homepage so
+             Googlebot concentrates PageRank on high-value indexed watch pages.
+        */}
+        {showFeaturedRow && featuredVideos.length > 0 && (
+          <section aria-label="Featured HD videos" className="space-y-3 pb-4 border-b border-white/5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest font-mono">
+                Featured HD Videos
+              </h2>
+              <Link
+                href="/categories"
+                className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Explore Categories →
+              </Link>
+            </div>
+            <VideoGrid videos={featuredVideos} />
+          </section>
         )}
 
         {/* ── Curated Feed Tabs (5A: Hub Curations) ───────────────────────────
