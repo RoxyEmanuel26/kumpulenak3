@@ -66,20 +66,21 @@ export function ShareButton({ url, title, className = "" }: ShareButtonProps) {
 
   return (
     <button
+      type="button"
       onClick={handleShare}
-      aria-label={copied ? "Link copied!" : "Share this video"}
-      title={copied ? "Link copied!" : "Share this video"}
-      className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 h-9 sm:h-10 rounded-full bg-[#272727] hover:bg-[#3F3F3F] border border-white/5 transition-colors text-[#AAAAAA] hover:text-white cursor-pointer text-xs sm:text-sm font-semibold shrink-0 ${className}`}
+      aria-label={copied ? "Link copied" : "Share this video"}
+      title={copied ? "Link copied" : "Share this video"}
+      className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 h-9 sm:h-10 rounded-full bg-[#1F1F1F] hover:bg-[#2C2C2C] active:scale-[0.98] border border-white/[0.08] transition-all duration-200 text-[#CCCCCC] hover:text-white cursor-pointer text-xs sm:text-sm font-medium shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 ${className}`}
     >
       {copied ? (
         <>
-          <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500" />
-          <span className="font-mono">Copied!</span>
+          <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+          <span className="text-emerald-400">Copied</span>
         </>
       ) : (
         <>
           <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="font-mono hidden sm:inline">Share</span>
+          <span className="hidden sm:inline">Share</span>
         </>
       )}
     </button>

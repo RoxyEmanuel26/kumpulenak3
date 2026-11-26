@@ -67,14 +67,18 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
 
   return (
     <div
-      className={`flex items-center justify-center overflow-hidden ${className}`}
-      style={{ minHeight: height, minWidth: width, maxWidth: "100%" }}
+      className={`w-full max-w-full items-center justify-center overflow-hidden ${className}`}
+      style={{ minHeight: height }}
       aria-hidden="true"
     >
       {shouldRender ? (
-        <div id={`atContainer-${adKey}`} ref={containerRef} style={{ width, height, overflow: "hidden" }} />
+        <div
+          id={`atContainer-${adKey}`}
+          ref={containerRef}
+          style={{ width, maxWidth: "100%", height, overflow: "hidden" }}
+        />
       ) : (
-        <div />
+        <div style={{ width, maxWidth: "100%", height }} />
       )}
     </div>
   );

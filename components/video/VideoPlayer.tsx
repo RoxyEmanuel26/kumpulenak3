@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Maximize2, Minimize2, RectangleHorizontal } from "lucide-react";
 
 interface VideoPlayerProps {
   embedUrl: string;
@@ -79,19 +80,21 @@ export function VideoPlayer({
 
   return (
     <div className="w-full flex flex-col items-center select-none">
-      {/* Outer wrapper with theater mode toggle */}
+      {/* Outer player stage — edge-to-edge on phone, framed cinema container on tablet/PC */}
       <div
         ref={containerRef}
-        className={`relative w-full overflow-hidden bg-black transition-all duration-300 shadow-2xl ${
-          isTheater && !isFullscreen
-            ? "max-w-full aspect-[21/9] xl:max-h-[70vh] rounded-none border-y border-white/5"
-            : "max-w-5xl aspect-video rounded-none md:rounded-xl border-x-0 md:border border-white/5"
-        } ${isFullscreen ? "h-screen w-screen rounded-none border-0 aspect-auto" : ""}`}
+        className={`relative w-full overflow-hidden bg-[#080808] transition-all duration-300 ${
+          isFullscreen
+            ? "h-screen w-screen rounded-none border-0 aspect-auto"
+            : isTheater
+              ? "max-w-[1440px] aspect-video max-h-[82dvh] rounded-none md:rounded-xl border-y md:border border-white/[0.08] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)]"
+              : "w-full aspect-video max-h-[76dvh] rounded-none sm:rounded-xl border-y sm:border border-white/[0.08] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.85)]"
+        }`}
       >
         {/* Ambient Ambilight Glow */}
         {thumbnailUrl && !isFullscreen && (
           <div
-            className="absolute inset-0 -z-10 blur-[90px] opacity-40 scale-[1.08] pointer-events-none transition-all duration-1000"
+            className="absolute inset-0 -z-10 blur-[90px] opacity-35 scale-[1.08] pointer-events-none transition-all duration-1000"
             style={{
               backgroundImage: `url(${thumbnailUrl})`,
               backgroundSize: "cover",
@@ -126,11 +129,46 @@ export function VideoPlayer({
         />
       </div>
 
-      {/* Theater/Fullscreen keyboard tip */}
+      {/* Clickable Theater & Fullscreen controls on tablet/PC (never overlays iframe) */}
       {!isFullscreen && (
-        <div className="mt-3 text-[10px] text-muted-foreground/50 font-mono hidden md:flex gap-4 uppercase tracking-wider select-none">
-          <span>[F] Fullscreen</span>
-          {onToggleTheater && <span>[T] Theater Mode</span>}
+        <div className="hidden md:flex w-full items-center justify-between gap-3 pt-2.5 px-1 text-[11px] text-[#8E8E8E]">
+          <div className="flex items-center gap-2 font-mono text-[10px] tracking-wide text-[#777777]">
+            <span>Shortcuts:</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-[#B0B0B0]">F</kbd>
+            <span>Fullscreen</span>
+            {onToggleTheater && (
+              <>
+                <span className="text-white/20">•</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-[#B0B0B0]">T</kbd>
+                <span>Theater</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {onToggleTheater && (
+              <button
+                type="button"
+                onClick={onToggleTheater}
+                aria-pressed={isTheater}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 ${
+                  isTheater
+                    ? "bg-white/10 border-white/20 text-white"
+                    : "bg-white/[0.03] border-white/[0.08] text-[#B5B5B5] hover:text-white hover:bg-white/[0.08]"
+                }`}
+              >
+                <RectangleHorizontal className="w-3.5 h-3.5" />
+                <span>{isTheater ? "Default View" : "Theater Mode"}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[#B5B5B5] hover:text-white hover:bg-white/[0.08] text-[11px] font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              <span>Fullscreen</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

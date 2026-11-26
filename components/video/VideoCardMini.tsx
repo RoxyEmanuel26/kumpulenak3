@@ -33,7 +33,7 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
   return (
     <Link 
       href={buildWatchUrl(video.id, video.title)} 
-      className="group flex gap-2.5 w-full text-left"
+      className="group flex gap-3 w-full text-left p-1.5 -mx-1.5 rounded-xl hover:bg-white/[0.04] active:scale-[0.99] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
@@ -41,7 +41,7 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
       }}
     >
       {/* Thumbnail column */}
-      <div className="relative w-32 sm:w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-[#161616] border border-white/5">
+      <div className="relative w-36 sm:w-40 xl:w-[152px] aspect-video rounded-lg overflow-hidden shrink-0 bg-[#161616] border border-white/[0.07]">
         {currentImageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -51,45 +51,38 @@ export function VideoCardMini({ video }: VideoCardMiniProps) {
             decoding="async"
             width={160}
             height={90}
-            className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-103"
+            className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-[9px] text-muted-foreground">
-            No Image
+          <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
+            No Preview
           </div>
         )}
 
         {/* Duration badge */}
-        <span className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.2 text-[8px] text-[#F1F1F1] rounded font-mono font-bold border border-white/5">
+        <span className="absolute bottom-1 right-1 bg-black/85 px-1.5 py-0.5 text-[10px] leading-none text-[#F1F1F1] rounded font-mono font-semibold tabular-nums border border-white/10">
           {video.length_min || "0:00"}
         </span>
       </div>
 
       {/* Info column */}
-      <div className="flex-1 space-y-1 min-w-0">
+      <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
         <h3 
-          className="text-xs sm:text-sm font-semibold text-[#F1F1F1] leading-tight line-clamp-2 group-hover:text-red-500 transition-colors"
+          className="text-[13px] sm:text-sm font-medium text-[#F1F1F1] leading-snug line-clamp-2 group-hover:text-red-400 transition-colors"
           title={video.title}
         >
           {video.title}
         </h3>
         
-        <div className="space-y-0.5">
-
-          {/* Views & Rating */}
-          <div className="flex items-center gap-1 text-[9px] sm:text-xs text-[#AAAAAA] font-mono">
-            <span className="flex items-center gap-0.5 shrink-0">
-              <Eye className="h-3 w-3 opacity-60" /> {(Number(video.views) || 0).toLocaleString("en-US")}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-[11px] text-[#9A9A9A] font-mono tabular-nums">
+          <span className="inline-flex items-center gap-1 shrink-0">
+            <Eye className="h-3 w-3 opacity-60" /> {(Number(video.views) || 0).toLocaleString("en-US")}
+          </span>
+          {video.rate && parseFloat(video.rate) > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-amber-400/90 shrink-0">
+              <Star className="h-2.5 w-2.5 fill-current" /> {Math.round(parseFloat(video.rate) * 20)}%
             </span>
-            {video.rate && parseFloat(video.rate) > 0 && (
-              <>
-                <span>•</span>
-                <span className="flex items-center gap-0.5 text-yellow-500 shrink-0">
-                  <Star className="h-3 w-3 fill-current" /> {Math.round(parseFloat(video.rate) * 20)}%
-                </span>
-              </>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </Link>
