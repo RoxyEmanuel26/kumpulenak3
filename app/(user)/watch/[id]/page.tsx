@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { WatchPageClient } from "@/components/video/WatchPageClient";
+import { AdsterraPopunder } from "@/components/ads/AdsterraPopunder";
 import { Metadata } from "next";
 import {
   EpornerAPI,
@@ -534,6 +535,8 @@ export default async function WatchVideoPage({
 
   return (
     <>
+      {/* Adsterra Popunder — mounted exclusively on /watch/* video pages */}
+      <AdsterraPopunder />
       {/* VideoObject, BreadcrumbList & optional FAQPage JSON-LD */}
       <JsonLd data={schemaList} />
       <WatchPageClient 

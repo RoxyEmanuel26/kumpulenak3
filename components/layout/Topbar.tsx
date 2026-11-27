@@ -60,9 +60,9 @@ export function Topbar() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-[#0F0F0F] border-b border-white/5 flex items-center justify-between px-4">
+    <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-[#0F0F0F]/95 backdrop-blur-md border-b border-white/[0.06] flex items-center justify-between px-3 sm:px-4">
       {/* Left section: Hamburger & Logo */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={() => {
             // Check viewport size
@@ -72,7 +72,7 @@ export function Topbar() {
               toggleSidebar();
             }
           }}
-          className="p-2.5 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+          className="p-2 text-white hover:bg-white/10 active:scale-95 rounded-full transition-all cursor-pointer"
           aria-label="Toggle Sidebar"
         >
           <Menu className="h-5 w-5" />
@@ -84,7 +84,7 @@ export function Topbar() {
             alt="LustHub Logo" 
             width={160} 
             height={50} 
-            className="object-contain h-12 w-auto ml-2"
+            className="object-contain h-9 sm:h-11 w-auto"
             priority
           />
         </Link>

@@ -37,12 +37,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import { Clock, Play } from "lucide-react";
 import { useUI } from "@/components/layout/UIContext";
 import { Analytics } from "@/lib/analytics";
 import { buildWatchUrl } from "@/lib/video/slug";
 
-const MAX_DISPLAY = 3;
+const MAX_DISPLAY = 4;
 
 interface VideoDetail {
   title: string;
@@ -121,51 +121,73 @@ export function ContinueWatching() {
   return (
     <nav
       aria-label="Continue watching"
-      className="pb-3 border-b border-white/5"
+      className="space-y-2.5"
     >
       {/* Section header */}
-      <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest font-mono mb-3 flex items-center gap-1.5">
-        <Clock className="h-3 w-3" />
-        Continue Watching
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading text-sm sm:text-base font-bold tracking-tight text-[#F5F5F5] flex items-center gap-2">
+          <Clock className="h-4 w-4 text-[#f6396c]" />
+          <span>Continue Watching</span>
+        </h2>
+        <Link
+          href="/library"
+          rel="nofollow"
+          className="text-xs font-medium text-[#9A9A9A] hover:text-white transition-colors"
+        >
+          History →
+        </Link>
+      </div>
 
-      {/* Video chips */}
-      <div className="flex flex-wrap gap-2">
-        {recentVideos.map((videoId, index) => (
-          <Link
-            key={videoId}
-            href={videoDetails[videoId]?.title ? buildWatchUrl(videoId, videoDetails[videoId].title) : `/watch/${videoId}`}
-            onClick={() => Analytics.continueWatchingClick(index)}
-            className="group flex items-center gap-2 bg-[#1F1F1F] hover:bg-[#2A2A2A] border border-white/10 hover:border-red-600/30 rounded-lg px-2 py-1.5 transition-all"
-            title={videoDetails[videoId]?.title || `Continue watching video ${index + 1}`}
-          >
-            {/* Thumbnail */}
-            <div className="w-14 h-9 rounded overflow-hidden bg-[#161616] shrink-0 relative">
-              {videoDetails[videoId]?.thumbnail ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={videoDetails[videoId].thumbnail}
-                  alt=""
-                  loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              ) : (
-                <div className="w-full h-full bg-red-600/10 flex items-center justify-center">
-                  <span className="text-[10px] text-red-500 font-bold">▶</span>
+      {/* Horizontal swipeable compact resume cards */}
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5">
+        {recentVideos.map((videoId, index) => {
+          const detail = videoDetails[videoId];
+          const title = detail?.title || "Resume watched video";
+          return (
+            <Link
+              key={videoId}
+              href={detail?.title ? buildWatchUrl(videoId, detail.title) : `/watch/${videoId}`}
+              onClick={() => Analytics.continueWatchingClick(index)}
+              className="group flex items-center gap-2.5 w-[230px] sm:w-[260px] shrink-0 bg-[#161616] hover:bg-[#1F1F1F] active:scale-[0.98] border border-white/[0.07] hover:border-white/[0.15] rounded-xl p-2 transition-all duration-200"
+              title={title}
+            >
+              {/* Thumbnail */}
+              <div className="w-20 aspect-video rounded-lg overflow-hidden bg-[#101010] shrink-0 relative">
+                {detail?.thumbnail ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={detail.thumbnail}
+                    alt={title}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#f6396c]/10 flex items-center justify-center">
+                    <Play className="h-3.5 w-3.5 text-[#f6396c] fill-current" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-full bg-black/70 border border-white/20 flex items-center justify-center text-white">
+                    <Play className="h-2.5 w-2.5 fill-current ml-0.5" />
+                  </span>
                 </div>
-              )}
-              {/* Overlay play hint */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
-                <span className="text-[8px] text-white font-bold">▶</span>
+                <div className="absolute bottom-0 inset-x-0 h-0.5 bg-white/15">
+                  <div className="h-full w-2/3 bg-[#f6396c]" />
+                </div>
               </div>
-            </div>
 
-            {/* Label */}
-            <span className="text-[10px] text-[#AAAAAA] group-hover:text-white font-mono transition-colors">
-              #{index + 1}
-            </span>
-          </Link>
-        ))}
+              {/* Video title & resume cue */}
+              <div className="min-w-0 flex-1 space-y-1 text-left">
+                <p className="text-xs font-medium text-[#F1F1F1] group-hover:text-white line-clamp-2 leading-snug">
+                  {title}
+                </p>
+                <span className="inline-block text-[10px] font-medium text-[#f6396c]">
+                  Resume
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

@@ -15,6 +15,14 @@ interface VideoCardProps {
 // 7 days in milliseconds — videos newer than this get a "NEW" badge.
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** Formats view counts compactly so metadata always fits cleanly on one line on mobile cards. */
+function formatCompactViews(rawViews: number): string {
+  const n = Number(rawViews) || 0;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return n.toLocaleString("en-US");
+}
+
 /** Returns true if the video was added within the last 7 days. */
 function isNewVideo(addedDateStr?: string): boolean {
   if (!addedDateStr) return false;
@@ -48,7 +56,7 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
   return (
     <Link 
       href={buildWatchUrl(video.id, video.title)} 
-      className="group block w-full space-y-2.5"
+      className="group block w-full space-y-2 active:scale-[0.985] transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f6396c]/60 rounded-xl"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
@@ -56,7 +64,7 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
       }}
     >
       {/* Thumbnail Aspect 16:9 */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#161616] border border-white/5 transition-all duration-300">
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#161616] border border-white/[0.07] transition-all duration-300 group-hover:border-white/[0.16]">
         {currentImageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -67,7 +75,7 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
             decoding="async"
             width={320}
             height={180}
-            className="object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-103"
+            className="object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
@@ -75,47 +83,48 @@ export function VideoCard({ video, priority = false }: VideoCardProps) {
           </div>
         )}
 
-        {/* Video tags / quality badge (left) */}
+        {/* Subtle bottom scrim so duration pill stays crisp on bright frames */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+
+        {/* Rating badge (top left) */}
         {video.rate && parseFloat(video.rate) > 0 && (
-          <span className="absolute top-2 left-2 bg-black/80 text-yellow-500 border border-white/5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-0.5">
+          <span className="absolute top-1.5 left-1.5 bg-black/75 backdrop-blur-sm text-amber-400 border border-white/10 px-1.5 py-0.5 rounded-md text-[10px] leading-none font-mono font-semibold tabular-nums flex items-center gap-0.5">
             <Star className="h-2.5 w-2.5 fill-current" /> {Math.round(parseFloat(video.rate) * 20)}%
           </span>
         )}
 
         {/* Duration badge (bottom right) */}
-        <span className="absolute bottom-2 right-2 bg-black/85 px-1.5 py-0.5 text-[9px] text-[#F1F1F1] rounded font-mono font-bold tracking-wide border border-white/5">
+        <span className="absolute bottom-1.5 right-1.5 bg-black/85 px-1.5 py-0.5 text-[10px] leading-none text-[#F5F5F5] rounded-md font-mono font-semibold tabular-nums tracking-wide border border-white/10">
           {video.length_min || "0:00"}
         </span>
 
         {/* NEW badge — shown for videos added within last 7 days (top right) */}
         {isNewVideo(video.added) && (
-          <span className="absolute top-2 right-2 bg-red-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide font-mono leading-none">
+          <span className="absolute top-1.5 right-1.5 bg-[#f6396c] text-white px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wide font-mono leading-none">
             NEW
           </span>
         )}
       </div>
 
-      {/* Title and stats */}
-      <div className="px-1 text-left">
-        <div className="space-y-1">
-          <h3 
-            className="font-medium text-[13px] md:text-sm text-[#F1F1F1] leading-snug line-clamp-2 group-hover:text-red-500 transition-colors" 
-            title={video.title}
-          >
-            {video.title}
-          </h3>
+      {/* Title and single-line compact stats */}
+      <div className="px-0.5 text-left space-y-1">
+        <h3 
+          className="font-semibold text-[13px] sm:text-sm text-[#F3F3F3] leading-[1.35] line-clamp-2 group-hover:text-[#f6396c] transition-colors" 
+          title={video.title}
+        >
+          {video.title}
+        </h3>
 
-          <div className="flex items-center gap-1.5 text-[11px] text-[#AAAAAA] font-mono">
-            <span className="flex items-center gap-0.5">
-              <Eye className="h-3 w-3 opacity-60" /> {(Number(video.views) || 0).toLocaleString("en-US")}
-            </span>
-            {video.added && (
-              <>
-                <span>•</span>
-                <span>{formatVideoDate(video.added)}</span>
-              </>
-            )}
-          </div>
+        <div className="flex items-center gap-1.5 text-[11px] text-[#9A9A9A] font-mono tabular-nums whitespace-nowrap overflow-hidden">
+          <span className="inline-flex items-center gap-1 shrink-0">
+            <Eye className="h-3 w-3 opacity-60" /> {formatCompactViews(video.views)}
+          </span>
+          {video.added && (
+            <>
+              <span className="opacity-40 shrink-0">•</span>
+              <span className="truncate">{formatVideoDate(video.added)}</span>
+            </>
+          )}
         </div>
       </div>
     </Link>

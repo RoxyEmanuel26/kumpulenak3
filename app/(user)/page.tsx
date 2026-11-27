@@ -155,41 +155,39 @@ export default async function UserHome({
       {/* JSON-LD — injected server-side, invisible to users */}
       <JsonLd data={jsonLd} />
 
-      <div className="px-4 py-3 space-y-6">
+      <div className="px-3 sm:px-5 py-2.5 sm:py-4 space-y-5 sm:space-y-6">
         {/* H1 — required for SEO; styled small and unobtrusive */}
         <h1 className="sr-only">Latest Free HD Porn Videos</h1>
 
-        {/* ── Continue Watching (return visitor row) ────────────────────────
-             Client component — reads watchHistory from UIContext (localStorage).
-             Renders nothing for first-time visitors or when history is empty.
-             Only shown on page 1 to keep the homepage clean on paginated views.
-        */}
-        {page === 1 && <ContinueWatching />}
-
-        {/* ── Featured Categories ─────────────────────────────────────────────────────
-             Server-rendered direct links to all 15 Tier-1 categories.
-             Shown only on page 1. Reduces category crawl depth from 2 clicks to 1.
-             Authority flows: Homepage → /category/{slug} directly.
-             Expanded from 8 → 15 to expose all SEO-indexed category pages.
+        {/* ── Category Topic Strip (YouTube-style 1-row swipeable chips on mobile/tablet) ──
+             Keeps all 25 Tier-1 category <Link>s in SSR HTML (1-click crawl depth) while
+             eliminating the 6-row pill wall on phone screens so videos sit right above the fold.
         */}
         {page === 1 && (
-          <nav aria-label="Featured categories" className="pb-2 border-b border-white/5">
-            <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest font-mono mb-3">
-              Browse Categories
-            </h2>
-            <div className="flex flex-wrap gap-2">
+          <nav aria-label="Featured categories" className="relative">
+            <div className="flex flex-nowrap lg:flex-wrap items-center gap-2 overflow-x-auto lg:overflow-visible no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 py-0.5">
+              <Link
+                href="/"
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
+                  order === "latest" && query === "all"
+                    ? "bg-white text-black shadow-xs"
+                    : "bg-[#1B1B1B] text-[#D4D4D4] border border-white/[0.08] hover:bg-[#262626] hover:text-white"
+                }`}
+              >
+                All
+              </Link>
               {TIER1_CATEGORIES.map((cat) => (
                 <Link
                   key={cat.slug}
                   href={`/category/${cat.slug}`}
-                  className="px-3 py-1.5 rounded-full bg-[#1F1F1F] border border-white/10 text-xs text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] hover:border-red-600/40 transition-all font-medium"
+                  className="px-3.5 py-1.5 rounded-full bg-[#1B1B1B] border border-white/[0.08] text-xs text-[#D4D4D4] hover:text-white hover:bg-[#262626] hover:border-[#f6396c]/40 active:scale-[0.97] transition-all font-medium shrink-0 whitespace-nowrap"
                 >
                   {cat.name}
                 </Link>
               ))}
               <Link
                 href="/categories"
-                className="px-3 py-1.5 rounded-full bg-red-600/10 border border-red-600/20 text-xs text-red-400 hover:text-red-300 hover:bg-red-600/20 hover:border-red-600/40 transition-all font-medium"
+                className="px-3.5 py-1.5 rounded-full bg-[#f6396c]/15 border border-[#f6396c]/30 text-xs text-[#ff6b93] hover:text-white hover:bg-[#f6396c]/25 transition-all font-semibold shrink-0 whitespace-nowrap"
               >
                 All Categories →
               </Link>
@@ -197,47 +195,34 @@ export default async function UserHome({
           </nav>
         )}
 
-        {/* ── Featured HD Videos (Curated DB + SeoEnrichment Power Pages) ────
-             Links top evergreen, richly enriched videos 1 click from Homepage so
-             Googlebot concentrates PageRank on high-value indexed watch pages.
-        */}
+        {/* ── Continue Watching (sleek compact resume cards for returning visitors) ── */}
+        {page === 1 && <ContinueWatching />}
+
+        {/* ── Featured HD Videos (Horizontal snap carousel on phone, 4-col grid on tablet/PC) ── */}
         {showFeaturedRow && featuredVideos.length > 0 && (
-          <section aria-label="Featured HD videos" className="space-y-3 pb-4 border-b border-white/5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest font-mono">
-                Featured HD Videos
+          <section aria-label="Featured HD videos" className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-heading text-sm sm:text-base font-bold tracking-tight text-[#F5F5F5] flex items-center gap-2">
+                <span className="w-1 h-4 rounded-full bg-[#f6396c]" aria-hidden="true" />
+                <span>Featured HD Videos</span>
               </h2>
+              <span className="text-[11px] text-[#8E8E8E] sm:hidden">
+                Swipe →
+              </span>
               <Link
                 href="/categories"
-                className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+                className="hidden sm:inline text-xs font-medium text-[#ff6b93] hover:text-white transition-colors"
               >
                 Explore Categories →
               </Link>
             </div>
-            <VideoGrid videos={featuredVideos} showNativeAd={false} />
+            <VideoGrid videos={featuredVideos} showNativeAd={false} carouselOnMobile />
           </section>
         )}
 
-        {/* ── Adsterra Top Banner (728×90 desktop / 320×50 mobile) ────────── */}
-        <AdsterraBanner
-          adKey="361158242f9f7ba4b97dddf961d303d6"
-          width={728}
-          height={90}
-          className="hidden lg:flex my-2"
-        />
-        <AdsterraBanner
-          adKey="1657e4fb76c1445cfbb411b5b0a859ee"
-          width={320}
-          height={50}
-          className="flex lg:hidden my-2"
-        />
-
-        {/* ── Curated Feed Tabs (5A: Hub Curations) ───────────────────────────
-             Provides one-click navigation between the core curated feeds:
-             Latest (Terbaru), Trending (Sedang Tren), and Most Popular (Paling Banyak Ditonton).
-        */}
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        {/* ── Curated Feed Switcher (Latest / Trending / Popular / Top Rated) ── */}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.06]">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 py-1">
             {[
               { label: "Latest", value: "latest", href: "/" },
               { label: "Trending", value: "top-weekly", href: "/?order=top-weekly" },
@@ -249,10 +234,10 @@ export default async function UserHome({
                 <Link
                   key={tab.value}
                   href={tab.href}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap transition-all ${
                     isActive
-                      ? "bg-white text-black font-semibold shadow-xs"
-                      : "bg-[#1F1F1F] text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A] border border-white/5"
+                      ? "bg-[#f6396c] text-white font-semibold shadow-[0_6px_18px_-6px_rgba(246,57,108,0.65)]"
+                      : "bg-[#181818] text-[#CCCCCC] hover:text-white hover:bg-[#242424] border border-white/[0.07]"
                   }`}
                 >
                   {tab.label}
@@ -261,6 +246,20 @@ export default async function UserHome({
             })}
           </div>
         </div>
+
+        {/* ── Adsterra Top Banner (728×90 desktop / 320×50 mobile) ────────── */}
+        <AdsterraBanner
+          adKey="361158242f9f7ba4b97dddf961d303d6"
+          width={728}
+          height={90}
+          className="hidden lg:flex"
+        />
+        <AdsterraBanner
+          adKey="1657e4fb76c1445cfbb411b5b0a859ee"
+          width={320}
+          height={50}
+          className="flex lg:hidden"
+        />
 
         {/* Grid Video Container */}
         <VideoGrid

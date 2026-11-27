@@ -39,12 +39,15 @@ export function BottomNav() {
             rel={isNoFollow ? "nofollow" : undefined}
             className={`flex flex-col items-center justify-center flex-grow py-1.5 transition-all duration-200 cursor-pointer group relative ${
               active 
-                ? "text-red-500 font-bold" 
-                : "text-[#AAAAAA] hover:text-white"
+                ? "text-[#f6396c] font-semibold" 
+                : "text-[#9A9A9A] hover:text-white"
             }`}
           >
-            <item.icon className="h-5 w-5 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" />
-            <span className="text-[9px] font-medium tracking-tight mt-1 transition-colors duration-200">
+            {active && (
+              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-[#f6396c]" aria-hidden="true" />
+            )}
+            <item.icon className="h-5 w-5 transition-transform duration-200 group-active:scale-90" />
+            <span className="text-[10px] font-medium tracking-tight mt-0.5 transition-colors duration-200">
               {item.label}
             </span>
           </Link>
