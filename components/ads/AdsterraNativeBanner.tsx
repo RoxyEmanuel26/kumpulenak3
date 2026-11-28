@@ -10,30 +10,27 @@ export function AdsterraNativeBanner({ className = "" }: AdsterraNativeBannerPro
   const containerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    if (!containerRef.current) return;
-    
-    // To support multiple native banners on the same page, we need to append the script directly to the container
-    // rather than the body. Native banners usually look for the nearest container.
+    const container = containerRef.current;
+    if (!container) return;
+
     // If the script already exists in this container, skip.
-    if (containerRef.current.querySelector("script")) return;
+    if (container.querySelector("script")) return;
 
     const script = document.createElement("script");
     script.async = true;
+    script.setAttribute("fetchpriority", "high");
     script.dataset.cfasync = "false";
-    script.src = "https://glamournakedemployee.com/d000ca127179faba8842df003480a3a1/invoke.js";
-    
-    containerRef.current.appendChild(script);
+    script.src = "https://biomanos.org/21/d000ca127179faba8842df003480a3a1";
+
+    // Insert script before the target container div (matches official Adsterra snippet order)
+    container.insertBefore(script, container.firstChild);
 
     return () => {
       // Cleanup on unmount
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
-        
-        // Re-add the target div
-        const targetDiv = document.createElement("div");
-        targetDiv.id = "container-d000ca127179faba8842df003480a3a1";
-        containerRef.current.appendChild(targetDiv);
-      }
+      container.innerHTML = "";
+      const targetDiv = document.createElement("div");
+      targetDiv.id = "container-d000ca127179faba8842df003480a3a1";
+      container.appendChild(targetDiv);
     };
   }, []);
 

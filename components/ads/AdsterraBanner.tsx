@@ -7,11 +7,32 @@ interface AdsterraBannerProps {
   width: number;
   height: number;
   className?: string;
+  scriptSrc?: string;
+  format?: "js" | "iframe";
 }
 
-export function AdsterraBanner({ adKey, width, height, className = "" }: AdsterraBannerProps) {
+// Per-unit overrides for Adsterra anti-adblock endpoints
+const AD_UNIT_OVERRIDES: Record<string, { scriptSrc: string; format: "js" | "iframe" }> = {
+  "3f7aeb74bde61edc8e369b2303797899": {
+    scriptSrc: "https://biomanos.org/22/3f7aeb74bde61edc8e369b2303797899",
+    format: "iframe",
+  },
+};
+
+export function AdsterraBanner({
+  adKey,
+  width,
+  height,
+  className = "",
+  scriptSrc,
+  format,
+}: AdsterraBannerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldRender, setShouldRender] = useState(false);
+
+  const override = AD_UNIT_OVERRIDES[adKey];
+  const resolvedSrc = scriptSrc ?? override?.scriptSrc ?? `https://glamournakedemployee.com/${adKey}/invoke.js`;
+  const resolvedFormat = format ?? override?.format ?? "js";
 
   useEffect(() => {
     // Viewport-based responsive check to avoid race conditions.
@@ -38,32 +59,45 @@ export function AdsterraBanner({ adKey, width, height, className = "" }: Adsterr
     // Check if scripts are already injected to prevent duplicates
     if (containerRef.current.firstChild) return;
 
-    // Use DOM append for native injection.
-    // We use window.atAsyncOptions to prevent multiple banners on the same page from overwriting the global config.
     const confScript = document.createElement("script");
     confScript.type = "text/javascript";
-    confScript.innerHTML = `
-      if (typeof window.atAsyncOptions !== 'object') window.atAsyncOptions = [];
-      window.atAsyncOptions.push({
-        'key' : '${adKey}',
-        'format' : 'js',
-        'async' : true,
-        'container' : 'atContainer-${adKey}',
-        'height' : ${height},
-        'width' : ${width},
-        'params' : {}
-      });
-    `;
 
     const invokeScript = document.createElement("script");
     invokeScript.type = "text/javascript";
-    invokeScript.async = true;
     invokeScript.dataset.cfasync = "false";
-    invokeScript.src = `https://glamournakedemployee.com/${adKey}/invoke.js`;
+    invokeScript.src = resolvedSrc;
+
+    if (resolvedFormat === "iframe") {
+      // Exact official Adsterra iframe-format banner config (atOptions)
+      confScript.innerHTML = `
+        window.atOptions = {
+          'key' : '${adKey}',
+          'format' : 'iframe',
+          'height' : ${height},
+          'width' : ${width},
+          'params' : {}
+        };
+      `;
+    } else {
+      // Async multi-banner config for legacy invoke.js display banners
+      confScript.innerHTML = `
+        if (typeof window.atAsyncOptions !== 'object') window.atAsyncOptions = [];
+        window.atAsyncOptions.push({
+          'key' : '${adKey}',
+          'format' : 'js',
+          'async' : true,
+          'container' : 'atContainer-${adKey}',
+          'height' : ${height},
+          'width' : ${width},
+          'params' : {}
+        });
+      `;
+      invokeScript.async = true;
+    }
 
     containerRef.current.appendChild(confScript);
     containerRef.current.appendChild(invokeScript);
-  }, [shouldRender, adKey, height, width]);
+  }, [shouldRender, adKey, height, width, resolvedSrc, resolvedFormat]);
 
   return (
     <div
